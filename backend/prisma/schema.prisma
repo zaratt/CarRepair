@@ -1,0 +1,178 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String             @id @default(uuid())
+  name              String
+  email             String             @unique
+  cpfCnpj           String             @unique
+  type              String // 'user' ou 'workshop'
+  profile           String // 'car_owner' ou 'wshop_owner'
+  phone             String?
+  city              String?
+  state             String?
+  isValidated       Boolean            @default(false)
+  createdAt         DateTime           @default(now())
+  vehicles          Vehicle[]          @relation("UserVehicles") // Relacionamento com Vehicle
+  workshops         Workshop[] // Relacionamento com oficinas
+  inspections       Inspection[] // Relação com inspeções
+  ratings           Rating[] // Relacionamento com avaliações
+  workshopFavorites WorkshopFavorite[]
+}
+
+model Brand {
+  id       String    @id @default(uuid())
+  name     String    @unique
+  models   Model[]
+  vehicles Vehicle[]
+}
+
+model Model {
+  id       String    @id @default(uuid())
+  name     String
+  brandId  String
+  brand    Brand     @relation(fields: [brandId], references: [id])
+  vehicles Vehicle[]
+}
+
+enum FuelType {
+  GASOLINE
+  ETHANOL
+  FLEX
+  DIESEL
+  GNV
+  ELECTRIC
+  HYBRID
+  OTHER
+}
+
+model Vehicle {
+  id              String         @id @default(uuid())
+  licensePlate    String         @unique
+  brandId         String
+  modelId         String
+  yearManufacture Int // Ano de fabricação
+  modelYear       Int // Ano modelo
+  fuelType        FuelType
+  vin             String?
+  ownerId         String?
+  owner           User?          @relation("UserVehicles", fields: [ownerId], references: [id])
+  maintenances    Maintenance[]
+  createdAt       DateTime       @default(now())
+  brand           Brand          @relation(fields: [brandId], references: [id])
+  model           Model          @relation(fields: [modelId], references: [id])
+  photos          VehiclePhoto[]
+  active          Boolean        @default(true) // Indica se o veículo está ativo para o proprietário
+  soldAt          DateTime? // Data da venda
+  Inspection      Inspection[]
+}
+
+model Workshop {
+  id           String             @id @default(uuid())
+  name         String // <-- Nome da oficina
+  userId       String
+  user         User               @relation(fields: [userId], references: [id])
+  address      String
+  phone        String
+  subdomain    String?            @unique
+  maintenances Maintenance[] // Relacionamento com manutenções
+  createdAt    DateTime           @default(now())
+  rating       Float? // Média das avaliações (1 a 5)
+  ratings      Rating[] // Relacionamento com avaliações
+  favorites    WorkshopFavorite[]
+}
+
+model Maintenance {
+  id               String                  @id @default(uuid())
+  vehicleId        String
+  workshopId       String?
+  vehicle          Vehicle                 @relation(fields: [vehicleId], references: [id])
+  workshop         Workshop?               @relation(fields: [workshopId], references: [id])
+  date             DateTime
+  description      String
+  products         String
+  mileage          Int
+  value            Float
+  blockchainHash   String?                 @unique
+  serviceStatus    String                  @default("concluido") // Status do serviço (sempre "concluído")
+  validationStatus String                  @default("registrado") // Status de validação (registrado, pendente, validado)
+  validationCode   String?                 @unique // Código único para validação
+  createdAt        DateTime                @default(now())
+  attachments      MaintenanceAttachment[]
+}
+
+model Inspection {
+  id           String                 @id @default(uuid())
+  vehicleId    String
+  vehicle      Vehicle                @relation(fields: [vehicleId], references: [id])
+  status       String
+  company      String
+  date         DateTime
+  fileUrl      String // URL do anexo principal (PDF ou imagem)
+  uploadedById String
+  uploadedBy   User                   @relation(fields: [uploadedById], references: [id])
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+  attachments  InspectionAttachment[]
+}
+
+model InspectionAttachment {
+  id           String     @id @default(uuid())
+  inspectionId String
+  inspection   Inspection @relation(fields: [inspectionId], references: [id])
+  fileUrl      String
+  fileType     String
+  createdAt    DateTime   @default(now())
+}
+
+model VehiclePhoto {
+  id        String   @id @default(uuid())
+  url       String
+  vehicleId String
+  vehicle   Vehicle  @relation(fields: [vehicleId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+model Rating {
+  id         String   @id @default(uuid())
+  value      Int // 1 a 5
+  review     String[]
+  userId     String
+  workshopId String
+  user       User     @relation(fields: [userId], references: [id])
+  workshop   Workshop @relation(fields: [workshopId], references: [id])
+  createdAt  DateTime @default(now())
+}
+
+model MaintenanceAttachment {
+  id            String      @id @default(uuid())
+  maintenanceId String
+  maintenance   Maintenance @relation(fields: [maintenanceId], references: [id])
+  url           String
+  type          String // 'photo' ou 'pdf'
+  name          String?
+  createdAt     DateTime    @default(now())
+}
+
+model WorkshopFavorite {
+  id         String   @id @default(uuid())
+  userId     String
+  workshopId String
+  user       User     @relation(fields: [userId], references: [id])
+  workshop   Workshop @relation(fields: [workshopId], references: [id])
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, workshopId])
+}
