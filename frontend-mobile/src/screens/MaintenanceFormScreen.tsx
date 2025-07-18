@@ -3,11 +3,12 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as DocumentPicker from 'expo-document-picker';
 import React, { useEffect, useState } from 'react';
-import { Alert, Image, Platform, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Platform, ScrollView, View } from 'react-native';
 import { Dropdown } from 'react-native-element-dropdown';
 import { Button, Card, Chip, Divider, IconButton, Snackbar, Text, TextInput } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { createMaintenance, createWorkshop, getVehicleLastMaintenance, getVehicles, getWorkshops, updateMaintenance } from '../api/api';
+import { createMaintenance, createWorkshop, getUserMaintenanceHistory, getVehicleLastMaintenance, getVehicles, getWorkshopCommonServices, getWorkshops, updateMaintenance } from '../api/api';
+import AutoCompleteInput from '../components/AutoCompleteInput';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { Vehicle, Workshop } from '../types';
 
@@ -46,6 +47,13 @@ const MaintenanceFormScreen: React.FC<Props> = ({ navigation, route }) => {
     const [uploading, setUploading] = useState(false);
     const [lastMaintenance, setLastMaintenance] = useState<LastMaintenanceInfo | null>(null);
     const [customWorkshopName, setCustomWorkshopName] = useState('');
+    const [suggestedServices, setSuggestedServices] = useState<string[]>([]);
+    const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+
+    // Novos estados para histórico do usuário
+    const [userHistoryServices, setUserHistoryServices] = useState<string[]>([]);
+    const [userRecentServices, setUserRecentServices] = useState<string[]>([]);
+    const [loadingUserHistory, setLoadingUserHistory] = useState(false);
 
     // Serviços predefinidos para seleção
     const predefinedServices = [
@@ -132,6 +140,68 @@ const MaintenanceFormScreen: React.FC<Props> = ({ navigation, route }) => {
         };
         fetchLastMaintenance();
     }, [formData.vehicleId]);
+
+    // useEffect para buscar serviços sugeridos quando oficina for selecionada
+    useEffect(() => {
+        const fetchSuggestedServices = async () => {
+            if (formData.workshopId && formData.workshopId !== 'not_listed') {
+                setLoadingSuggestions(true);
+                try {
+                    const services = await getWorkshopCommonServices(formData.workshopId);
+                    setSuggestedServices(services);
+                    console.log('✨ Serviços sugeridos carregados:', services);
+                } catch (error) {
+                    console.error('Erro ao buscar serviços sugeridos:', error);
+                    setSuggestedServices([]);
+                } finally {
+                    setLoadingSuggestions(false);
+                }
+            } else {
+                setSuggestedServices([]);
+            }
+        };
+
+        fetchSuggestedServices();
+    }, [formData.workshopId]);
+
+    // Buscar sugestões da oficina
+    useEffect(() => {
+        const fetchWorkshopSuggestions = async () => {
+            if (formData.workshopId && formData.workshopId !== 'not_listed') {
+                setLoadingSuggestions(true);
+                try {
+                    const services = await getWorkshopCommonServices(formData.workshopId);
+                    setSuggestedServices(services);
+                } catch (error) {
+                    console.error('Erro ao buscar sugestões:', error);
+                } finally {
+                    setLoadingSuggestions(false);
+                }
+            }
+        };
+
+        fetchWorkshopSuggestions();
+    }, [formData.workshopId]);
+
+    // Buscar histórico do usuário
+    useEffect(() => {
+        const fetchUserHistory = async () => {
+            if (userId) {
+                setLoadingUserHistory(true);
+                try {
+                    const history = await getUserMaintenanceHistory(userId);
+                    setUserHistoryServices(history.services);
+                    setUserRecentServices(history.recentServices);
+                } catch (error) {
+                    console.error('Erro ao buscar histórico do usuário:', error);
+                } finally {
+                    setLoadingUserHistory(false);
+                }
+            }
+        };
+
+        fetchUserHistory();
+    }, [userId]);
 
     const validateForm = () => {
         const newErrors: { [key: string]: string } = {};
@@ -361,8 +431,75 @@ const MaintenanceFormScreen: React.FC<Props> = ({ navigation, route }) => {
                             </View>
                         </View>
                         {/* Serviços Realizados */}
-                        <Text style={{ marginBottom: 8, fontWeight: '500', fontSize: 16 }}>Serviços Realizados</Text>
-                        <Text style={{ marginBottom: 8, color: '#666', fontSize: 14 }}>Selecione os serviços realizados:</Text>
+                        <Text style={{ marginBottom: 8, fontWeight: '500', fontSize: 16 }}>🔧 Serviços Realizados</Text>
+
+                        {/* Sugestões da Oficina */}
+                        {suggestedServices.length > 0 && (
+                            <View style={styles.suggestionsContainer}>
+                                <Text style={styles.suggestionsTitle}>⭐ Sugestões desta Oficina</Text>
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.suggestionsScroll}>
+                                    {suggestedServices.map((service, index) => (
+                                        <Chip
+                                            key={index}
+                                            style={[styles.suggestionChip, { backgroundColor: '#FFE0B2' }]}
+                                            textStyle={{ color: '#E65100' }}
+                                            onPress={() => setFormData(prev => ({ ...prev, description: service }))}
+                                        >
+                                            {service}
+                                        </Chip>
+                                    ))}
+                                </ScrollView>
+                            </View>
+                        )}
+
+                        {/* Histórico Recente do Usuário */}
+                        {userRecentServices.length > 0 && (
+                            <View style={styles.suggestionsContainer}>
+                                <Text style={styles.suggestionsTitle}>🕒 Seus Serviços Recentes</Text>
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.suggestionsScroll}>
+                                    {userRecentServices.map((service, index) => (
+                                        <Chip
+                                            key={index}
+                                            style={[styles.suggestionChip, { backgroundColor: '#E8F5E8' }]}
+                                            textStyle={{ color: '#2E7D32' }}
+                                            onPress={() => setFormData(prev => ({ ...prev, description: service }))}
+                                        >
+                                            {service}
+                                        </Chip>
+                                    ))}
+                                </ScrollView>
+                            </View>
+                        )}
+
+                        {/* Histórico Completo do Usuário */}
+                        {userHistoryServices.length > 0 && (
+                            <View style={styles.suggestionsContainer}>
+                                <Text style={styles.suggestionsTitle}>📋 Seu Histórico Completo</Text>
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.suggestionsScroll}>
+                                    {userHistoryServices.map((service, index) => (
+                                        <Chip
+                                            key={index}
+                                            style={[styles.suggestionChip, { backgroundColor: '#F3E5F5' }]}
+                                            textStyle={{ color: '#7B1FA2' }}
+                                            onPress={() => setFormData(prev => ({ ...prev, description: service }))}
+                                        >
+                                            {service}
+                                        </Chip>
+                                    ))}
+                                </ScrollView>
+                            </View>
+                        )}
+
+                        {/* Loading indicator */}
+                        {(loadingSuggestions || loadingUserHistory) && (
+                            <View style={styles.loadingContainer}>
+                                <ActivityIndicator size="small" color="#0066CC" />
+                                <Text style={styles.loadingText}>Carregando sugestões...</Text>
+                            </View>
+                        )}
+
+                        {/* Serviços Predefinidos Gerais */}
+                        <Text style={{ marginBottom: 8, color: '#666', fontSize: 14 }}>Outros serviços disponíveis:</Text>
                         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
                             {predefinedServices.map((service) => (
                                 <Chip
@@ -388,23 +525,29 @@ const MaintenanceFormScreen: React.FC<Props> = ({ navigation, route }) => {
                             ))}
                         </View>
 
-                        {/* Descrição adicional */}
-                        <Text style={{ marginBottom: 2, fontWeight: '500' }}>Detalhes adicionais</Text>
-                        <TextInput
-                            placeholder="Descreva detalhes específicos do serviço realizado..."
+                        {/* Descrição com Auto-Complete Inteligente */}
+                        <Text style={{ marginBottom: 8, fontWeight: '500', color: '#1976d2' }}>
+                            🤖 Descrição do Serviço (com sugestões inteligentes)
+                        </Text>
+                        <Text style={{ marginBottom: 8, color: '#666', fontSize: 12 }}>
+                            Digite para ver sugestões baseadas no seu histórico e serviços da oficina
+                        </Text>
+                        <AutoCompleteInput
                             value={formData.description}
                             onChangeText={(text) => setFormData({ ...formData, description: text })}
-                            multiline
-                            numberOfLines={3}
+                            placeholder="Digite o tipo de serviço realizado..."
+                            workshopId={formData.workshopId}
+                            maxSuggestions={6}
+                            onSuggestionSelect={(suggestion, type) => {
+                                // Callback opcional para análise
+                                console.log(`Sugestão selecionada: ${suggestion} (${type})`);
+                            }}
                             style={{
                                 marginVertical: 5,
-                                backgroundColor: 'transparent',
-                                minHeight: 80
                             }}
-                            error={!!errors.description}
-                            left={<TextInput.Icon icon="wrench" />}
                         />
                         {errors.description && <Text style={{ color: 'red', fontSize: 12 }}>{errors.description}</Text>}
+
                         {/* KM */}
                         <Text style={{ marginBottom: 2, fontWeight: '500' }}>KM</Text>
                         <TextInput
@@ -564,6 +707,45 @@ const MaintenanceFormScreen: React.FC<Props> = ({ navigation, route }) => {
             </ScrollView>
         </SafeAreaView>
     );
+};
+
+const styles = {
+    suggestionsContainer: {
+        marginBottom: 16,
+        padding: 12,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: '#1976d2',
+        backgroundColor: '#e8f5e8',
+    },
+    suggestionsTitle: {
+        fontSize: 16,
+        fontWeight: '600' as const,
+        color: '#1976d2',
+        marginBottom: 8,
+    },
+    suggestionsScroll: {
+        paddingVertical: 8,
+    },
+    suggestionChip: {
+        borderRadius: 16,
+        marginRight: 8,
+        height: 36,
+        alignItems: 'center' as const,
+        justifyContent: 'center' as const,
+    },
+    loadingContainer: {
+        flexDirection: 'row' as const,
+        alignItems: 'center' as const,
+        justifyContent: 'center' as const,
+        marginTop: 16,
+        marginBottom: 8,
+    },
+    loadingText: {
+        color: '#0066CC',
+        marginLeft: 8,
+        fontSize: 14,
+    },
 };
 
 export default MaintenanceFormScreen;

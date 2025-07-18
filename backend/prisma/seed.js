@@ -133,7 +133,8 @@ async function main() {
       products: 'Óleo 5W30, Filtro de óleo',
       mileage: 100000,
       value: 250.00,
-      status: 'validated',
+      serviceStatus: 'concluido',
+      validationStatus: 'validado',
     },
   });
   await prisma.maintenance.create({
@@ -145,7 +146,8 @@ async function main() {
       products: 'Óleo, Filtros, Pastilhas de freio',
       mileage: 80000,
       value: 1200.00,
-      status: 'pending',
+      serviceStatus: 'concluido',
+      validationStatus: 'pendente',
     },
   });
   await prisma.maintenance.create({
@@ -157,7 +159,8 @@ async function main() {
       products: 'Kit embreagem',
       mileage: 150000,
       value: 900.00,
-      status: 'completed',
+      serviceStatus: 'concluido',
+      validationStatus: 'registrado',
     },
   });
 }

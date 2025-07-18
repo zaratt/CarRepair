@@ -6,6 +6,107 @@ const path = require('path');
 const app = express();
 const prisma = new PrismaClient();
 
+// GET: Buscar histórico de serviços mais comuns do usuário
+app.get('/api/users/:id/maintenance-history', async (req, res) => {
+    try {
+        const { id: userId } = req.params;
+        const { limit = 6 } = req.query;
+
+        console.log('🔍 Buscando histórico de manutenções do usuário:', userId);
+
+        const maintenances = await prisma.maintenance.findMany({
+            where: {
+                vehicle: { ownerId: userId },
+                validationStatus: 'validado'
+            },
+            select: {
+                description: true,
+                date: true,
+                workshop: {
+                    select: { name: true }
+                }
+            },
+            orderBy: { date: 'desc' }
+        });
+
+        if (maintenances.length === 0) {
+            return res.json({
+                services: [],
+                recentServices: [],
+                totalMaintenances: 0
+            });
+        }
+
+        const serviceCount = {};
+        const recentServices = new Set();
+        const sixMonthsAgo = new Date();
+        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+        const predefinedServices = [
+            'Troca de óleo',
+            'Troca de filtros',
+            'Alinhamento',
+            'Balanceamento',
+            'Freios',
+            'Suspensão',
+            'Ar condicionado',
+            'Bateria',
+            'Pneus',
+            'Revisão geral',
+            'Embreagem',
+            'Radiador',
+            'Velas',
+            'Correia dentada',
+            'Amortecedores'
+        ];
+
+        maintenances.forEach(maintenance => {
+            const description = maintenance.description.toLowerCase();
+            const maintenanceDate = new Date(maintenance.date);
+            const isRecent = maintenanceDate >= sixMonthsAgo;
+
+            predefinedServices.forEach(service => {
+                const serviceKey = service.toLowerCase();
+                if (description.includes(serviceKey)) {
+                    serviceCount[service] = (serviceCount[service] || 0) + 1;
+
+                    if (isRecent) {
+                        recentServices.add(service);
+                    }
+                }
+            });
+        });
+
+        const sortedServices = Object.entries(serviceCount)
+            .sort(([, a], [, b]) => b - a)
+            .slice(0, parseInt(limit))
+            .map(([service, count]) => ({
+                name: service,
+                count: count,
+                percentage: Math.round((count / maintenances.length) * 100),
+                isRecent: recentServices.has(service)
+            }));
+
+        const recentServicesList = Array.from(recentServices).slice(0, 4);
+
+        console.log(`📊 Serviços do histórico encontrados: ${sortedServices.length}`);
+        console.log(`🕒 Serviços recentes: ${recentServicesList.length}`);
+
+        res.json({
+            services: sortedServices.map(s => s.name),
+            recentServices: recentServicesList,
+            details: sortedServices,
+            totalMaintenances: maintenances.length,
+            validatedOnly: true
+        });
+
+    } catch (error) {
+        console.error('❌ Erro ao buscar histórico do usuário:', error);
+        res.status(500).json({ error: 'Erro ao buscar histórico de manutenções do usuário' });
+    }
+});
+
+
 const uploadDir = path.join(__dirname, 'uploads');
 const storage = multer.diskStorage({
     destination: (req, file, cb) => cb(null, uploadDir),
@@ -1508,7 +1609,153 @@ app.get('/api/workshops/:userId/pending-maintenances', async (req, res) => {
     }
 });
 
+// GET: Buscar serviços mais comuns de uma oficina
+app.get('/api/workshops/:id/common-services', async (req, res) => {
+    try {
+        const { id: workshopId } = req.params;
+        const { limit = 8 } = req.query;
+
+        console.log('🔍 Buscando serviços comuns da oficina:', workshopId);
+
+        const maintenances = await prisma.maintenance.findMany({
+            where: { workshopId },
+            select: { description: true }
+        });
+
+        if (maintenances.length === 0) {
+            return res.json({ services: [] });
+        }
+
+        const serviceCount = {};
+        const predefinedServices = [
+            'Troca de óleo',
+            'Troca de filtros',
+            'Alinhamento',
+            'Balanceamento',
+            'Freios',
+            'Suspensão',
+            'Ar condicionado',
+            'Bateria',
+            'Pneus',
+            'Revisão geral',
+            'Embreagem',
+            'Radiador'
+        ];
+
+        maintenances.forEach(maintenance => {
+            const description = maintenance.description.toLowerCase();
+            predefinedServices.forEach(service => {
+                const serviceKey = service.toLowerCase();
+                if (description.includes(serviceKey)) {
+                    serviceCount[service] = (serviceCount[service] || 0) + 1;
+                }
+            });
+        });
+
+        const sortedServices = Object.entries(serviceCount)
+            .sort(([, a], [, b]) => b - a)
+            .slice(0, parseInt(limit))
+            .map(([service, count]) => ({
+                name: service,
+                count: count,
+                percentage: Math.round((count / maintenances.length) * 100)
+            }));
+
+        console.log(`📊 Serviços mais comuns encontrados: ${sortedServices.length}`);
+
+        res.json({
+            services: sortedServices.map(s => s.name),
+            details: sortedServices,
+            totalMaintenances: maintenances.length
+        });
+
+    } catch (error) {
+        console.error('❌ Erro ao buscar serviços comuns:', error);
+        res.status(500).json({ error: 'Erro ao buscar serviços comuns da oficina' });
+    }
+});
+
+// GET: Buscar summary do usuário (compatibilidade com versão anterior)
+app.get('/api/users/:id/summary', async (req, res) => {
+    try {
+        const { id: userId } = req.params;
+
+        console.log('🔍 Buscando summary para usuário:', userId);
+
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        if (!user) {
+            return res.status(404).json({ error: 'Usuário não encontrado' });
+        }
+
+        console.log(`👤 Usuário encontrado: ${user.name} - Perfil: ${user.profile}`);
+
+        const vehicles = await prisma.vehicle.findMany({
+            where: { ownerId: userId, active: true },
+            include: {
+                brand: true,
+                model: true,
+                maintenances: {
+                    include: {
+                        workshop: true
+                    },
+                    orderBy: { date: 'desc' }
+                }
+            }
+        });
+
+        console.log(`🚗 Total de veículos: ${vehicles.length}`);
+
+        const vehiclesData = vehicles.map(vehicle => {
+            const maintenances = vehicle.maintenances || [];
+            const totalSpending = maintenances.reduce((sum, m) => sum + m.value, 0);
+            const currentKm = maintenances.length > 0 ? maintenances[0].mileage : 0;
+
+            console.log(`📋 Veículo ${vehicle.brand.name} ${vehicle.model.name}: ${maintenances.length} manutenções, R$ ${totalSpending.toFixed(2)} total`);
+
+            return {
+                id: vehicle.id,
+                brand: vehicle.brand.name,
+                model: vehicle.model.name,
+                licensePlate: vehicle.licensePlate,
+                currentKm: currentKm,
+                totalMaintenances: maintenances.length,
+                averageSpending: maintenances.length > 0 ? totalSpending / maintenances.length : 0,
+                upcomingMaintenances: []
+            };
+        });
+
+        console.log('📊 Veículos encontrados:', vehiclesData.length);
+
+        const totalMaintenances = vehiclesData.reduce((sum, v) => sum + v.totalMaintenances, 0);
+        const totalSpending = vehiclesData.reduce((sum, v) => sum + (v.averageSpending * v.totalMaintenances), 0);
+        const averageSpending = totalMaintenances > 0 ? totalSpending / totalMaintenances : 0;
+
+        console.log(`🔧 Total de manutenções: ${totalMaintenances}`);
+        console.log(`💰 Total gasto: ${totalSpending} Média: ${averageSpending}`);
+
+        const allMaintenances = vehicles.flatMap(v => v.maintenances);
+        const uniqueWorkshops = new Set(allMaintenances.map(m => m.workshopId).filter(Boolean));
+
+        console.log(`🏪 Total de oficinas utilizadas: ${uniqueWorkshops.size}`);
+
+        const summary = {
+            totalVehicles: vehicles.length,
+            totalMaintenances: totalMaintenances,
+            averageSpending: Math.round(averageSpending),
+            totalWorkshopsUsed: uniqueWorkshops.size
+        };
+
+        console.log('📈 Resultado final:', summary);
+
+        res.json(summary);
+    } catch (error) {
+        console.error('❌ Erro ao buscar summary:', error);
+        res.status(500).json({ error: 'Erro ao buscar resumo do usuário' });
+    }
+});
+
 // SISTEMA DE SCHEDULER PARA STATUS AUTOMÁTICO
+
 // Função que executa a cada 24 horas para atualizar status
 const runStatusUpdateScheduler = () => {
     console.log('🕐 Iniciando scheduler de status automático...');
@@ -1561,7 +1808,8 @@ function generateValidationCode() {
 }
 
 app.listen(3000, () => {
-    console.log('Backend rodando na porta 3000');
+    console.log('🚀 Backend rodando na porta 3000');
+    console.log('📱 API disponível em: http://localhost:3000');
     console.log('🚀 Iniciando sistema de status automático...');
     runStatusUpdateScheduler();
 });

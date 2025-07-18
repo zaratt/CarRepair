@@ -130,6 +130,16 @@ export const deleteWorkshop = async (id: string): Promise<void> => {
     await api.delete(`/workshops/${id}`);
 };
 
+export const getWorkshopCommonServices = async (workshopId: string): Promise<string[]> => {
+    try {
+        const response = await api.get(`/workshops/${workshopId}/common-services`);
+        return response.data.services || [];
+    } catch (error) {
+        console.error('Erro ao buscar serviços comuns da oficina:', error);
+        return [];
+    }
+};
+
 // Manutenções
 export const getMaintenances = async (userId?: string): Promise<Maintenance[]> => {
     const response = await api.get('/maintenances', { params: userId ? { userId } : {} });
@@ -410,4 +420,26 @@ export const validateMaintenance = async (maintenanceId: string, userId: string)
 export const getWorkshopPendingMaintenances = async (userId: string) => {
     const response = await api.get(`/workshops/${userId}/pending-maintenances`);
     return response.data;
+};
+
+export const getUserMaintenanceHistory = async (userId: string): Promise<{
+    services: string[];
+    recentServices: string[];
+    totalMaintenances: number;
+}> => {
+    try {
+        const response = await api.get(`/users/${userId}/maintenance-history`);
+        return {
+            services: response.data.services || [],
+            recentServices: response.data.recentServices || [],
+            totalMaintenances: response.data.totalMaintenances || 0
+        };
+    } catch (error) {
+        console.error('Erro ao buscar histórico do usuário:', error);
+        return {
+            services: [],
+            recentServices: [],
+            totalMaintenances: 0
+        };
+    }
 };
