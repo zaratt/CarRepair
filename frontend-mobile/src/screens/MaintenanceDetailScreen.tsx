@@ -130,7 +130,7 @@ const MaintenanceDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                             <Text style={{ fontWeight: 'bold' }}>Ponto de contato: </Text>
                             <Text style={{ fontWeight: 'normal' }}>{maintenance.workshop?.user?.name || 'N/A'}</Text>
                         </View>
-                        <Text>Valor: R$ {maintenance.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</Text>
+                        <Text>Valor: R$ {maintenance.value ? maintenance.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : 'Não informado'}</Text>
                         <Text style={{ fontWeight: 'bold', fontSize: 16, marginTop: 12, color: '#4CAF50' }}>
                             Status do Serviço: {
                                 maintenance.serviceStatus === 'concluido' ? 'Concluído' :

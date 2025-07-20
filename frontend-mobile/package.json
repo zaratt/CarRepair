@@ -29,6 +29,7 @@
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "react-native": "0.79.4",
+    "react-native-calendars": "^1.1313.0",
     "react-native-element-dropdown": "^2.12.4",
     "react-native-elements": "^3.4.3",
     "react-native-neomorph-shadows": "^1.1.2",

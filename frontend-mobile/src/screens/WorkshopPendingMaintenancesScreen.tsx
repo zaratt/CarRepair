@@ -105,7 +105,7 @@ const WorkshopPendingMaintenancesScreen: React.FC = () => {
                     <View>
                         <Text style={{ fontWeight: '500', marginBottom: 4 }}>💰 Valor:</Text>
                         <Text style={{ color: '#4caf50', fontWeight: 'bold' }}>
-                            R$ {item.value.toFixed(2).replace('.', ',')}
+                            R$ {item.value ? item.value.toFixed(2).replace('.', ',') : 'Não informado'}
                         </Text>
                     </View>
                     <View>

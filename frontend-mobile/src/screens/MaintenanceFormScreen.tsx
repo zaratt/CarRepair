@@ -1,14 +1,17 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as DocumentPicker from 'expo-document-picker';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Platform, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, ScrollView, View } from 'react-native';
 import { Dropdown } from 'react-native-element-dropdown';
 import { Button, Card, Chip, Divider, IconButton, Snackbar, Text, TextInput } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { createMaintenance, createWorkshop, getUserMaintenanceHistory, getVehicleLastMaintenance, getVehicles, getWorkshopCommonServices, getWorkshops, updateMaintenance } from '../api/api';
 import AutoCompleteInput from '../components/AutoCompleteInput';
+import FormRow from '../components/FormRow';
+import FriendlyDatePicker from '../components/FriendlyDatePicker';
+import ValidatedInput from '../components/ValidatedInput';
+import { useFormValidation } from '../hooks/useFormValidation';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { Vehicle, Workshop } from '../types';
 
@@ -30,17 +33,40 @@ const MaintenanceFormScreen: React.FC<Props> = ({ navigation, route }) => {
     const [formData, setFormData] = useState({
         vehicleId: maintenance?.vehicleId || '',
         workshopId: maintenance?.workshopId || '',
-        date: maintenance?.date ? new Date(maintenance.date) : new Date(),
+        date: maintenance?.date || '',
         description: maintenance?.description || '',
         value: maintenance?.value ? maintenance.value.toString() : '',
         serviceStatus: maintenance?.serviceStatus || 'concluido', // Status do serviço (sempre concluído)
         validationStatus: maintenance?.validationStatus || 'registrado', // Status de validação
         mileage: maintenance?.mileage ? maintenance.mileage.toString() : '', // KM
     });
+
+    // Dados da última manutenção para validação
+    const [lastMaintenanceData, setLastMaintenanceData] = useState<{
+        date: string;
+        mileage: number;
+    } | undefined>();
+
+    // Regras de validação
+    const validationRules = {
+        date: { required: true },
+        description: { required: true },
+        value: { required: true, minValue: 0.01, maxValue: 50000 },
+        mileage: { required: true },
+        vehicleId: { required: true },
+        workshopId: { required: true }
+    };
+
+    // Hook de validação
+    const {
+        errors: validationErrors,
+        isValid,
+        validateForm: validateFormData,
+        getFieldError
+    } = useFormValidation(formData, validationRules, lastMaintenanceData);
     const [vehicles, setVehicles] = useState<Vehicle[]>([]);
     const [workshops, setWorkshops] = useState<Workshop[]>([]);
     const [showDatePicker, setShowDatePicker] = useState(false);
-    const [errors, setErrors] = useState<{ [key: string]: string }>({});
     const [userId, setUserId] = useState<string | null>(null);
     const [attachments, setAttachments] = useState<any[]>([]); // [{ uri, name, type }]
     const [selectedServices, setSelectedServices] = useState<string[]>([]);
@@ -130,12 +156,24 @@ const MaintenanceFormScreen: React.FC<Props> = ({ navigation, route }) => {
                 try {
                     const data = await getVehicleLastMaintenance(formData.vehicleId);
                     setLastMaintenance(data);
+
+                    // Atualizar dados para validação
+                    if (data?.hasLastMaintenance && data?.lastMaintenance) {
+                        setLastMaintenanceData({
+                            date: data.lastMaintenance.date,
+                            mileage: data.lastMaintenance.mileage
+                        });
+                    } else {
+                        setLastMaintenanceData(undefined);
+                    }
                 } catch (error) {
                     console.error('Erro ao buscar última manutenção:', error);
                     setLastMaintenance(null);
+                    setLastMaintenanceData(undefined);
                 }
             } else {
                 setLastMaintenance(null);
+                setLastMaintenanceData(undefined);
             }
         };
         fetchLastMaintenance();
@@ -203,39 +241,16 @@ const MaintenanceFormScreen: React.FC<Props> = ({ navigation, route }) => {
         fetchUserHistory();
     }, [userId]);
 
-    const validateForm = () => {
-        const newErrors: { [key: string]: string } = {};
-        if (!formData.vehicleId) newErrors.vehicleId = 'Veículo é obrigatório';
-        if (!formData.workshopId) newErrors.workshopId = 'Oficina é obrigatória';
-        if (formData.workshopId === 'not_listed' && !customWorkshopName.trim()) {
-            newErrors.workshopId = 'Nome da oficina é obrigatório';
-        }
-        if (!formData.date) newErrors.date = 'Data é obrigatória';
-
-        // Verificar se pelo menos um serviço foi selecionado OU há descrição
-        if (selectedServices.length === 0 && !formData.description.trim()) {
-            newErrors.description = 'Selecione pelo menos um serviço ou descreva o serviço realizado';
-        }
-
-        if (!formData.value) newErrors.value = 'Valor é obrigatório';
-        else if (isNaN(parseFloat(formData.value)) || parseFloat(formData.value) < 0) {
-            newErrors.value = 'Valor inválido';
-        }
-        if (!formData.mileage) {
-            newErrors.mileage = 'KM é obrigatório';
-        } else if (isNaN(parseInt(formData.mileage)) || parseInt(formData.mileage) < 0) {
-            newErrors.mileage = 'KM inválido';
-        } else if (lastMaintenance && lastMaintenance.hasLastMaintenance &&
-            lastMaintenance.lastMaintenance &&
-            parseInt(formData.mileage) < lastMaintenance.lastMaintenance.mileage) {
-            newErrors.mileage = `KM deve ser maior que ${lastMaintenance.lastMaintenance.mileage.toLocaleString()} (última manutenção em ${new Date(lastMaintenance.lastMaintenance.date).toLocaleDateString()})`;
-        }
-        setErrors(newErrors);
-        return Object.keys(newErrors).length === 0;
-    };
-
     const handleSubmit = async () => {
-        if (!validateForm()) return;
+        const formIsValid = validateFormData();
+
+        if (!formIsValid) {
+            // Mostrar erro específico do primeiro campo inválido
+            const firstError = Object.values(validationErrors).find(error => error !== null);
+            Alert.alert('Erro de Validação', firstError || 'Por favor, corrija os erros no formulário');
+            return;
+        }
+
         try {
             let workshopId = formData.workshopId;
 
@@ -261,7 +276,9 @@ const MaintenanceFormScreen: React.FC<Props> = ({ navigation, route }) => {
             const data = {
                 vehicleId: formData.vehicleId,
                 workshopId: workshopId,
-                date: formData.date.toISOString().split('T')[0],
+                date: typeof formData.date === 'string' ?
+                    new Date(formData.date).toISOString().split('T')[0] :
+                    formData.date.toISOString().split('T')[0],
                 description: finalDescription,
                 value: parseFloat(formData.value),
                 serviceStatus: 'concluido', // Status do serviço sempre concluído
@@ -277,12 +294,6 @@ const MaintenanceFormScreen: React.FC<Props> = ({ navigation, route }) => {
         } catch (error: any) {
             Alert.alert('Erro', error.message || `Falha ao ${maintenance ? 'atualizar' : 'criar'} manutenção`);
         }
-    };
-
-    const onChangeDate = (event: any, selectedDate?: Date) => {
-        const currentDate = selectedDate || formData.date;
-        setShowDatePicker(Platform.OS === 'ios');
-        setFormData({ ...formData, date: currentDate });
     };
 
     return (
@@ -316,7 +327,7 @@ const MaintenanceFormScreen: React.FC<Props> = ({ navigation, route }) => {
                             style={{
                                 borderRadius: 8,
                                 borderWidth: 1,
-                                borderColor: errors.vehicleId ? '#b00020' : '#ccc',
+                                borderColor: validationErrors.vehicleId ? '#b00020' : '#ccc',
                                 paddingHorizontal: 8,
                                 backgroundColor: '#fff',
                                 marginBottom: 8,
@@ -327,7 +338,7 @@ const MaintenanceFormScreen: React.FC<Props> = ({ navigation, route }) => {
                             searchPlaceholder="Buscar veículo..."
                             iconStyle={{ width: 24, height: 24 }}
                         />
-                        {errors.vehicleId && <Text style={{ color: 'red', fontSize: 12, marginBottom: 8 }}>{errors.vehicleId}</Text>}
+                        {validationErrors.vehicleId && <Text style={{ color: 'red', fontSize: 12, marginBottom: 8 }}>{validationErrors.vehicleId}</Text>}
 
                         {/* Oficina - abaixo do veículo */}
                         <Text style={{ marginBottom: 2, fontWeight: '500' }}>Oficina</Text>
@@ -354,7 +365,7 @@ const MaintenanceFormScreen: React.FC<Props> = ({ navigation, route }) => {
                             style={{
                                 borderRadius: 8,
                                 borderWidth: 1,
-                                borderColor: errors.workshopId ? '#b00020' : '#ccc',
+                                borderColor: validationErrors.workshopId ? '#b00020' : '#ccc',
                                 paddingHorizontal: 8,
                                 backgroundColor: '#fff',
                                 marginBottom: 8,
@@ -365,7 +376,7 @@ const MaintenanceFormScreen: React.FC<Props> = ({ navigation, route }) => {
                             searchPlaceholder="Buscar oficina..."
                             iconStyle={{ width: 24, height: 24 }}
                         />
-                        {errors.workshopId && <Text style={{ color: 'red', fontSize: 12, marginBottom: 8 }}>{errors.workshopId}</Text>}
+                        {validationErrors.workshopId && <Text style={{ color: 'red', fontSize: 12, marginBottom: 8 }}>{validationErrors.workshopId}</Text>}
 
                         {/* Campo para nome da oficina quando "Oficina não listada" for selecionada */}
                         {formData.workshopId === 'not_listed' && (
@@ -393,43 +404,25 @@ const MaintenanceFormScreen: React.FC<Props> = ({ navigation, route }) => {
                         </Text>
 
                         {/* Data e Valor */}
-                        <View style={{ flexDirection: 'row', gap: 8 }}>
-                            <View style={{ flex: 1 }}>
-                                <Text style={{ marginBottom: 2, fontWeight: '500' }}>Data</Text>
-                                <TextInput
-                                    placeholder="Selecione a data"
-                                    value={formData.date.toLocaleDateString()}
-                                    onFocus={() => setShowDatePicker(true)}
-                                    editable={false}
-                                    style={{ marginVertical: 5, backgroundColor: 'transparent' }}
-                                    error={!!errors.date}
-                                    left={<TextInput.Icon icon="calendar" />}
-                                />
-                                {showDatePicker && (
-                                    <DateTimePicker
-                                        value={formData.date}
-                                        mode="date"
-                                        display="default"
-                                        onChange={onChangeDate}
-                                        maximumDate={new Date()} // Permite apenas datas até hoje
-                                    />
-                                )}
-                                {errors.date && <Text style={{ color: 'red', fontSize: 12 }}>{errors.date}</Text>}
-                            </View>
-                            <View style={{ flex: 1 }}>
-                                <Text style={{ marginBottom: 2, fontWeight: '500' }}>Valor</Text>
-                                <TextInput
-                                    placeholder="Ex: 250.00"
-                                    value={formData.value}
-                                    onChangeText={(text) => setFormData({ ...formData, value: text })}
-                                    keyboardType="numeric"
-                                    style={{ marginVertical: 5, backgroundColor: 'transparent' }}
-                                    error={!!errors.value}
-                                    left={<TextInput.Icon icon="currency-brl" />}
-                                />
-                                {errors.value && <Text style={{ color: 'red', fontSize: 12 }}>{errors.value}</Text>}
-                            </View>
-                        </View>
+                        <FormRow>
+                            <FriendlyDatePicker
+                                label="Data da Manutenção"
+                                value={formData.date}
+                                onChangeDate={(date: string) => setFormData({ ...formData, date })}
+                                error={getFieldError('date')}
+                                required
+                            />
+                            <ValidatedInput
+                                label="Valor Gasto"
+                                value={formData.value}
+                                onChangeText={(text) => setFormData({ ...formData, value: text })}
+                                error={getFieldError('value')}
+                                placeholder="R$ 0,00"
+                                keyboardType="numeric"
+                                format="currency"
+                                required
+                            />
+                        </FormRow>
                         {/* Serviços Realizados */}
                         <Text style={{ marginBottom: 8, fontWeight: '500', fontSize: 16 }}>🔧 Serviços Realizados</Text>
 
@@ -546,20 +539,22 @@ const MaintenanceFormScreen: React.FC<Props> = ({ navigation, route }) => {
                                 marginVertical: 5,
                             }}
                         />
-                        {errors.description && <Text style={{ color: 'red', fontSize: 12 }}>{errors.description}</Text>}
+                        {validationErrors.description && <Text style={{ color: 'red', fontSize: 12 }}>{validationErrors.description}</Text>}
 
-                        {/* KM */}
-                        <Text style={{ marginBottom: 2, fontWeight: '500' }}>KM</Text>
-                        <TextInput
-                            placeholder="Ex: 12345(Sem virgula ou ponto)"
+                        {/* Quilometragem com Validação */}
+                        <ValidatedInput
+                            label="Quilometragem (KM)"
                             value={formData.mileage}
                             onChangeText={(text) => setFormData({ ...formData, mileage: text })}
+                            error={getFieldError('mileage')}
+                            placeholder={lastMaintenance?.lastMaintenance?.mileage ?
+                                `Última: ${lastMaintenance.lastMaintenance.mileage.toLocaleString('pt-BR')} km` :
+                                'Ex: 12.345'
+                            }
                             keyboardType="numeric"
-                            style={{ marginVertical: 5, backgroundColor: 'transparent' }}
-                            error={!!errors.mileage}
-                            left={<TextInput.Icon icon="counter" />}
+                            format="number"
+                            required
                         />
-                        {errors.mileage && <Text style={{ color: 'red', fontSize: 12 }}>{errors.mileage}</Text>}
 
                         {/* Informações da última manutenção */}
                         {lastMaintenance && lastMaintenance.hasLastMaintenance && lastMaintenance.lastMaintenance && (
@@ -686,7 +681,7 @@ const MaintenanceFormScreen: React.FC<Props> = ({ navigation, route }) => {
                             setFormData({
                                 vehicleId: '',
                                 workshopId: '',
-                                date: new Date(),
+                                date: new Date().toISOString(),
                                 description: '',
                                 value: '',
                                 serviceStatus: 'concluido',
@@ -694,7 +689,6 @@ const MaintenanceFormScreen: React.FC<Props> = ({ navigation, route }) => {
                                 mileage: '',
                             });
                             setSelectedServices([]);
-                            setErrors({});
                             setAttachments([]);
                         }} style={{ borderRadius: 8, flex: 1, marginHorizontal: 2, paddingVertical: 4 }} labelStyle={{ fontWeight: 'bold', fontSize: 16 }}>
                             Limpar

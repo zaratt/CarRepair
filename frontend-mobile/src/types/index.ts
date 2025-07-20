@@ -83,7 +83,7 @@ export interface Maintenance {
     workshopId: string;
     date: string;
     description: string;
-    value: number;
+    value: number | null; // ✅ CORRIGIDO: Valor pode ser null
     serviceStatus: string; // Status do serviço (sempre "concluído")
     validationStatus: string; // Status de validação (registrado, pendente, validado)
     validationCode?: string; // Código único para validação
