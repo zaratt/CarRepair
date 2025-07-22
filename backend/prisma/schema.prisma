@@ -59,24 +59,40 @@ enum FuelType {
 }
 
 model Vehicle {
-  id              String         @id @default(uuid())
-  licensePlate    String         @unique
-  brandId         String
-  modelId         String
+  id           String @id @default(uuid())
+  licensePlate String @unique
+
+  // Campos FIPE para integração oficial
+  fipeTypeId   Int? // ID do tipo de veículo na FIPE (1=carros, 2=motos, 3=caminhões)
+  fipeBrandId  Int? // ID da marca na FIPE
+  fipeModelId  Int? // ID do modelo na FIPE
+  fipeYearCode String? // Código do ano/combustível na FIPE (ex: "2020-1")
+
+  // Campos locais (deprecados, mantidos para compatibilidade)
+  brandId String?
+  modelId String?
+
+  // Dados do veículo
   yearManufacture Int // Ano de fabricação
   modelYear       Int // Ano modelo
   fuelType        FuelType
   vin             String?
-  ownerId         String?
-  owner           User?          @relation("UserVehicles", fields: [ownerId], references: [id])
-  maintenances    Maintenance[]
-  createdAt       DateTime       @default(now())
-  brand           Brand          @relation(fields: [brandId], references: [id])
-  model           Model          @relation(fields: [modelId], references: [id])
-  photos          VehiclePhoto[]
-  active          Boolean        @default(true) // Indica se o veículo está ativo para o proprietário
-  soldAt          DateTime? // Data da venda
-  Inspection      Inspection[]
+
+  // Relacionamentos
+  ownerId      String?
+  owner        User?          @relation("UserVehicles", fields: [ownerId], references: [id])
+  maintenances Maintenance[]
+  photos       VehiclePhoto[]
+  inspections  Inspection[]
+
+  // Campos de controle
+  active    Boolean   @default(true) // Indica se o veículo está ativo para o proprietário
+  soldAt    DateTime? // Data da venda
+  createdAt DateTime  @default(now())
+
+  // Relacionamentos deprecados (mantidos para compatibilidade)
+  brand Brand? @relation(fields: [brandId], references: [id])
+  model Model? @relation(fields: [modelId], references: [id])
 }
 
 model Workshop {

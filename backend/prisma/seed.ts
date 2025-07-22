@@ -1,9 +1,10 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-const client_1 = require("@prisma/client");
-const prisma = new client_1.PrismaClient();
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
+
 async function main() {
     console.log('🌱 Iniciando seed do banco de dados...');
+
     // Limpar dados existentes
     console.log('🧹 Limpando dados existentes...');
     await prisma.maintenanceAttachment.deleteMany();
@@ -18,6 +19,7 @@ async function main() {
     await prisma.user.deleteMany();
     await prisma.model.deleteMany();
     await prisma.brand.deleteMany();
+
     // Criar marcas básicas (serão substituídas pela FIPE)
     console.log('🚗 Criando marcas básicas...');
     const toyotaBrand = await prisma.brand.create({
@@ -25,11 +27,13 @@ async function main() {
             name: 'Toyota'
         }
     });
+
     const volkswagenBrand = await prisma.brand.create({
         data: {
             name: 'Volkswagen'
         }
     });
+
     // Criar modelos básicos
     console.log('🏎️ Criando modelos básicos...');
     const corollaModel = await prisma.model.create({
@@ -38,12 +42,14 @@ async function main() {
             brandId: toyotaBrand.id
         }
     });
+
     const golfModel = await prisma.model.create({
         data: {
             name: 'Golf',
             brandId: volkswagenBrand.id
         }
     });
+
     // Criar usuário de teste
     console.log('👤 Criando usuário de teste...');
     const testUser = await prisma.user.create({
@@ -59,6 +65,7 @@ async function main() {
             isValidated: true
         }
     });
+
     // Criar oficina de teste
     console.log('🔧 Criando oficina de teste...');
     const workshopOwner = await prisma.user.create({
@@ -74,6 +81,7 @@ async function main() {
             isValidated: true
         }
     });
+
     const testWorkshop = await prisma.workshop.create({
         data: {
             name: 'Oficina Central',
@@ -84,6 +92,7 @@ async function main() {
             rating: 4.5
         }
     });
+
     // Criar veículo de teste
     console.log('🚙 Criando veículo de teste...');
     const testVehicle = await prisma.vehicle.create({
@@ -103,6 +112,7 @@ async function main() {
             fipeYearCode: '2021-1' // 2021 Flex
         }
     });
+
     // Criar manutenção de teste
     console.log('🛠️ Criando manutenção de teste...');
     const testMaintenance = await prisma.maintenance.create({
@@ -118,6 +128,7 @@ async function main() {
             validationStatus: 'validado'
         }
     });
+
     console.log('✅ Seed concluído com sucesso!');
     console.log(`Criados:`);
     console.log(`- 2 marcas`);
@@ -127,12 +138,12 @@ async function main() {
     console.log(`- 1 veículo`);
     console.log(`- 1 manutenção`);
 }
+
 main()
     .catch((e) => {
-    console.error('❌ Erro durante o seed:', e);
-    process.exit(1);
-})
+        console.error('❌ Erro durante o seed:', e);
+        process.exit(1);
+    })
     .finally(async () => {
-    await prisma.$disconnect();
-});
-//# sourceMappingURL=seed.js.map
+        await prisma.$disconnect();
+    });
