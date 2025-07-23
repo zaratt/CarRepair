@@ -46,7 +46,7 @@ const InspectionDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             </View>
             <ScrollView style={{ flex: 1, paddingHorizontal: 16, paddingBottom: 24, paddingTop: 8 }}>
                 <Text>Arquivo: {inspection.fileUrl}</Text>
-                <Text>Manutenção: {inspection.maintenance?.description || 'N/A'}</Text>
+                <Text>Manutenção: {(inspection as any).maintenance?.description || 'N/A'}</Text>
                 <Text>Enviado por: {inspection.uploadedBy?.name || 'N/A'}</Text>
                 <Text>Data: {inspection.createdAt ? new Date(inspection.createdAt).toLocaleDateString() : 'N/A'}</Text>
                 <Button mode="contained" style={{ marginTop: 24 }} onPress={() => navigation.goBack()}>

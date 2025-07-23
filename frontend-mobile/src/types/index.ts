@@ -66,6 +66,9 @@ export interface User {
     createdAt?: string;
 }
 
+// Export auth types
+export * from './auth';
+
 export interface Workshop {
     id: string;
     name: string; // Nome da oficina

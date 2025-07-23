@@ -1,9 +1,9 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
 import React, { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Button, Snackbar, Text, TextInput } from 'react-native-paper';
+import { useAuth } from '../hooks/useAuth';
+import { EmailValidator } from '../utils/validators';
 
 interface Props {
     navigation: any;
@@ -11,22 +11,47 @@ interface Props {
 
 const LoginScreen: React.FC<Props> = ({ navigation }) => {
     const [email, setEmail] = useState('');
-    const [cpfCnpj, setCpfCnpj] = useState('');
-    const [loading, setLoading] = useState(false);
+    const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [snackbar, setSnackbar] = useState<{ visible: boolean; message: string }>({ visible: false, message: '' });
 
+    const { login, isLoading } = useAuth();
+
     const handleLogin = async () => {
-        setLoading(true);
+        // ✅ VALIDAÇÕES
+        if (!email.trim()) {
+            setSnackbar({ visible: true, message: 'E-mail é obrigatório' });
+            return;
+        }
+
+        if (!EmailValidator.isValidEmail(email)) {
+            setSnackbar({ visible: true, message: 'E-mail inválido' });
+            return;
+        }
+
+        if (!password) {
+            setSnackbar({ visible: true, message: 'Senha é obrigatória' });
+            return;
+        }
+
         try {
-            const response = await axios.post('http://localhost:3000/api/login', { email, cpfCnpj });
-            const { userId, name, email: userEmail, profile, type } = response.data;
-            await AsyncStorage.setItem('user', JSON.stringify({ userId, name, userEmail, profile, type }));
+            await login({
+                email: EmailValidator.normalizeEmail(email),
+                password,
+            });
+
+            // Sucesso - o useAuth automaticamente redireciona via navigation
             navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
         } catch (error: any) {
-            setSnackbar({ visible: true, message: error.response?.data?.error || 'Falha no login' });
-        } finally {
-            setLoading(false);
+            setSnackbar({
+                visible: true,
+                message: error.message || 'Erro no login. Verifique suas credenciais.'
+            });
         }
+    };
+
+    const goToRegister = () => {
+        navigation.navigate('Register');
     };
 
     return (
@@ -49,6 +74,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                 <Text style={{ marginBottom: 24, color: '#666', textAlign: 'center' }}>
                     Faça login para acessar seus veículos e manutenções.
                 </Text>
+
                 <TextInput
                     label="E-mail"
                     value={email}
@@ -57,34 +83,56 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                     keyboardType="email-address"
                     style={{ marginBottom: 16, width: 260, backgroundColor: '#f3f6fa', borderRadius: 8 }}
                     left={<TextInput.Icon icon="email-outline" />}
+                    disabled={isLoading}
                 />
+
                 <TextInput
-                    label="CPF ou CNPJ"
-                    value={cpfCnpj}
-                    onChangeText={setCpfCnpj}
-                    keyboardType="numeric"
+                    label="Senha"
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry={!showPassword}
                     style={{ marginBottom: 24, width: 260, backgroundColor: '#f3f6fa', borderRadius: 8 }}
-                    left={<TextInput.Icon icon="card-account-details-outline" />}
+                    left={<TextInput.Icon icon="lock-outline" />}
+                    right={
+                        <TextInput.Icon
+                            icon={showPassword ? "eye-off" : "eye"}
+                            onPress={() => setShowPassword(!showPassword)}
+                        />
+                    }
+                    disabled={isLoading}
                 />
+
                 <Button
                     mode="contained"
                     onPress={handleLogin}
-                    loading={loading}
-                    disabled={loading}
+                    loading={isLoading}
+                    disabled={isLoading}
                     style={{ marginBottom: 12, width: 260, borderRadius: 8, backgroundColor: '#1976d2' }}
                     contentStyle={{ paddingVertical: 6 }}
                     labelStyle={{ fontWeight: 'bold', fontSize: 16 }}
                 >
                     Entrar
                 </Button>
+
+                <Button
+                    mode="text"
+                    onPress={goToRegister}
+                    disabled={isLoading}
+                    style={{ marginBottom: 12 }}
+                    labelStyle={{ color: '#1976d2' }}
+                >
+                    Criar nova conta
+                </Button>
+
                 <Text style={{ color: '#888', fontSize: 13, marginBottom: 0, textAlign: 'center' }}>
-                    Exemplo: user@email.com | 12345678900
+                    Use seu e-mail e senha para acessar
                 </Text>
             </View>
+
             <Snackbar
                 visible={snackbar.visible}
                 onDismiss={() => setSnackbar({ ...snackbar, visible: false })}
-                duration={2500}
+                duration={3000}
                 style={{ backgroundColor: '#d32f2f', borderRadius: 8, marginBottom: 24 }}
             >
                 <Text style={{ color: '#fff', fontWeight: 'bold' }}>{snackbar.message}</Text>

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
+import { AuthService } from '../services/authService';
 import { Brand, Inspection, Maintenance, Model, User, Vehicle, VehiclePhoto, Workshop } from '../types';
 import { MaintenanceAttachment } from '../types/MaintenanceAttachment';
 
@@ -9,6 +10,31 @@ const api = axios.create({
     baseURL: API_URL,
     headers: { 'Content-Type': 'application/json' },
 });
+
+// ✅ INTERCEPTOR PARA ADICIONAR TOKEN AUTOMATICAMENTE
+api.interceptors.request.use(
+    async (config) => {
+        const token = await AuthService.getToken();
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+        }
+        return config;
+    },
+    (error) => Promise.reject(error)
+);
+
+// ✅ INTERCEPTOR PARA TRATAR ERROS DE AUTENTICAÇÃO
+api.interceptors.response.use(
+    (response) => response,
+    async (error) => {
+        if (error.response?.status === 401) {
+            // Token inválido ou expirado, fazer logout
+            await AuthService.logout();
+            // Aqui você pode adicionar lógica para redirecionar para login
+        }
+        return Promise.reject(error);
+    }
+);
 
 // Marcas
 export const getBrands = async (): Promise<Brand[]> => {

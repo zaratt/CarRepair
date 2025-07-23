@@ -1,7 +1,9 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import React, { useEffect, useState } from 'react';
+import React from 'react';
+import { ActivityIndicator, View } from 'react-native';
+import { Text } from 'react-native-paper';
+import { useAuth } from '../hooks/useAuth';
 import AvailableWorkshopsScreen from '../screens/AvailableWorkshopsScreen';
 import HelpScreen from '../screens/HelpScreen';
 import HomeScreen from '../screens/HomeScreen';
@@ -13,6 +15,7 @@ import MaintenanceDetailScreen from '../screens/MaintenanceDetailScreen';
 import MaintenanceFormScreen from '../screens/MaintenanceFormScreen';
 import MaintenanceListScreen from '../screens/MaintenanceListScreen';
 import ProfileScreen from '../screens/ProfileScreen';
+import RegisterScreen from '../screens/RegisterScreen';
 import UserFormScreen from '../screens/UserFormScreen';
 import UserListScreen from '../screens/UserListScreen';
 import VehicleFormScreen from '../screens/VehicleFormScreen';
@@ -24,6 +27,7 @@ import WorkshopPendingMaintenancesScreen from '../screens/WorkshopPendingMainten
 
 export type RootStackParamList = {
     Login: undefined;
+    Register: undefined;
     Home: undefined;
     VehicleForm: { vehicle?: any } | undefined;
     VehicleDetail: { vehicleId: string };
@@ -47,50 +51,59 @@ export type RootStackParamList = {
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-// Certifique-se de que todas as telas *FormScreen importam RootStackParamList deste arquivo
-// e usam o tipo NativeStackScreenProps<RootStackParamList, 'NomeDaTela'>
+// ✅ LOADING SCREEN COMPONENT
+const LoadingScreen = () => (
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f6f6f6' }}>
+        <ActivityIndicator size="large" color="#1976d2" />
+        <Text style={{ marginTop: 16, color: '#666' }}>Carregando...</Text>
+    </View>
+);
 
+// ✅ AUTH STACK (Para usuários não autenticados)
+const AuthStack = () => (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="Login" component={LoginScreen} />
+        <Stack.Screen name="Register" component={RegisterScreen} />
+    </Stack.Navigator>
+);
+
+// ✅ APP STACK (Para usuários autenticados)
+const AppStack = () => (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="Home" component={HomeScreen} />
+        <Stack.Screen name="UserList" component={UserListScreen} />
+        <Stack.Screen name="VehicleList" component={VehicleListScreen} />
+        <Stack.Screen name="WorkshopList" component={WorkshopListScreen} />
+        <Stack.Screen name="MaintenanceList" component={MaintenanceListScreen} />
+        <Stack.Screen name="InspectionList" component={InspectionListScreen} />
+        <Stack.Screen name="VehicleForm" component={VehicleFormScreen as React.ComponentType<any>} />
+        <Stack.Screen name="UserForm" component={UserFormScreen as React.ComponentType<any>} />
+        <Stack.Screen name="WorkshopForm" component={WorkshopFormScreen as React.ComponentType<any>} />
+        <Stack.Screen name="MaintenanceForm" component={MaintenanceFormScreen as React.ComponentType<any>} />
+        <Stack.Screen name="InspectionForm" component={InspectionFormScreen as React.ComponentType<any>} />
+        <Stack.Screen name="VehicleDetail" component={require('../screens/VehicleDetailScreen').default} options={{ title: 'Detalhes do Veículo' }} />
+        <Stack.Screen name="MaintenanceDetail" component={MaintenanceDetailScreen as React.ComponentType<any>} options={{ title: 'Detalhes da Manutenção' }} />
+        <Stack.Screen name="WorkshopDetail" component={WorkshopDetailScreen as React.ComponentType<any>} options={{ title: 'Detalhes da Oficina' }} />
+        <Stack.Screen name="InspectionDetail" component={InspectionDetailScreen as React.ComponentType<any>} options={{ title: 'Detalhes da Inspeção' }} />
+        <Stack.Screen name="Help" component={HelpScreen} />
+        <Stack.Screen name="Profile" component={ProfileScreen} />
+        <Stack.Screen name="AvailableWorkshopsScreen" component={AvailableWorkshopsScreen} />
+        <Stack.Screen name="WorkshopPendingMaintenances" component={WorkshopPendingMaintenancesScreen} />
+    </Stack.Navigator>
+);
+
+// ✅ MAIN APP NAVIGATOR
 const AppNavigator = () => {
-    const [loading, setLoading] = useState(true);
-    const [isLoggedIn, setIsLoggedIn] = useState(false);
+    const { isAuthenticated, isLoading } = useAuth();
 
-    useEffect(() => {
-        const checkLogin = async () => {
-            const user = await AsyncStorage.getItem('user');
-            setIsLoggedIn(!!user);
-            setLoading(false);
-        };
-        checkLogin();
-    }, []);
-
-    if (loading) return null;
+    // ✅ MOSTRAR LOADING ENQUANTO VERIFICA AUTENTICAÇÃO
+    if (isLoading) {
+        return <LoadingScreen />;
+    }
 
     return (
         <NavigationContainer>
-            <Stack.Navigator initialRouteName={isLoggedIn ? 'Home' : 'Login'} screenOptions={{ headerShown: false }}>
-                {!isLoggedIn && (
-                    <Stack.Screen name="Login" component={LoginScreen} />
-                )}
-                <Stack.Screen name="Home" component={HomeScreen} />
-                <Stack.Screen name="UserList" component={UserListScreen} />
-                <Stack.Screen name="VehicleList" component={VehicleListScreen} />
-                <Stack.Screen name="WorkshopList" component={WorkshopListScreen} />
-                <Stack.Screen name="MaintenanceList" component={MaintenanceListScreen} />
-                <Stack.Screen name="InspectionList" component={InspectionListScreen} />
-                <Stack.Screen name="VehicleForm" component={VehicleFormScreen as React.ComponentType<any>} />
-                <Stack.Screen name="UserForm" component={UserFormScreen as React.ComponentType<any>} />
-                <Stack.Screen name="WorkshopForm" component={WorkshopFormScreen as React.ComponentType<any>} />
-                <Stack.Screen name="MaintenanceForm" component={MaintenanceFormScreen as React.ComponentType<any>} />
-                <Stack.Screen name="InspectionForm" component={InspectionFormScreen as React.ComponentType<any>} />
-                <Stack.Screen name="VehicleDetail" component={require('../screens/VehicleDetailScreen').default} options={{ title: 'Detalhes do Veículo' }} />
-                <Stack.Screen name="MaintenanceDetail" component={MaintenanceDetailScreen as React.ComponentType<any>} options={{ title: 'Detalhes da Manutenção' }} />
-                <Stack.Screen name="WorkshopDetail" component={WorkshopDetailScreen as React.ComponentType<any>} options={{ title: 'Detalhes da Oficina' }} />
-                <Stack.Screen name="InspectionDetail" component={InspectionDetailScreen as React.ComponentType<any>} options={{ title: 'Detalhes da Inspeção' }} />
-                <Stack.Screen name="Help" component={HelpScreen} />
-                <Stack.Screen name="Profile" component={ProfileScreen} />
-                <Stack.Screen name="AvailableWorkshopsScreen" component={AvailableWorkshopsScreen} />
-                <Stack.Screen name="WorkshopPendingMaintenances" component={WorkshopPendingMaintenancesScreen} />
-            </Stack.Navigator>
+            {isAuthenticated ? <AppStack /> : <AuthStack />}
         </NavigationContainer>
     );
 };

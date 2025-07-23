@@ -11,6 +11,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'WorkshopForm'>;
 const WorkshopFormScreen: React.FC<Props> = ({ navigation, route }) => {
     const workshop = route.params?.workshop;
     const [formData, setFormData] = useState({
+        name: workshop?.name || '',
         userId: workshop?.userId || '',
         address: workshop?.address || '',
         phone: workshop?.phone || '',
@@ -45,6 +46,7 @@ const WorkshopFormScreen: React.FC<Props> = ({ navigation, route }) => {
         if (!validateForm()) return;
         try {
             const data = {
+                name: formData.name,
                 userId: formData.userId,
                 address: formData.address,
                 phone: formData.phone,
