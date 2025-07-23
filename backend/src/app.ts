@@ -2,9 +2,12 @@ import cors from 'cors';
 import express from 'express';
 import { config, validateConfig } from './config';
 import { errorHandler } from './middleware/errorHandler';
+import authRoutes from './routes/authRoutes';
 import maintenanceRoutes from './routes/maintenanceRoutes';
+import systemRoutes from './routes/systemRoutes';
 import userRoutes from './routes/userRoutes';
 import vehicleRoutes from './routes/vehicleRoutes';
+import workshopRoutes from './routes/workshopRoutes';
 import { ApiResponse } from './types';
 
 // Validar configurações na inicialização
@@ -27,9 +30,12 @@ if (config.isDevelopment) {
         next();
     });
 }// Rotas da API
+app.use('/api/auth', authRoutes);
+app.use('/api/system', systemRoutes);
 app.use('/api/vehicles', vehicleRoutes);
 app.use('/api/maintenances', maintenanceRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/workshops', workshopRoutes);
 
 // Health check endpoint com informações da configuração
 app.get('/health', (req, res) => {
@@ -52,9 +58,12 @@ app.get('/health', (req, res) => {
             },
             logLevel: config.logLevel,
             endpoints: {
+                auth: '/api/auth',
+                system: '/api/system',
                 vehicles: '/api/vehicles',
                 maintenances: '/api/maintenances',
                 users: '/api/users',
+                workshops: '/api/workshops',
                 health: '/health'
             }
         }

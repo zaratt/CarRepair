@@ -17,6 +17,7 @@ model User {
   id                String             @id @default(uuid())
   name              String
   email             String             @unique
+  password          String // ✅ NOVO: Campo para senha hash
   cpfCnpj           String             @unique
   type              String // 'user' ou 'workshop'
   profile           String // 'car_owner' ou 'wshop_owner'

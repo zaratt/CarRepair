@@ -7,9 +7,12 @@ const cors_1 = __importDefault(require("cors"));
 const express_1 = __importDefault(require("express"));
 const config_1 = require("./config");
 const errorHandler_1 = require("./middleware/errorHandler");
+const authRoutes_1 = __importDefault(require("./routes/authRoutes"));
 const maintenanceRoutes_1 = __importDefault(require("./routes/maintenanceRoutes"));
+const systemRoutes_1 = __importDefault(require("./routes/systemRoutes"));
 const userRoutes_1 = __importDefault(require("./routes/userRoutes"));
 const vehicleRoutes_1 = __importDefault(require("./routes/vehicleRoutes"));
+const workshopRoutes_1 = __importDefault(require("./routes/workshopRoutes"));
 // Validar configurações na inicialização
 (0, config_1.validateConfig)();
 const app = (0, express_1.default)();
@@ -27,9 +30,12 @@ if (config_1.config.isDevelopment) {
         next();
     });
 } // Rotas da API
+app.use('/api/auth', authRoutes_1.default);
+app.use('/api/system', systemRoutes_1.default);
 app.use('/api/vehicles', vehicleRoutes_1.default);
 app.use('/api/maintenances', maintenanceRoutes_1.default);
 app.use('/api/users', userRoutes_1.default);
+app.use('/api/workshops', workshopRoutes_1.default);
 // Health check endpoint com informações da configuração
 app.get('/health', (req, res) => {
     const response = {
@@ -51,9 +57,12 @@ app.get('/health', (req, res) => {
             },
             logLevel: config_1.config.logLevel,
             endpoints: {
+                auth: '/api/auth',
+                system: '/api/system',
                 vehicles: '/api/vehicles',
                 maintenances: '/api/maintenances',
                 users: '/api/users',
+                workshops: '/api/workshops',
                 health: '/health'
             }
         }

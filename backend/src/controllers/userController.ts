@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 import { Request, Response } from 'express';
 import { asyncHandler, ConflictError, NotFoundError, ValidationError } from '../middleware/errorHandler';
 import { ApiResponse, PaginationResponse, UserCreateData, UserUpdateData } from '../types';
@@ -9,6 +10,9 @@ const prisma = new PrismaClient();
 // Criar novo usuário
 export const createUser = asyncHandler(async (req: Request, res: Response) => {
     const userData: UserCreateData = req.body;
+
+    // ✅ SENHA PADRÃO (REMOVER userData.password)
+    const defaultPassword = 'temp123456'; // Senha temporária sempre
 
     // Verificar se email já existe
     const existingEmailUser = await prisma.user.findUnique({
@@ -28,41 +32,57 @@ export const createUser = asyncHandler(async (req: Request, res: Response) => {
         throw new ConflictError('User with this document already exists');
     }
 
+    // Hash da senha
+    const hashedPassword = await bcrypt.hash(defaultPassword, 12);
+
     // Determinar tipo e perfil baseado no documento
     const documentType = getUserTypeFromDocument(userData.document);
-    const userType = 'user'; // Sempre 'user' por enquanto (diferente de 'workshop')
+    const userType = 'user';
     const profile = documentType === 'individual' ? 'car_owner' : 'wshop_owner';
 
-    // Criar usuário
+    // ✅ CRIAR USUÁRIO (SIMPLES - SEM _count)
     const user = await prisma.user.create({
         data: {
             name: userData.name.trim(),
             email: userData.email.toLowerCase(),
+            password: hashedPassword,
             phone: userData.phone || null,
             cpfCnpj: userData.document,
             type: userType,
             profile: profile,
             city: userData.city || null,
             state: userData.state?.toUpperCase() || null,
-        },
-        include: {
-            _count: {
-                select: {
-                    vehicles: true,
-                    workshops: true
-                }
-            }
         }
+    });
+
+    // ✅ BUSCAR CONTADORES SEPARADAMENTE
+    const vehiclesCount = await prisma.vehicle.count({
+        where: { ownerId: user.id }
+    });
+
+    const workshopsCount = await prisma.workshop.count({
+        where: { userId: user.id }
     });
 
     // Validar e formatar documento para resposta
     const documentValidation = validateDocument(user.cpfCnpj);
 
+    // ✅ RESPOSTA SEM CAMPOS INEXISTENTES
     const response: ApiResponse = {
         success: true,
         message: 'User created successfully',
         data: {
-            ...user,
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            cpfCnpj: user.cpfCnpj,
+            type: user.type,
+            profile: user.profile,
+            phone: user.phone,
+            city: user.city,
+            state: user.state,
+            isValidated: user.isValidated,
+            createdAt: user.createdAt,
             formatted: {
                 document: documentValidation.formatted,
                 documentType: documentValidation.type,
@@ -70,8 +90,8 @@ export const createUser = asyncHandler(async (req: Request, res: Response) => {
                 createdAt: user.createdAt.toLocaleDateString('pt-BR')
             },
             stats: {
-                vehiclesCount: user._count.vehicles,
-                workshopsCount: user._count.workshops
+                vehiclesCount: vehiclesCount,
+                workshopsCount: workshopsCount
             }
         }
     };
@@ -79,7 +99,7 @@ export const createUser = asyncHandler(async (req: Request, res: Response) => {
     res.status(201).json(response);
 });
 
-// Listar usuários com paginação e filtros
+// ✅ CORRIGIR getUsers
 export const getUsers = asyncHandler(async (req: Request, res: Response) => {
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
@@ -97,7 +117,6 @@ export const getUsers = asyncHandler(async (req: Request, res: Response) => {
     if (profile) where.profile = profile;
     if (state) where.state = state.toUpperCase();
 
-    // Filtro de busca (nome, email ou documento)
     if (search) {
         where.OR = [
             { name: { contains: search, mode: 'insensitive' } },
@@ -106,30 +125,64 @@ export const getUsers = asyncHandler(async (req: Request, res: Response) => {
         ];
     }
 
-    // Buscar usuários e total
+    // ✅ BUSCAR USUÁRIOS SIMPLES (SEM _count)
     const [users, total] = await Promise.all([
         prisma.user.findMany({
             where,
             skip,
             take: limit,
-            include: {
-                _count: {
-                    select: {
-                        vehicles: true,
-                        workshops: true
-                    }
-                }
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                cpfCnpj: true,
+                type: true,
+                profile: true,
+                phone: true,
+                city: true,
+                state: true,
+                isValidated: true,
+                createdAt: true
+                // ✅ REMOVIDO: updatedAt, _count
             },
             orderBy: { createdAt: 'desc' }
         }),
         prisma.user.count({ where })
     ]);
 
+    // ✅ BUSCAR CONTADORES EM BATCH
+    const userIds = users.map(u => u.id);
+
+    const vehicleCounts = await prisma.vehicle.groupBy({
+        by: ['ownerId'],
+        where: { ownerId: { in: userIds } },
+        _count: { id: true }
+    });
+
+    const workshopCounts = await prisma.workshop.groupBy({
+        by: ['userId'],
+        where: { userId: { in: userIds } },
+        _count: { id: true }
+    });
+
     // Formatar usuários
     const formattedUsers = users.map(user => {
         const documentValidation = validateDocument(user.cpfCnpj);
+        const vehiclesCount = vehicleCounts.find(vc => vc.ownerId === user.id)?._count.id || 0;
+        const workshopsCount = workshopCounts.find(wc => wc.userId === user.id)?._count.id || 0;
+
         return {
-            ...user,
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            cpfCnpj: user.cpfCnpj,
+            type: user.type,
+            profile: user.profile,
+            phone: user.phone,
+            city: user.city,
+            state: user.state,
+            isValidated: user.isValidated,
+            createdAt: user.createdAt,
             formatted: {
                 document: documentValidation.formatted,
                 documentType: documentValidation.type,
@@ -137,8 +190,8 @@ export const getUsers = asyncHandler(async (req: Request, res: Response) => {
                 createdAt: user.createdAt.toLocaleDateString('pt-BR')
             },
             stats: {
-                vehiclesCount: user._count.vehicles,
-                workshopsCount: user._count.workshops
+                vehiclesCount: vehiclesCount,
+                workshopsCount: workshopsCount
             }
         };
     });
@@ -156,36 +209,26 @@ export const getUsers = asyncHandler(async (req: Request, res: Response) => {
     res.json(response);
 });
 
-// Buscar usuário por ID
+// ✅ CORRIGIR getUserById  
 export const getUserById = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
 
+    // ✅ BUSCAR USUÁRIO SIMPLES
     const user = await prisma.user.findUnique({
         where: { id },
-        include: {
-            vehicles: {
-                select: {
-                    id: true,
-                    licensePlate: true,
-                    active: true,
-                    yearManufacture: true,
-                    modelYear: true
-                }
-            },
-            workshops: {
-                select: {
-                    id: true,
-                    name: true,
-                    phone: true,
-                    address: true
-                }
-            },
-            _count: {
-                select: {
-                    vehicles: true,
-                    workshops: true
-                }
-            }
+        select: {
+            id: true,
+            name: true,
+            email: true,
+            cpfCnpj: true,
+            type: true,
+            profile: true,
+            phone: true,
+            city: true,
+            state: true,
+            isValidated: true,
+            createdAt: true
+            // ✅ REMOVIDO: updatedAt, vehicles, workshops, _count
         }
     });
 
@@ -193,13 +236,49 @@ export const getUserById = asyncHandler(async (req: Request, res: Response) => {
         throw new NotFoundError('User');
     }
 
+    // ✅ BUSCAR RELACIONAMENTOS SEPARADAMENTE
+    const [vehicles, workshops, vehiclesCount, workshopsCount] = await Promise.all([
+        prisma.vehicle.findMany({
+            where: { ownerId: user.id },
+            select: {
+                id: true,
+                licensePlate: true, // ✅ NOME CORRETO
+                active: true,
+                yearManufacture: true
+            }
+        }),
+        prisma.workshop.findMany({
+            where: { userId: user.id },
+            select: {
+                id: true,
+                name: true,
+                phone: true,
+                address: true
+            }
+        }),
+        prisma.vehicle.count({ where: { ownerId: user.id } }),
+        prisma.workshop.count({ where: { userId: user.id } })
+    ]);
+
     const documentValidation = validateDocument(user.cpfCnpj);
 
     const response: ApiResponse = {
         success: true,
         message: 'User found',
         data: {
-            ...user,
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            cpfCnpj: user.cpfCnpj,
+            type: user.type,
+            profile: user.profile,
+            phone: user.phone,
+            city: user.city,
+            state: user.state,
+            isValidated: user.isValidated,
+            createdAt: user.createdAt,
+            vehicles: vehicles, // ✅ AGORA EXISTE
+            workshops: workshops, // ✅ AGORA EXISTE
             formatted: {
                 document: documentValidation.formatted,
                 documentType: documentValidation.type,
@@ -207,9 +286,9 @@ export const getUserById = asyncHandler(async (req: Request, res: Response) => {
                 createdAt: user.createdAt.toLocaleDateString('pt-BR')
             },
             stats: {
-                vehiclesCount: user._count.vehicles,
-                workshopsCount: user._count.workshops,
-                activeVehicles: user.vehicles.filter(v => v.active).length
+                vehiclesCount: vehiclesCount,
+                workshopsCount: workshopsCount,
+                activeVehicles: vehicles.filter(v => v.active).length
             }
         }
     };
@@ -217,21 +296,20 @@ export const getUserById = asyncHandler(async (req: Request, res: Response) => {
     res.json(response);
 });
 
-// Atualizar usuário
+// ✅ CORRIGIR updateUser
 export const updateUser = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
     const updateData: UserUpdateData = req.body;
 
-    // Verificar se o usuário existe
     const existingUser = await prisma.user.findUnique({
-        where: { id }
+        where: { id },
+        select: { id: true, email: true }
     });
 
     if (!existingUser) {
         throw new NotFoundError('User');
     }
 
-    // Verificar se email está sendo alterado e se já existe
     if (updateData.email && updateData.email !== existingUser.email) {
         const emailExists = await prisma.user.findUnique({
             where: { email: updateData.email }
@@ -242,7 +320,6 @@ export const updateUser = asyncHandler(async (req: Request, res: Response) => {
         }
     }
 
-    // Preparar dados para atualização (apenas campos que existem no schema)
     const dataToUpdate: any = {};
 
     if (updateData.name) dataToUpdate.name = updateData.name.trim();
@@ -251,19 +328,31 @@ export const updateUser = asyncHandler(async (req: Request, res: Response) => {
     if (updateData.city !== undefined) dataToUpdate.city = updateData.city;
     if (updateData.state !== undefined) dataToUpdate.state = updateData.state?.toUpperCase();
 
-    // Atualizar usuário
+    // ✅ ATUALIZAR USUÁRIO SIMPLES
     const user = await prisma.user.update({
         where: { id },
         data: dataToUpdate,
-        include: {
-            _count: {
-                select: {
-                    vehicles: true,
-                    workshops: true
-                }
-            }
+        select: {
+            id: true,
+            name: true,
+            email: true,
+            cpfCnpj: true,
+            type: true,
+            profile: true,
+            phone: true,
+            city: true,
+            state: true,
+            isValidated: true,
+            createdAt: true
+            // ✅ REMOVIDO: updatedAt, _count
         }
     });
+
+    // ✅ BUSCAR CONTADORES SEPARADAMENTE  
+    const [vehiclesCount, workshopsCount] = await Promise.all([
+        prisma.vehicle.count({ where: { ownerId: user.id } }),
+        prisma.workshop.count({ where: { userId: user.id } })
+    ]);
 
     const documentValidation = validateDocument(user.cpfCnpj);
 
@@ -271,15 +360,25 @@ export const updateUser = asyncHandler(async (req: Request, res: Response) => {
         success: true,
         message: 'User updated successfully',
         data: {
-            ...user,
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            cpfCnpj: user.cpfCnpj,
+            type: user.type,
+            profile: user.profile,
+            phone: user.phone,
+            city: user.city,
+            state: user.state,
+            isValidated: user.isValidated,
+            createdAt: user.createdAt,
             formatted: {
                 document: documentValidation.formatted,
                 documentType: documentValidation.type,
                 phone: user.phone ? formatPhone(user.phone) : null
             },
             stats: {
-                vehiclesCount: user._count.vehicles,
-                workshopsCount: user._count.workshops
+                vehiclesCount: vehiclesCount,
+                workshopsCount: workshopsCount
             }
         }
     };
@@ -287,13 +386,14 @@ export const updateUser = asyncHandler(async (req: Request, res: Response) => {
     res.json(response);
 });
 
-// Validar usuário (alternar isValidated)
+// ✅ validateUser e getUserByDocument CORRETOS (não usam _count)
 export const validateUser = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
     const { validated } = req.body;
 
     const user = await prisma.user.findUnique({
-        where: { id }
+        where: { id },
+        select: { id: true, name: true, email: true }
     });
 
     if (!user) {
@@ -302,25 +402,25 @@ export const validateUser = asyncHandler(async (req: Request, res: Response) => 
 
     const updatedUser = await prisma.user.update({
         where: { id },
-        data: { isValidated: validated === true }
+        data: { isValidated: validated === true },
+        select: {
+            id: true,
+            name: true,
+            email: true,
+            isValidated: true
+            // ✅ REMOVIDO: updatedAt
+        }
     });
 
     const response: ApiResponse = {
         success: true,
         message: `User ${validated ? 'validated' : 'unvalidated'} successfully`,
-        data: {
-            id: updatedUser.id,
-            name: updatedUser.name,
-            email: updatedUser.email,
-            isValidated: updatedUser.isValidated,
-            updatedAt: new Date()
-        }
+        data: updatedUser
     };
 
     res.json(response);
 });
 
-// Buscar usuários por documento (para verificação de duplicatas)
 export const getUserByDocument = asyncHandler(async (req: Request, res: Response) => {
     const { document } = req.params;
 
@@ -328,7 +428,6 @@ export const getUserByDocument = asyncHandler(async (req: Request, res: Response
         throw new ValidationError('Document parameter is required');
     }
 
-    // Limpar documento para busca
     const cleanDocument = document.replace(/\D/g, '');
 
     const user = await prisma.user.findUnique({
@@ -355,7 +454,14 @@ export const getUserByDocument = asyncHandler(async (req: Request, res: Response
         success: true,
         message: 'User found by document',
         data: {
-            ...user,
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            cpfCnpj: user.cpfCnpj,
+            type: user.type,
+            profile: user.profile,
+            isValidated: user.isValidated,
+            createdAt: user.createdAt,
             formatted: {
                 document: documentValidation.formatted,
                 documentType: documentValidation.type,
