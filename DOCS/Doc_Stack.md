@@ -1,5 +1,7 @@
 # Stack Recomendada
 
+https://x.com/brunocroh/status/1948118826320830717
+
 ## 1. Backend
 
 ## 2. Banco de Dados
