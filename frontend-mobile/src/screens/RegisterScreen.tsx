@@ -120,10 +120,8 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
                 type: 'success'
             });
 
-            // Redirecionar após sucesso
-            setTimeout(() => {
-                navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
-            }, 1500);
+            // ✅ O useAuth automaticamente gerencia a navegação após registro
+            // Não precisa navegar manualmente
 
         } catch (error: any) {
             setSnackbar({

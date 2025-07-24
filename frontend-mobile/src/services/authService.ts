@@ -138,6 +138,21 @@ export class AuthService {
         }
     }
 
+    // ✅ LIMPAR STORAGE CORROMPIDO
+    static async clearCorruptedStorage(): Promise<void> {
+        try {
+            console.log('Limpando AsyncStorage corrompido...');
+            await Promise.all([
+                AsyncStorage.removeItem(STORAGE_KEYS.TOKEN),
+                AsyncStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN),
+                AsyncStorage.removeItem(STORAGE_KEYS.USER),
+            ]);
+            console.log('AsyncStorage limpo com sucesso');
+        } catch (error) {
+            console.error('Erro ao limpar storage corrompido:', error);
+        }
+    }
+
     // ✅ SALVAR DADOS DE AUTENTICAÇÃO
     private static async saveAuthData(authData: {
         token: string;
@@ -159,9 +174,20 @@ export class AuthService {
     // ✅ OBTER TOKEN
     static async getToken(): Promise<string | null> {
         try {
-            return await AsyncStorage.getItem(STORAGE_KEYS.TOKEN);
+            const token = await AsyncStorage.getItem(STORAGE_KEYS.TOKEN);
+            if (!token) return null;
+
+            // ✅ Verificar se token não está corrompido
+            if (token.length < 10 || !token.includes('.')) {
+                console.warn('Token corrompido detectado, limpando AsyncStorage...');
+                await this.clearCorruptedStorage();
+                return null;
+            }
+
+            return token;
         } catch (error) {
             console.error('Erro ao obter token:', error);
+            await this.clearCorruptedStorage();
             return null;
         }
     }
@@ -170,9 +196,20 @@ export class AuthService {
     static async getUser(): Promise<AuthUser | null> {
         try {
             const userData = await AsyncStorage.getItem(STORAGE_KEYS.USER);
-            return userData ? JSON.parse(userData) : null;
+            if (!userData) return null;
+
+            // ✅ Verificar se é um JSON válido antes de fazer parse
+            if (userData.length < 2 || !userData.startsWith('{')) {
+                console.warn('Dados de usuário corrompidos, limpando AsyncStorage...');
+                await this.clearCorruptedStorage();
+                return null;
+            }
+
+            return JSON.parse(userData);
         } catch (error) {
             console.error('Erro ao obter usuário:', error);
+            // ✅ Se JSON estiver corrompido, limpar storage
+            await this.clearCorruptedStorage();
             return null;
         }
     }
@@ -194,12 +231,30 @@ export class AuthService {
     // ✅ VERIFICAR SE TOKEN ESTÁ EXPIRADO
     private static isTokenExpired(token: string): boolean {
         try {
+            // ✅ Verificar se token não está corrompido antes de processar
+            if (!token || token.length < 10 || !token.includes('.')) {
+                console.warn('Token inválido detectado na verificação de expiração');
+                return true;
+            }
+
             // Decode JWT payload (React Native compatible)
             const base64Url = token.split('.')[1];
+            if (!base64Url) {
+                console.warn('Token inválido: não possui payload');
+                return true;
+            }
+
             const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
 
             // Simple base64 decode for React Native
             const decoded = this.base64Decode(base64);
+
+            // ✅ Verificar se o decoded é um JSON válido
+            if (!decoded || decoded.trim().length < 2 || !decoded.trim().startsWith('{')) {
+                console.warn('Payload do token inválido após decode');
+                return true;
+            }
+
             const payload = JSON.parse(decoded);
 
             const exp = payload.exp * 1000; // Converter para milliseconds

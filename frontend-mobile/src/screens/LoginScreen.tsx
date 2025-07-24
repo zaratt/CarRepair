@@ -40,8 +40,8 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                 password,
             });
 
-            // Sucesso - o useAuth automaticamente redireciona via navigation
-            navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
+            // ✅ Sucesso - o useAuth automaticamente gerencia a navegação
+            // Não precisa navegar manualmente aqui
         } catch (error: any) {
             setSnackbar({
                 visible: true,

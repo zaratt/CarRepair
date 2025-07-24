@@ -34,6 +34,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
         try {
             setIsLoading(true);
 
+            // ✅ LIMPEZA EMERGENCIAL PRIMEIRO
+            const { emergencyStorageCleanup } = await import('../utils/emergencyCleanup');
+            await emergencyStorageCleanup();
+
             const isLoggedIn = await AuthService.isLoggedIn();
             if (isLoggedIn) {
                 const userData = await AuthService.getUser();
