@@ -7,6 +7,7 @@ import { ActivityIndicator, Card, Divider, IconButton, Text } from 'react-native
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getStatistics, useDashboardSummary, useDashboardVehicles } from '../api/api';
 import FloatingBottomTabs from '../components/FloatingBottomTabs';
+import { useAuth } from '../hooks/useAuth';
 import { RootStackParamList } from '../navigation/types';
 
 type Props = {
@@ -14,6 +15,7 @@ type Props = {
 };
 
 const HomeScreen: React.FC<Props> = ({ navigation }) => {
+    const { logout } = useAuth();
     const [profile, setProfile] = useState<string | null>(null);
     const [statistics, setStatistics] = useState<any>(null);
     const [userId, setUserId] = useState<string | null>(null);
@@ -54,8 +56,9 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     }, [userId, profile]);
 
     const handleLogout = async () => {
-        await AsyncStorage.removeItem('user');
-        navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+        // ✅ Usar o logout do useAuth em vez de limpar AsyncStorage manualmente
+        await logout();
+        // ✅ useAuth + AppNavigator cuidam da navegação automaticamente
     };
 
     return (

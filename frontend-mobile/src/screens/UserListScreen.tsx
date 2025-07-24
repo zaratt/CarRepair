@@ -29,7 +29,9 @@ const UserListScreen: React.FC<Props> = ({ navigation }) => {
                     setProfile(user.profile);
                     setUserId(user.userId || user.id);
                     if (user.profile === 'car_owner') {
-                        navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
+                        // ✅ Remover navegação manual - deixar o AppNavigator gerenciar
+                        // O usuário já está na tela correta baseada no estado de autenticação
+                        console.log('Usuário car_owner detectado, mantendo na tela atual');
                     }
                 } catch {
                     setProfile(null);
