@@ -332,8 +332,8 @@ app.get('/api/users/:id', async (req, res) => {
 // POST: Criar usuário
 app.post('/api/users', async (req, res) => {
     try {
-        const { name, email, cpfCnpj, type, profile } = req.body;
-        if (!name || !email || !cpfCnpj || !type || !profile) {
+        const { name, email, cpfCnpj, type, profile, password } = req.body;
+        if (!name || !email || !cpfCnpj || !type || !profile || !password) {
             return res.status(400).json({ error: 'Todos os campos são obrigatórios' });
         }
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -348,6 +348,11 @@ app.post('/api/users', async (req, res) => {
         if (existingUser) {
             return res.status(400).json({ error: 'Email ou CPF/CNPJ já cadastrado' });
         }
+
+        // Hash da senha
+        const bcrypt = require('bcrypt');
+        const hashedPassword = await bcrypt.hash(password, 10);
+
         const user = await prisma.user.create({
             data: {
                 name,
@@ -355,6 +360,7 @@ app.post('/api/users', async (req, res) => {
                 cpfCnpj,
                 type,
                 profile,
+                password: hashedPassword,
                 createdAt: new Date()
             }
         });
@@ -1322,17 +1328,25 @@ app.get('/api/workshops/:id/ratings', async (req, res) => {
     }
 });
 
-// LOGIN (protótipo: email + cpfCnpj)
+// LOGIN (email + password)
 app.post('/api/login', async (req, res) => {
     try {
-        const { email, cpfCnpj } = req.body;
-        if (!email || !cpfCnpj) {
-            return res.status(400).json({ error: 'Email e CPF/CNPJ são obrigatórios' });
+        const { email, password } = req.body;
+        if (!email || !password) {
+            return res.status(400).json({ error: 'Email e senha são obrigatórios' });
         }
-        const user = await prisma.user.findFirst({ where: { email, cpfCnpj } });
+        const user = await prisma.user.findFirst({ where: { email } });
         if (!user) {
             return res.status(401).json({ error: 'Credenciais inválidas' });
         }
+
+        // Verificar senha
+        const bcrypt = require('bcrypt');
+        const isValidPassword = await bcrypt.compare(password, user.password);
+        if (!isValidPassword) {
+            return res.status(401).json({ error: 'Credenciais inválidas' });
+        }
+
         // Para produção, gere e retorne um JWT aqui
         res.json({
             userId: user.id,

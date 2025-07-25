@@ -109,7 +109,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
                 password: formData.password,
                 confirmPassword: formData.confirmPassword,
                 document: DocumentValidator.removeFormatting(formData.document),
-                phone: formData.phone ? PhoneValidator.removeFormatting(formData.phone) : undefined,
+                phone: formData.phone || undefined,
                 city: formData.city || undefined,
                 state: formData.state ? formData.state.toUpperCase() : undefined,
             });

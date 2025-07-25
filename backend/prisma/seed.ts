@@ -62,7 +62,8 @@ async function main() {
             phone: '11999999999',
             city: 'São Paulo',
             state: 'SP',
-            isValidated: true
+            isValidated: true,
+            password: '$2b$10$defaultPasswordHashForSeeding'
         }
     });
 
@@ -78,7 +79,8 @@ async function main() {
             phone: '11888888888',
             city: 'São Paulo',
             state: 'SP',
-            isValidated: true
+            isValidated: true,
+            password: '$2b$10$defaultPasswordHashForSeeding'
         }
     });
 
