@@ -332,7 +332,7 @@ app.get('/api/users/:id', async (req, res) => {
 // POST: Criar usuário
 app.post('/api/users', async (req, res) => {
     try {
-        const { name, email, cpfCnpj, type, profile, password } = req.body;
+        const { name, email, cpfCnpj, type, profile, password, phone, city, state } = req.body;
         if (!name || !email || !cpfCnpj || !type || !profile || !password) {
             return res.status(400).json({ error: 'Todos os campos são obrigatórios' });
         }
@@ -361,10 +361,39 @@ app.post('/api/users', async (req, res) => {
                 type,
                 profile,
                 password: hashedPassword,
+                phone,
+                city,
+                state,
                 createdAt: new Date()
             }
         });
-        res.status(201).json(user);
+
+        // Gerar tokens para o novo usuário
+        const jwt = require('jsonwebtoken');
+        const token = jwt.sign(
+            { userId: user.id, email: user.email },
+            'jwt_secret_key',
+            { expiresIn: '24h' }
+        );
+        const refreshToken = jwt.sign(
+            { userId: user.id },
+            'refresh_secret_key',
+            { expiresIn: '7d' }
+        );
+
+        res.status(201).json({
+            data: {
+                token,
+                refreshToken,
+                user: {
+                    id: user.id,
+                    name: user.name,
+                    email: user.email,
+                    profile: user.profile,
+                    type: user.type
+                }
+            }
+        });
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: 'Erro ao criar usuário' });
@@ -1347,13 +1376,31 @@ app.post('/api/login', async (req, res) => {
             return res.status(401).json({ error: 'Credenciais inválidas' });
         }
 
-        // Para produção, gere e retorne um JWT aqui
+        // Gerar tokens (simples para desenvolvimento)
+        const jwt = require('jsonwebtoken');
+        const token = jwt.sign(
+            { userId: user.id, email: user.email },
+            'jwt_secret_key',
+            { expiresIn: '24h' }
+        );
+        const refreshToken = jwt.sign(
+            { userId: user.id },
+            'refresh_secret_key',
+            { expiresIn: '7d' }
+        );
+
         res.json({
-            userId: user.id,
-            name: user.name,
-            email: user.email,
-            profile: user.profile,
-            type: user.type
+            data: {
+                token,
+                refreshToken,
+                user: {
+                    id: user.id,
+                    name: user.name,
+                    email: user.email,
+                    profile: user.profile,
+                    type: user.type
+                }
+            }
         });
     } catch (error) {
         console.error(error);
