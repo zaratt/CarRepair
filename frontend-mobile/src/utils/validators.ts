@@ -1,42 +1,11 @@
+import { validate as validateCpf } from 'gerador-validador-cpf';
+
 export class DocumentValidator {
-    // ✅ LISTA DE CPFs INVÁLIDOS CONHECIDOS
-    private static readonly INVALID_CPFS = [
-        '00000000000', '11111111111', '22222222222', '33333333333',
-        '44444444444', '55555555555', '66666666666', '77777777777',
-        '88888888888', '99999999999'
-    ];
-
-    // ✅ VALIDAR CPF (somente numérico)
-    static isValidCPF(cpf: string): boolean {
+    // ✅ VALIDAR CPF (usando biblioteca gerador-validador-cpf)
+    static isValidCPF(cpfStr: string): boolean {
         try {
-            // Remove caracteres não numéricos
-            const cleanCPF = cpf.replace(/[^\d]/g, '');
-
-            // Verifica se tem exatamente 11 dígitos
-            if (cleanCPF.length !== 11) return false;
-
-            // Verifica se não é um CPF conhecido como inválido
-            if (this.INVALID_CPFS.includes(cleanCPF)) return false;
-
-            // Validação do primeiro dígito verificador
-            let sum = 0;
-            for (let i = 0; i < 9; i++) {
-                sum += parseInt(cleanCPF[i]) * (10 - i);
-            }
-            let remainder = sum % 11;
-            const digit1 = remainder < 2 ? 0 : 11 - remainder;
-
-            if (parseInt(cleanCPF[9]) !== digit1) return false;
-
-            // Validação do segundo dígito verificador
-            sum = 0;
-            for (let i = 0; i < 10; i++) {
-                sum += parseInt(cleanCPF[i]) * (11 - i);
-            }
-            remainder = sum % 11;
-            const digit2 = remainder < 2 ? 0 : 11 - remainder;
-
-            return parseInt(cleanCPF[10]) === digit2;
+            // A biblioteca já lida com formatação automaticamente
+            return validateCpf(cpfStr);
         } catch (error) {
             return false;
         }
@@ -100,7 +69,6 @@ export class DocumentValidator {
         isValid: boolean;
         type: 'CPF' | 'CNPJ' | null;
         error?: string;
-        formatted?: string;
     } {
         const cleanNumeric = document.replace(/[^\d]/g, '');
         const cleanAlphanumeric = document.replace(/[^0-9A-Za-z]/g, '');
@@ -111,18 +79,16 @@ export class DocumentValidator {
             return {
                 isValid,
                 type: 'CPF',
-                error: isValid ? undefined : 'CPF inválido',
-                formatted: isValid ? this.formatCPF(cleanNumeric) : undefined
+                error: isValid ? undefined : 'CPF inválido'
             };
         }
-        // Depois tenta como CNPJ (numérico ou alfanumérico)
+        // Depois tenta como CNPJ (alfanumérico)
         else if (cleanAlphanumeric.length === 14) {
             const isValid = this.isValidCNPJ(document);
             return {
                 isValid,
                 type: 'CNPJ',
-                error: isValid ? undefined : 'CNPJ inválido',
-                formatted: isValid ? this.formatCNPJ(cleanAlphanumeric) : undefined
+                error: isValid ? undefined : 'CNPJ inválido'
             };
         }
 
@@ -131,7 +97,7 @@ export class DocumentValidator {
             return {
                 isValid: false,
                 type: null,
-                error: 'Digite CPF (11 dígitos) ou CNPJ (14 caracteres)'
+                error: 'Digite CPF (11 dígitos) ou CNPJ (14 caracteres alfanuméricos)'
             };
         } else if (cleanNumeric.length > 0 && cleanNumeric.length < 11) {
             return {
@@ -149,12 +115,12 @@ export class DocumentValidator {
             return {
                 isValid: false,
                 type: null,
-                error: 'Documento deve ter 11 dígitos (CPF) ou 14 caracteres (CNPJ)'
+                error: 'Documento deve ter 11 dígitos (CPF) ou 14 caracteres alfanuméricos (CNPJ)'
             };
         }
     }
 
-    // ✅ FORMATAR CPF (mantém formatação numérica)
+    // ✅ FORMATAR CPF
     static formatCPF(cpf: string): string {
         const clean = cpf.replace(/[^\d]/g, '');
         if (clean.length === 11) {
@@ -163,7 +129,7 @@ export class DocumentValidator {
         return cpf;
     }
 
-    // ✅ FORMATAR CNPJ (numérico E alfanumérico)
+    // ✅ FORMATAR CNPJ (alfanumérico)
     static formatCNPJ(cnpj: string): string {
         const clean = cnpj.replace(/[^0-9A-Za-z]/g, '').toUpperCase();
         if (clean.length === 14) {
@@ -214,29 +180,6 @@ export class DocumentValidator {
     // ✅ REMOVER FORMATAÇÃO (permite alfanuméricos)
     static removeFormatting(document: string): string {
         return document.replace(/[^0-9A-Za-z]/g, '').toUpperCase();
-    }
-
-    // ✅ GERAR CPF VÁLIDO PARA TESTES
-    static generateValidCPF(): string {
-        const cpfBase = Math.floor(Math.random() * 900000000) + 100000000;
-        const cpfString = cpfBase.toString();
-
-        // Calcular primeiro dígito
-        let sum = 0;
-        for (let i = 0; i < 9; i++) {
-            sum += parseInt(cpfString[i]) * (10 - i);
-        }
-        const digit1 = (sum % 11) < 2 ? 0 : 11 - (sum % 11);
-
-        // Calcular segundo dígito
-        sum = 0;
-        for (let i = 0; i < 9; i++) {
-            sum += parseInt(cpfString[i]) * (11 - i);
-        }
-        sum += digit1 * 2;
-        const digit2 = (sum % 11) < 2 ? 0 : 11 - (sum % 11);
-
-        return cpfString + digit1 + digit2;
     }
 
     // ✅ GERAR CNPJ ALFANUMÉRICO VÁLIDO PARA TESTES

@@ -136,6 +136,26 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
         navigation.navigate('Login');
     };
 
+    const clearForm = () => {
+        setFormData({
+            name: '',
+            email: '',
+            password: '',
+            confirmPassword: '',
+            document: '',
+            phone: '',
+            city: '',
+            state: '',
+            userType: 'car_owner',
+        });
+
+        setSnackbar({
+            visible: true,
+            message: 'Formulário limpo!',
+            type: 'success'
+        });
+    };
+
     const formatDocument = (value: string) => {
         const formatted = DocumentValidator.formatDocument(value);
         updateFormData('document', formatted);
@@ -150,7 +170,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
         <ScrollView style={styles.container}>
             <View style={styles.header}>
                 <MaterialCommunityIcons name="account-plus" size={48} color="#1976d2" style={{ marginBottom: 12 }} />
-                <Text variant="titleLarge" style={{ marginBottom: 8, fontWeight: 'bold', color: '#222' }}>
+                <Text variant="titleLarge" style={{ marginBottom: 12, fontWeight: 'bold', color: '#222' }}>
                     Criar Conta
                 </Text>
                 <Text style={{ marginBottom: 24, color: '#666', textAlign: 'center' }}>
@@ -203,7 +223,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
                 />
 
                 <TextInput
-                    label={formData.userType === 'wshop_owner' ? 'CNPJ *' : 'CPF ou CNPJ *'}
+                    label={formData.userType === 'wshop_owner' ? 'CNPJ *' : 'CPF *'}
                     value={formData.document}
                     onChangeText={formatDocument}
                     keyboardType="numeric"
@@ -286,27 +306,43 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
                 </Text>
 
                 {/* Botões */}
-                <Button
-                    mode="contained"
-                    onPress={handleRegister}
-                    loading={isLoading}
-                    disabled={isLoading}
-                    style={styles.button}
-                    contentStyle={{ paddingVertical: 6 }}
-                    labelStyle={{ fontWeight: 'bold', fontSize: 16 }}
-                >
-                    Criar Conta
-                </Button>
+                <View style={styles.buttonContainer}>
+                    <Button
+                        mode="contained"
+                        onPress={handleRegister}
+                        loading={isLoading}
+                        disabled={isLoading}
+                        style={[styles.button, styles.primaryButton]}
+                        contentStyle={{ paddingVertical: 6 }}
+                        labelStyle={{ fontWeight: 'bold', fontSize: 16 }}
+                    >
+                        Criar Conta
+                    </Button>
 
-                <Button
-                    mode="text"
-                    onPress={goToLogin}
-                    disabled={isLoading}
-                    style={styles.textButton}
-                    labelStyle={{ color: '#1976d2' }}
-                >
-                    Já tenho uma conta
-                </Button>
+                    <View style={styles.secondaryButtonsContainer}>
+                        <Button
+                            mode="outlined"
+                            onPress={clearForm}
+                            disabled={isLoading}
+                            style={[styles.button, styles.clearButton]}
+                            contentStyle={{ paddingVertical: 4 }}
+                            labelStyle={{ color: '#ff6b35', fontWeight: '500' }}
+                            icon="eraser"
+                        >
+                            Limpar
+                        </Button>
+
+                        <Button
+                            mode="text"
+                            onPress={goToLogin}
+                            disabled={isLoading}
+                            style={styles.textButton}
+                            labelStyle={{ color: '#1976d2' }}
+                        >
+                            Já tenho uma conta
+                        </Button>
+                    </View>
+                </View>
             </View>
 
             <Snackbar
@@ -332,7 +368,7 @@ const styles = StyleSheet.create({
     },
     header: {
         alignItems: 'center',
-        paddingTop: 40,
+        paddingTop: 50, // ✅ Mudança: 40px → 50px (mais 10px para afastar dos sensores)
         paddingHorizontal: 24,
         paddingBottom: 20,
     },
@@ -370,12 +406,29 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         lineHeight: 16,
     },
+    buttonContainer: {
+        marginTop: 8,
+    },
     button: {
         marginBottom: 12,
         borderRadius: 8,
+    },
+    primaryButton: {
         backgroundColor: '#1976d2',
     },
+    secondaryButtonsContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        gap: 12,
+    },
+    clearButton: {
+        flex: 1,
+        borderColor: '#ff6b35',
+        borderWidth: 1.5,
+    },
     textButton: {
+        flex: 1,
         marginBottom: 8,
     },
 });
