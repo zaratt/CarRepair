@@ -9,9 +9,11 @@ import {
     HomeScreen,
     InspectionScreen,
     MaintenanceScreen,
-    ProfileScreen,
     VehiclesScreen
 } from '../screens/car-owner';
+
+// Profile Stack Navigator
+import ProfileStackNavigator from './ProfileStackNavigator';
 
 const Tab = createBottomTabNavigator();
 
@@ -92,7 +94,7 @@ export default function TabNavigator() {
 
             <Tab.Screen
                 name="Profile"
-                component={ProfileScreen}
+                component={ProfileStackNavigator}
                 options={{
                     tabBarLabel: 'Perfil',
                     tabBarIcon: ({ color, size }) => (

@@ -1,94 +1,135 @@
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import React from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
-import { Avatar, Button, Card, Divider, Text } from 'react-native-paper';
+import { useNavigation } from '@react-navigation/native';
+import React, { useState } from 'react';
+import { Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { Avatar, Button, Card, Divider, List, Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AppColors } from '../../styles/colors';
 
 export default function ProfileScreen() {
+    const navigation = useNavigation();
+    const [user] = useState({
+        name: 'João Silva',
+        email: 'joao.silva@email.com',
+        phone: '(11) 99999-9999',
+        avatar: null,
+    });
+
+    const handleLogout = () => {
+        Alert.alert(
+            'Sair da Conta',
+            'Tem certeza que deseja sair?',
+            [
+                { text: 'Cancelar', style: 'cancel' },
+                {
+                    text: 'Sair',
+                    style: 'destructive',
+                    onPress: () => {
+                        console.log('Logout executado'); // ✅ Log como solicitado
+                        // TODO: Implementar logout real em release futuro
+                    }
+                }
+            ]
+        );
+    };
+
     return (
         <SafeAreaView style={styles.container}>
-            <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollView}>
+            <ScrollView showsVerticalScrollIndicator={false}>
+
+                {/* 🟡 HEADER AMARELO COM PERFIL */}
                 <View style={styles.header}>
-                    <Text variant="headlineMedium" style={styles.title}>
-                        👤 Meu Perfil
+                    <Avatar.Text
+                        size={80}
+                        label={user.name.split(' ').map(n => n[0]).join('')}
+                        style={styles.avatar}
+                        labelStyle={styles.avatarText}
+                    />
+                    <Text variant="headlineSmall" style={styles.userName}>
+                        {user.name}
                     </Text>
-                    <Text variant="bodyMedium" style={styles.subtitle}>
-                        Gerencie suas informações pessoais
+                    <Text variant="bodyMedium" style={styles.userEmail}>
+                        {user.email}
                     </Text>
                 </View>
 
-                {/* Profile Card */}
-                <Card style={styles.profileCard}>
-                    <Card.Content style={styles.profileContent}>
-                        <Avatar.Text size={80} label="JS" style={styles.avatar} />
-                        <Text variant="titleLarge" style={styles.userName}>
-                            João Silva
-                        </Text>
-                        <Text variant="bodyMedium" style={styles.userEmail}>
-                            joao.silva@email.com
-                        </Text>
-                        <Text variant="bodySmall" style={styles.userType}>
-                            Proprietário de Veículo
-                        </Text>
-                    </Card.Content>
-                </Card>
-
-                {/* Menu Options */}
-                <Card style={styles.menuCard}>
+                {/* ⚪ SEÇÃO MEU PERFIL */}
+                <Card style={styles.section}>
                     <Card.Content>
-                        <View style={styles.menuItem}>
-                            <MaterialCommunityIcons name="account-edit" size={24} color="#1976d2" />
-                            <Text variant="titleMedium" style={styles.menuText}>
-                                Editar Perfil
-                            </Text>
-                            <MaterialCommunityIcons name="chevron-right" size={24} color="#666" />
-                        </View>
+                        <Text variant="titleMedium" style={styles.sectionTitle}>
+                            Meu Perfil
+                        </Text>
 
-                        <Divider style={styles.divider} />
-
-                        <View style={styles.menuItem}>
-                            <MaterialCommunityIcons name="bell-outline" size={24} color="#1976d2" />
-                            <Text variant="titleMedium" style={styles.menuText}>
-                                Notificações
-                            </Text>
-                            <MaterialCommunityIcons name="chevron-right" size={24} color="#666" />
-                        </View>
-
-                        <Divider style={styles.divider} />
-
-                        <View style={styles.menuItem}>
-                            <MaterialCommunityIcons name="help-circle-outline" size={24} color="#1976d2" />
-                            <Text variant="titleMedium" style={styles.menuText}>
-                                Ajuda & Suporte
-                            </Text>
-                            <MaterialCommunityIcons name="chevron-right" size={24} color="#666" />
-                        </View>
-
-                        <Divider style={styles.divider} />
-
-                        <View style={styles.menuItem}>
-                            <MaterialCommunityIcons name="cog-outline" size={24} color="#1976d2" />
-                            <Text variant="titleMedium" style={styles.menuText}>
-                                Configurações
-                            </Text>
-                            <MaterialCommunityIcons name="chevron-right" size={24} color="#666" />
-                        </View>
+                        <List.Item
+                            title="Editar Perfil"
+                            description="Alterar dados pessoais"
+                            left={(props) => <List.Icon {...props} icon="account-edit" color={AppColors.text} />}
+                            right={(props) => <List.Icon {...props} icon="chevron-right" color={AppColors.text} />}
+                            onPress={() => navigation.navigate('EditProfile' as never)}
+                            style={styles.listItem}
+                        />
                     </Card.Content>
                 </Card>
 
-                {/* Logout Button */}
+                {/* ⚪ SEÇÃO PREFERÊNCIAS */}
+                <Card style={styles.section}>
+                    <Card.Content>
+                        <Text variant="titleMedium" style={styles.sectionTitle}>
+                            Preferências
+                        </Text>
+
+                        <List.Item
+                            title="Notificações"
+                            description="Gerenciar notificações"
+                            left={(props) => <List.Icon {...props} icon="bell" color={AppColors.text} />}
+                            right={(props) => <List.Icon {...props} icon="chevron-right" color={AppColors.text} />}
+                            onPress={() => navigation.navigate('Notifications' as never)}
+                            style={styles.listItem}
+                        />
+
+                        <Divider style={styles.divider} />
+
+                        <List.Item
+                            title="Configurações"
+                            description="Configurações do app"
+                            left={(props) => <List.Icon {...props} icon="cog" color={AppColors.text} />}
+                            right={(props) => <List.Icon {...props} icon="chevron-right" color={AppColors.text} />}
+                            onPress={() => navigation.navigate('Configurations' as never)}
+                            style={styles.listItem}
+                        />
+                    </Card.Content>
+                </Card>
+
+                {/* ⚪ SEÇÃO SUPORTE */}
+                <Card style={styles.section}>
+                    <Card.Content>
+                        <Text variant="titleMedium" style={styles.sectionTitle}>
+                            Suporte
+                        </Text>
+
+                        <List.Item
+                            title="Ajuda & Suporte"
+                            description="Central de ajuda e contato"
+                            left={(props) => <List.Icon {...props} icon="help-circle" color={AppColors.text} />}
+                            right={(props) => <List.Icon {...props} icon="chevron-right" color={AppColors.text} />}
+                            onPress={() => navigation.navigate('HelpSupport' as never)}
+                            style={styles.listItem}
+                        />
+                    </Card.Content>
+                </Card>
+
+                {/* 🔴 BOTÃO SAIR */}
                 <Button
-                    mode="outlined"
-                    onPress={() => console.log('Logout')}
+                    mode="contained"
+                    onPress={handleLogout}
                     style={styles.logoutButton}
-                    contentStyle={styles.logoutContent}
-                    labelStyle={styles.logoutLabel}
+                    contentStyle={styles.logoutButtonContent}
+                    labelStyle={styles.logoutButtonText}
                     icon="logout"
                 >
                     Sair da Conta
                 </Button>
 
-                {/* Bottom Spacer */}
+                {/* Espaçamento para tab bar */}
                 <View style={styles.bottomSpacer} />
             </ScrollView>
         </SafeAreaView>
@@ -98,84 +139,66 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#f5f5f5',
-    },
-    scrollView: {
-        flex: 1,
+        backgroundColor: AppColors.white,
     },
     header: {
-        paddingHorizontal: 20,
-        paddingTop: 20,
-        paddingBottom: 10,
-    },
-    title: {
-        fontWeight: 'bold',
-        color: '#222',
-        marginBottom: 4,
-    },
-    subtitle: {
-        color: '#666',
-    },
-    profileCard: {
-        marginHorizontal: 20,
-        marginTop: 10,
-        elevation: 3,
-        borderRadius: 12,
-    },
-    profileContent: {
+        backgroundColor: AppColors.primary,
         alignItems: 'center',
-        paddingVertical: 30,
+        paddingTop: 30,
+        paddingBottom: 40,
+        paddingHorizontal: 20,
     },
     avatar: {
-        backgroundColor: '#1976d2',
+        backgroundColor: AppColors.white,
         marginBottom: 16,
     },
-    userName: {
+    avatarText: {
+        color: AppColors.text,
         fontWeight: 'bold',
-        color: '#222',
+    },
+    userName: {
+        color: AppColors.text,
+        fontWeight: 'bold',
         marginBottom: 4,
     },
     userEmail: {
-        color: '#666',
-        marginBottom: 4,
+        color: AppColors.text,
+        opacity: 0.8,
     },
-    userType: {
-        color: '#1976d2',
-        fontWeight: '500',
-    },
-    menuCard: {
-        marginHorizontal: 20,
-        marginTop: 20,
-        elevation: 3,
+    section: {
+        marginHorizontal: 16,
+        marginTop: 16,
+        backgroundColor: AppColors.white,
         borderRadius: 12,
+        elevation: 2,
     },
-    menuItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 16,
+    sectionTitle: {
+        color: AppColors.text,
+        fontWeight: 'bold',
+        marginBottom: 8,
     },
-    menuText: {
-        flex: 1,
-        marginLeft: 16,
-        color: '#222',
+    listItem: {
+        paddingVertical: 8,
     },
     divider: {
+        backgroundColor: '#E0E0E0',
         marginVertical: 8,
     },
     logoutButton: {
-        marginHorizontal: 20,
-        marginTop: 20,
-        borderColor: '#d32f2f',
+        backgroundColor: AppColors.danger,
+        marginHorizontal: 16,
+        marginTop: 24,
         borderRadius: 8,
     },
-    logoutContent: {
+    logoutButtonContent: {
         paddingVertical: 8,
     },
-    logoutLabel: {
-        color: '#d32f2f',
-        fontWeight: '600',
+    logoutButtonText: {
+        color: AppColors.white,
+        fontWeight: 'bold',
+        fontSize: 16,
     },
     bottomSpacer: {
-        height: 120,
+        height: 112,
     },
 });
