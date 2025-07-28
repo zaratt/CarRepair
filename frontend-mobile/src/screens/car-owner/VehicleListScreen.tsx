@@ -10,7 +10,7 @@ import { mockVehicles } from '../../services/vehicleApi';
 import { AppColors } from '../../styles/colors';
 import { Vehicle } from '../../types/vehicle.types';
 
-export default function VehiclesScreen() {
+export default function VehicleListScreen() {
     const navigation = useNavigation();
     const [vehicles, setVehicles] = useState<Vehicle[]>([]);
     const [loading, setLoading] = useState(true);
@@ -112,46 +112,33 @@ export default function VehiclesScreen() {
     }
 
     return (
-        <View style={styles.container}>
-            {/* Header com fundo amarelo estendido */}
-            <View style={styles.headerContainer}>
-                <SafeAreaView style={styles.headerSafeArea}>
-                    <View style={styles.header}>
-                        <Text variant="headlineMedium" style={styles.headerTitle}>
-                            Meus Veículos
-                        </Text>
-                    </View>
-                </SafeAreaView>
-            </View>
+        <SafeAreaView style={styles.container}>
+            <FlatList
+                data={vehicles}
+                renderItem={renderVehicleItem}
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={styles.listContent}
+                showsVerticalScrollIndicator={false}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={handleRefresh}
+                        colors={[AppColors.primary]}
+                        tintColor={AppColors.primary}
+                    />
+                }
+                ListEmptyComponent={renderEmptyState}
+            />
 
-            <View style={styles.contentContainer}>
-                <FlatList
-                    data={vehicles}
-                    renderItem={renderVehicleItem}
-                    keyExtractor={(item) => item.id}
-                    contentContainerStyle={styles.listContent}
-                    showsVerticalScrollIndicator={false}
-                    refreshControl={
-                        <RefreshControl
-                            refreshing={refreshing}
-                            onRefresh={handleRefresh}
-                            colors={[AppColors.primary]}
-                            tintColor={AppColors.primary}
-                        />
-                    }
-                    ListEmptyComponent={renderEmptyState}
-                />
-
-                {/* FAB para adicionar veículo */}
-                <FAB
-                    style={styles.fab}
-                    icon="plus"
-                    onPress={handleAddVehicle}
-                    label="Adicionar"
-                    color={AppColors.text}
-                />
-            </View>
-        </View>
+            {/* FAB para adicionar veículo */}
+            <FAB
+                style={styles.fab}
+                icon="plus"
+                onPress={handleAddVehicle}
+                label="Adicionar"
+                color={AppColors.text}
+            />
+        </SafeAreaView>
     );
 }
 
@@ -159,27 +146,6 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: AppColors.white,
-    },
-    headerContainer: {
-        backgroundColor: AppColors.primary,
-    },
-    headerSafeArea: {
-        backgroundColor: AppColors.primary,
-    },
-    header: {
-        paddingHorizontal: 20,
-        paddingTop: 8,
-        paddingBottom: 16,
-        backgroundColor: AppColors.primary,
-    },
-    headerTitle: {
-        color: AppColors.text,
-        fontWeight: 'bold',
-        textAlign: 'center',
-        marginTop: 8, // Desce o texto 8px para melhor alinhamento visual
-    },
-    contentContainer: {
-        flex: 1,
     },
     listContent: {
         paddingTop: 8,
@@ -221,7 +187,7 @@ const styles = StyleSheet.create({
     fab: {
         position: 'absolute',
         right: 16,
-        bottom: 130, // 122px + 8px (subir como solicitado)
+        bottom: 122, // 112px (tabs) + 10px (margem solicitada)
         backgroundColor: AppColors.primary,
         borderRadius: 28,
     },
