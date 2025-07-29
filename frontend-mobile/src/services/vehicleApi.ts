@@ -145,6 +145,10 @@ export const mockVehicles: Vehicle[] = [
         fipeValue: 85000,
         fipeCode: '001004-9',
         color: 'Prata',
+        photos: [
+            'https://images.unsplash.com/photo-1606664515524-ed2f786a0bd6?w=800',
+            'https://images.unsplash.com/photo-1592840301632-0dfa9e7300e1?w=800',
+        ],
         userId: 'user1',
         createdAt: '2024-01-15T10:00:00Z',
         updatedAt: '2024-07-27T15:30:00Z',
@@ -159,6 +163,9 @@ export const mockVehicles: Vehicle[] = [
         fipeValue: 78000,
         fipeCode: '018003-1',
         color: 'Branco',
+        photos: [
+            'https://images.unsplash.com/photo-1605559424843-9e4c228bf1c2?w=800',
+        ],
         userId: 'user1',
         createdAt: '2024-02-10T14:20:00Z',
         updatedAt: '2024-07-20T09:15:00Z',
@@ -173,10 +180,40 @@ export const mockVehicles: Vehicle[] = [
         fipeValue: 72000,
         fipeCode: '005012-4',
         color: 'Azul',
+        photos: [
+            'https://images.unsplash.com/photo-1614015070768-a3a61e138d2c?w=800',
+            'https://images.unsplash.com/photo-1609521263047-f8f205293f24?w=800',
+            'https://images.unsplash.com/photo-1621007947382-bb3c3994e3fb?w=800',
+        ],
         userId: 'user1',
         createdAt: '2024-03-05T16:45:00Z',
         updatedAt: '2024-07-25T11:20:00Z',
     },
 ];
+
+/**
+ * Mock function para atualizar veículo (desenvolvimento)
+ */
+export const updateVehicle = async (vehicleId: string, updateData: { plate: string; currentKm: number; color: string; photos?: string[] }): Promise<Vehicle> => {
+    console.log(`🚗 [MOCK] Atualizando veículo ${vehicleId}...`, updateData);
+
+    const vehicleIndex = mockVehicles.findIndex(v => v.id === vehicleId);
+    if (vehicleIndex === -1) {
+        throw new Error('Veículo não encontrado');
+    }
+
+    // Atualizar dados do veículo no mock
+    mockVehicles[vehicleIndex] = {
+        ...mockVehicles[vehicleIndex],
+        plate: updateData.plate,
+        currentKm: updateData.currentKm,
+        color: updateData.color,
+        photos: updateData.photos || mockVehicles[vehicleIndex].photos, // Manter fotos existentes se não fornecidas
+        updatedAt: new Date().toISOString(),
+    };
+
+    console.log('✅ [MOCK] Veículo atualizado:', mockVehicles[vehicleIndex]);
+    return mockVehicles[vehicleIndex];
+};
 
 export const vehicleApiService = new VehicleApiService();

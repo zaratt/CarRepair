@@ -9,11 +9,11 @@ import {
     HomeScreen,
     InspectionScreen,
     MaintenanceScreen,
-    VehiclesScreen
 } from '../screens/car-owner';
 
-// Profile Stack Navigator
+// Stack Navigators
 import ProfileStackNavigator from './ProfileStackNavigator';
+import VehicleStackNavigator from './VehicleStackNavigator';
 
 const Tab = createBottomTabNavigator();
 
@@ -61,7 +61,7 @@ export default function TabNavigator() {
 
             <Tab.Screen
                 name="Vehicles"
-                component={VehiclesScreen}
+                component={VehicleStackNavigator}
                 options={{
                     tabBarLabel: 'Veículos',
                     tabBarIcon: ({ color, size }) => (
