@@ -64,8 +64,7 @@ export default function VehiclesScreen() {
     // Navegar para adicionar veículo
     const handleAddVehicle = () => {
         console.log('➕ Navegando para adicionar veículo');
-        // (navigation as any).navigate('AddVehicle');
-        console.log('⚠️ AddVehicle ainda não implementado');
+        (navigation as any).navigate('AddVehicle');
     };
 
     // Renderizar item da lista

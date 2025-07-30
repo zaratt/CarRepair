@@ -1,83 +1,310 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import React from 'react';
-import { StyleSheet, View } from 'react-native';
-import { Card, Text } from 'react-native-paper';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
+import React, { useCallback, useState } from 'react';
+import { Alert, FlatList, StyleSheet, View } from 'react-native';
+import { Chip, FAB, Searchbar, Text } from 'react-native-paper';
 
-export default function MaintenanceScreen() {
+import MaintenanceCard from '../../components/maintenance/MaintenanceCard';
+import { getAllMaintenances } from '../../services/maintenanceApi';
+import { vehicleApiService } from '../../services/vehicleApi';
+import { AppColors } from '../../styles/colors';
+import { Maintenance, MaintenanceStatus } from '../../types/maintenance.types';
+import { Vehicle } from '../../types/vehicle.types';
+
+export default function MaintenanceScreen({ navigation }: any) {
+    const [maintenances, setMaintenances] = useState<Maintenance[]>([]);
+    const [filteredMaintenances, setFilteredMaintenances] = useState<Maintenance[]>([]);
+    const [vehicles, setVehicles] = useState<{ [key: string]: Vehicle }>({});
+    const [searchQuery, setSearchQuery] = useState('');
+    const [selectedStatus, setSelectedStatus] = useState<MaintenanceStatus | 'all'>('all');
+    const [loading, setLoading] = useState(true);
+
+    // Função para buscar dados
+    const loadData = useCallback(async () => {
+        try {
+            setLoading(true);
+
+            // Buscar manutenções
+            const maintenanceData = getAllMaintenances();
+            setMaintenances(maintenanceData);
+
+            // Buscar veículos para cada manutenção
+            const vehiclePromises = maintenanceData.map(async (maintenance) => {
+                const vehicle = await vehicleApiService.getVehicleById(maintenance.vehicleId);
+                return { id: maintenance.vehicleId, vehicle };
+            });
+
+            const vehicleResults = await Promise.all(vehiclePromises);
+            const vehicleMap: { [key: string]: Vehicle } = {};
+            vehicleResults.forEach(({ id, vehicle }) => {
+                if (vehicle) {
+                    vehicleMap[id] = vehicle;
+                }
+            });
+            setVehicles(vehicleMap);
+
+        } catch (error) {
+            console.error('Erro ao carregar dados:', error);
+            Alert.alert('Erro', 'Não foi possível carregar as manutenções');
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    // Recarregar dados quando a tela receber foco
+    useFocusEffect(
+        useCallback(() => {
+            loadData();
+        }, [loadData])
+    );
+
+    // Função para filtrar manutenções
+    const filterMaintenances = useCallback(() => {
+        let filtered = maintenances;
+
+        // Filtrar por status
+        if (selectedStatus !== 'all') {
+            filtered = filtered.filter(maintenance => maintenance.status === selectedStatus);
+        }
+
+        // Filtrar por busca de texto
+        if (searchQuery.trim()) {
+            const query = searchQuery.toLowerCase();
+            filtered = filtered.filter(maintenance => {
+                const vehicle = vehicles[maintenance.vehicleId];
+                const vehicleName = vehicle ? `${vehicle.brand} ${vehicle.model}`.toLowerCase() : '';
+                const workshopName = maintenance.workshop.name.toLowerCase();
+                const services = maintenance.services.join(' ').toLowerCase();
+                const validationCode = maintenance.validationCode.toLowerCase();
+
+                return (
+                    vehicleName.includes(query) ||
+                    workshopName.includes(query) ||
+                    services.includes(query) ||
+                    validationCode.includes(query)
+                );
+            });
+        }
+
+        // Ordenar por data (mais recente primeiro)
+        filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+        setFilteredMaintenances(filtered);
+    }, [maintenances, vehicles, searchQuery, selectedStatus]);
+
+    // Aplicar filtros quando os dados mudarem
+    React.useEffect(() => {
+        filterMaintenances();
+    }, [filterMaintenances]);
+
+    // Navegar para detalhes da manutenção
+    const handleMaintenancePress = (maintenance: Maintenance) => {
+        // TODO: Implementar navegação para detalhes da manutenção
+        console.log('Manutenção selecionada:', maintenance);
+    };
+
+    // Navegar para adicionar nova manutenção
+    const handleAddMaintenance = () => {
+        // TODO: Implementar navegação para adicionar manutenção
+        console.log('Adicionar nova manutenção');
+    };
+
+    // Contar manutenções por status
+    const getStatusCount = (status: MaintenanceStatus) => {
+        return maintenances.filter(m => m.status === status).length;
+    };
+
+    // Renderizar item da lista
+    const renderMaintenanceItem = ({ item }: { item: Maintenance }) => (
+        <MaintenanceCard
+            maintenance={item}
+            vehicle={vehicles[item.vehicleId]}
+            onPress={handleMaintenancePress}
+        />
+    );
+
+    // Header da lista com estatísticas
+    const renderListHeader = () => (
+        <View style={styles.header}>
+            {/* Barra de busca */}
+            <Searchbar
+                placeholder="Buscar por veículo, oficina, serviço ou código..."
+                onChangeText={setSearchQuery}
+                value={searchQuery}
+                style={styles.searchbar}
+                iconColor={AppColors.primary}
+            />
+
+            {/* Filtros de status */}
+            <View style={styles.filtersContainer}>
+                <Text variant="bodyMedium" style={styles.filtersLabel}>
+                    Filtrar por status:
+                </Text>
+                <View style={styles.chipContainer}>
+                    <Chip
+                        selected={selectedStatus === 'all'}
+                        onPress={() => setSelectedStatus('all')}
+                        style={[styles.chip, selectedStatus === 'all' && styles.selectedChip]}
+                        textStyle={selectedStatus === 'all' ? styles.selectedChipText : styles.chipText}
+                    >
+                        Todas ({maintenances.length})
+                    </Chip>
+                    <Chip
+                        selected={selectedStatus === 'pending'}
+                        onPress={() => setSelectedStatus('pending')}
+                        style={[styles.chip, selectedStatus === 'pending' && styles.selectedChip]}
+                        textStyle={selectedStatus === 'pending' ? styles.selectedChipText : styles.chipText}
+                    >
+                        Pendentes ({getStatusCount('pending')})
+                    </Chip>
+                    <Chip
+                        selected={selectedStatus === 'validated'}
+                        onPress={() => setSelectedStatus('validated')}
+                        style={[styles.chip, selectedStatus === 'validated' && styles.selectedChip]}
+                        textStyle={selectedStatus === 'validated' ? styles.selectedChipText : styles.chipText}
+                    >
+                        Validadas ({getStatusCount('validated')})
+                    </Chip>
+                    <Chip
+                        selected={selectedStatus === 'rejected'}
+                        onPress={() => setSelectedStatus('rejected')}
+                        style={[styles.chip, selectedStatus === 'rejected' && styles.selectedChip]}
+                        textStyle={selectedStatus === 'rejected' ? styles.selectedChipText : styles.chipText}
+                    >
+                        Rejeitadas ({getStatusCount('rejected')})
+                    </Chip>
+                </View>
+            </View>
+        </View>
+    );
+
+    // Estado vazio
+    const renderEmptyComponent = () => (
+        <View style={styles.emptyContainer}>
+            <MaterialCommunityIcons
+                name="wrench-outline"
+                size={64}
+                color={AppColors.text}
+                style={styles.emptyIcon}
+            />
+            <Text variant="headlineSmall" style={styles.emptyTitle}>
+                {searchQuery || selectedStatus !== 'all'
+                    ? 'Nenhuma manutenção encontrada'
+                    : 'Nenhuma manutenção registrada'
+                }
+            </Text>
+            <Text variant="bodyMedium" style={styles.emptySubtitle}>
+                {searchQuery || selectedStatus !== 'all'
+                    ? 'Tente ajustar os filtros de busca'
+                    : 'Registre suas primeiras manutenções'
+                }
+            </Text>
+        </View>
+    );
+
     return (
-        <SafeAreaView style={styles.container}>
-            <View style={styles.header}>
-                <Text variant="headlineMedium" style={styles.title}>
-                    🔧 Manutenções
-                </Text>
-                <Text variant="bodyMedium" style={styles.subtitle}>
-                    Histórico e agendamento de manutenções
-                </Text>
-            </View>
+        <View style={styles.container}>
+            <FlatList
+                data={filteredMaintenances}
+                keyExtractor={(item) => item.id}
+                renderItem={renderMaintenanceItem}
+                ListHeaderComponent={renderListHeader}
+                ListEmptyComponent={renderEmptyComponent}
+                showsVerticalScrollIndicator={false}
+                refreshing={loading}
+                onRefresh={loadData}
+                contentContainerStyle={[
+                    styles.listContent,
+                    filteredMaintenances.length === 0 && styles.emptyListContent
+                ]}
+            />
 
-            <View style={styles.content}>
-                <Card style={styles.card}>
-                    <Card.Content style={styles.cardContent}>
-                        <MaterialCommunityIcons name="wrench-clock" size={64} color="#7b1fa2" />
-                        <Text variant="titleLarge" style={styles.cardTitle}>
-                            Em Desenvolvimento
-                        </Text>
-                        <Text variant="bodyMedium" style={styles.cardText}>
-                            Aqui você poderá agendar manutenções, ver o histórico e acompanhar o status dos serviços.
-                        </Text>
-                    </Card.Content>
-                </Card>
-            </View>
-
-            {/* FAB removido - funcionalidade de agendamento será implementada em release futuro */}
-        </SafeAreaView>
+            {/* Botão de adicionar */}
+            <FAB
+                icon="plus"
+                onPress={handleAddMaintenance}
+                style={styles.fab}
+                color={AppColors.white}
+            />
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#f5f5f5',
+        backgroundColor: AppColors.white,
+    },
+    listContent: {
+        paddingBottom: 100, // Espaço para o FAB e bottom tabs
+    },
+    emptyListContent: {
+        flexGrow: 1,
     },
     header: {
-        paddingHorizontal: 20,
-        paddingTop: 20,
-        paddingBottom: 10,
+        padding: 16,
+        backgroundColor: AppColors.white,
     },
-    title: {
-        fontWeight: 'bold',
-        color: '#222',
-        marginBottom: 4,
+    searchbar: {
+        marginBottom: 16,
+        backgroundColor: AppColors.white,
+        elevation: 2,
     },
-    subtitle: {
-        color: '#666',
+    filtersContainer: {
+        marginBottom: 8,
     },
-    content: {
+    filtersLabel: {
+        color: AppColors.text,
+        marginBottom: 8,
+        fontWeight: '500',
+    },
+    chipContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+    },
+    chip: {
+        backgroundColor: AppColors.white,
+        borderColor: AppColors.gray,
+        borderWidth: 1,
+    },
+    selectedChip: {
+        backgroundColor: AppColors.primary,
+    },
+    chipText: {
+        color: AppColors.text,
+        fontSize: 12,
+    },
+    selectedChipText: {
+        color: AppColors.white,
+        fontSize: 12,
+    },
+    emptyContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        paddingHorizontal: 20,
+        paddingHorizontal: 32,
+        paddingTop: 64,
     },
-    card: {
-        width: '100%',
-        elevation: 3,
-        borderRadius: 12,
+    emptyIcon: {
+        opacity: 0.5,
+        marginBottom: 16,
     },
-    cardContent: {
-        alignItems: 'center',
-        paddingVertical: 40,
+    emptyTitle: {
+        color: AppColors.text,
+        textAlign: 'center',
+        marginBottom: 8,
     },
-    cardTitle: {
-        fontWeight: 'bold',
-        color: '#222',
-        marginTop: 20,
-        marginBottom: 10,
+    emptySubtitle: {
+        color: AppColors.text,
+        opacity: 0.7,
         textAlign: 'center',
     },
-    cardText: {
-        color: '#666',
-        textAlign: 'center',
-        lineHeight: 22,
+    fab: {
+        position: 'absolute',
+        margin: 16,
+        right: 0,
+        bottom: 80, // Posicionamento acima das bottom tabs
+        backgroundColor: AppColors.primary,
     },
 });

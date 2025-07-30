@@ -192,6 +192,45 @@ export const mockVehicles: Vehicle[] = [
 ];
 
 /**
+ * Mock function para criar novo veículo (desenvolvimento)
+ */
+export const createVehicle = async (vehicleData: {
+    brand: string;
+    model: string;
+    year: number;
+    plate: string;
+    currentKm: number;
+    color: string;
+    fipeValue: number;
+    fipeCode?: string;
+    photos?: string[];
+}): Promise<Vehicle> => {
+    console.log('🚗 [MOCK] Criando novo veículo...', vehicleData);
+
+    const newVehicle: Vehicle = {
+        id: String(Date.now()), // ID único baseado no timestamp
+        brand: vehicleData.brand,
+        model: vehicleData.model,
+        year: vehicleData.year,
+        plate: vehicleData.plate,
+        currentKm: vehicleData.currentKm,
+        fipeValue: vehicleData.fipeValue,
+        fipeCode: vehicleData.fipeCode,
+        color: vehicleData.color,
+        photos: vehicleData.photos || [],
+        userId: 'user1', // Mock user
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+    };
+
+    // Adicionar à lista de mock vehicles
+    mockVehicles.push(newVehicle);
+
+    console.log('✅ [MOCK] Novo veículo criado:', newVehicle);
+    return newVehicle;
+};
+
+/**
  * Mock function para atualizar veículo (desenvolvimento)
  */
 export const updateVehicle = async (vehicleId: string, updateData: { plate: string; currentKm: number; color: string; photos?: string[] }): Promise<Vehicle> => {

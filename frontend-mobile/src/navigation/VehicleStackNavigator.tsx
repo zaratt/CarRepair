@@ -3,6 +3,7 @@ import React from 'react';
 import { AppColors } from '../styles/colors';
 
 // Vehicle screens
+import AddVehicleScreen from '../screens/car-owner/AddVehicleScreen';
 import VehicleDetailsScreen from '../screens/car-owner/VehicleDetailsScreen';
 import VehiclesScreen from '../screens/car-owner/VehiclesScreen';
 
@@ -51,8 +52,7 @@ export default function VehicleStackNavigator() {
                 }}
             />
 
-            {/* Futura tela de adicionar veículo */}
-            {/* 
+            {/* Tela de adicionar veículo */}
             <VehicleStack.Screen
                 name="AddVehicle"
                 component={AddVehicleScreen}
@@ -61,7 +61,6 @@ export default function VehicleStackNavigator() {
                     headerBackTitle: 'Voltar',
                 }}
             />
-            */}
         </VehicleStack.Navigator>
     );
 }
