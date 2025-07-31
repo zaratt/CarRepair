@@ -6,7 +6,7 @@ import { Chip, FAB, Searchbar, Text } from 'react-native-paper';
 
 import MaintenanceCard from '../../components/maintenance/MaintenanceCard';
 import { getAllMaintenances } from '../../services/maintenanceApi';
-import { vehicleApiService } from '../../services/vehicleApi';
+import { getVehicleById } from '../../services/vehicleApi';
 import { AppColors } from '../../styles/colors';
 import { Maintenance, MaintenanceStatus } from '../../types/maintenance.types';
 import { Vehicle } from '../../types/vehicle.types';
@@ -28,19 +28,20 @@ export default function MaintenanceScreen({ navigation }: any) {
             const maintenanceData = getAllMaintenances();
             setMaintenances(maintenanceData);
 
-            // Buscar veículos para cada manutenção
-            const vehiclePromises = maintenanceData.map(async (maintenance) => {
-                const vehicle = await vehicleApiService.getVehicleById(maintenance.vehicleId);
-                return { id: maintenance.vehicleId, vehicle };
-            });
-
-            const vehicleResults = await Promise.all(vehiclePromises);
+            // Buscar veículos para cada manutenção (individual para tratar erros)
             const vehicleMap: { [key: string]: Vehicle } = {};
-            vehicleResults.forEach(({ id, vehicle }) => {
-                if (vehicle) {
-                    vehicleMap[id] = vehicle;
+
+            for (const maintenance of maintenanceData) {
+                try {
+                    const vehicle = await getVehicleById(maintenance.vehicleId);
+                    if (vehicle) {
+                        vehicleMap[maintenance.vehicleId] = vehicle;
+                    }
+                } catch (error) {
+                    console.warn(`Erro ao buscar veículo ${maintenance.vehicleId}:`, error);
                 }
-            });
+            }
+
             setVehicles(vehicleMap);
 
         } catch (error) {
@@ -49,9 +50,7 @@ export default function MaintenanceScreen({ navigation }: any) {
         } finally {
             setLoading(false);
         }
-    }, []);
-
-    // Recarregar dados quando a tela receber foco
+    }, []);    // Recarregar dados quando a tela receber foco
     useFocusEffect(
         useCallback(() => {
             loadData();

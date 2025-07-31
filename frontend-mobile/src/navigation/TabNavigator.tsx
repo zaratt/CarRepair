@@ -8,10 +8,10 @@ import { Badge } from 'react-native-paper';
 import {
     HomeScreen,
     InspectionScreen,
-    MaintenanceScreen,
 } from '../screens/car-owner';
 
 // Stack Navigators
+import MaintenanceStackNavigator from './MaintenanceStackNavigator';
 import ProfileStackNavigator from './ProfileStackNavigator';
 import VehicleStackNavigator from './VehicleStackNavigator';
 
@@ -72,7 +72,7 @@ export default function TabNavigator() {
 
             <Tab.Screen
                 name="Maintenance"
-                component={MaintenanceScreen}
+                component={MaintenanceStackNavigator}
                 options={{
                     tabBarLabel: 'Manutenções',
                     tabBarIcon: ({ color, size }) => (

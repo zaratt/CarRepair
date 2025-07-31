@@ -255,4 +255,20 @@ export const updateVehicle = async (vehicleId: string, updateData: { plate: stri
     return mockVehicles[vehicleIndex];
 };
 
+/**
+ * Mock function para buscar veículo por ID (desenvolvimento)
+ */
+export const getVehicleById = async (vehicleId: string): Promise<Vehicle | null> => {
+    console.log(`🚗 [MOCK] Buscando veículo ${vehicleId}...`);
+
+    const vehicle = mockVehicles.find(v => v.id === vehicleId);
+    if (!vehicle) {
+        console.log(`❌ [MOCK] Veículo ${vehicleId} não encontrado`);
+        return null;
+    }
+
+    console.log('✅ [MOCK] Veículo encontrado:', vehicle);
+    return vehicle;
+};
+
 export const vehicleApiService = new VehicleApiService();
