@@ -104,8 +104,7 @@ export default function MaintenanceScreen({ navigation }: any) {
 
     // Navegar para adicionar nova manutenção
     const handleAddMaintenance = () => {
-        // TODO: Implementar navegação para adicionar manutenção
-        console.log('Adicionar nova manutenção');
+        navigation.navigate('AddMaintenance');
     };
 
     // Contar manutenções por status
