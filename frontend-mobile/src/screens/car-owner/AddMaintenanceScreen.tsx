@@ -30,6 +30,10 @@ export default function AddMaintenanceScreen({ navigation }: AddMaintenanceScree
     const [documents, setDocuments] = useState<string[]>([]);
     const [loading, setLoading] = useState(false);
 
+    // Debug do estado do modal
+    console.log('🔍 Estado do modal de veículos:', showVehicleModal);
+    console.log('🚗 Veículos disponíveis:', mockVehicles.length);
+
     // Validações
     const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
@@ -273,15 +277,33 @@ export default function AddMaintenanceScreen({ navigation }: AddMaintenanceScree
                         </Text>
                     </View>
 
-                    <TouchableOpacity onPress={() => setShowVehicleModal(true)}>
-                        <TextInput
-                            label="Veículo"
-                            value={vehicleLabel}
-                            mode="outlined"
-                            style={styles.input}
-                            error={!!errors.vehicle}
-                            editable={false}
-                            right={<TextInput.Icon icon="chevron-down" />}
+                    <TouchableOpacity
+                        onPress={() => {
+                            console.log('🚗 Abrindo modal de veículos...');
+                            setShowVehicleModal(true);
+                        }}
+                        style={[styles.vehicleSelector, errors.vehicle && styles.vehicleSelectorError]}
+                    >
+                        <View style={styles.vehicleSelectorContent}>
+                            <Text variant="bodySmall" style={styles.vehicleSelectorLabel}>
+                                Veículo
+                            </Text>
+                            <Text
+                                variant="bodyMedium"
+                                style={[
+                                    styles.vehicleSelectorText,
+                                    !selectedVehicle && styles.vehicleSelectorPlaceholder
+                                ]}
+                                numberOfLines={1}
+                            >
+                                {vehicleLabel}
+                            </Text>
+                        </View>
+                        <MaterialCommunityIcons
+                            name="chevron-down"
+                            size={20}
+                            color={AppColors.text}
+                            style={styles.vehicleSelectorIcon}
                         />
                     </TouchableOpacity>
                     {errors.vehicle && (
@@ -294,7 +316,7 @@ export default function AddMaintenanceScreen({ navigation }: AddMaintenanceScree
                     <Modal
                         visible={showVehicleModal}
                         animationType="slide"
-                        presentationStyle="pageSheet"
+                        transparent={false}
                         onRequestClose={() => setShowVehicleModal(false)}
                     >
                         <View style={styles.modalContainer}>
@@ -786,6 +808,41 @@ const styles = StyleSheet.create({
     errorText: {
         color: AppColors.danger,
         marginTop: 4,
+    },
+    // Estilos do seletor customizado de veículo
+    vehicleSelector: {
+        borderWidth: 1,
+        borderColor: AppColors.gray,
+        borderRadius: 4,
+        backgroundColor: AppColors.white,
+        paddingHorizontal: 12,
+        paddingVertical: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 12,
+    },
+    vehicleSelectorError: {
+        borderColor: AppColors.danger,
+    },
+    vehicleSelectorContent: {
+        flex: 1,
+    },
+    vehicleSelectorLabel: {
+        color: AppColors.text,
+        opacity: 0.6,
+        marginBottom: 4,
+        fontSize: 12,
+    },
+    vehicleSelectorText: {
+        color: AppColors.text,
+        fontSize: 16,
+    },
+    vehicleSelectorPlaceholder: {
+        opacity: 0.5,
+    },
+    vehicleSelectorIcon: {
+        marginLeft: 8,
     },
     // Estilos do modal de veículos
     modalContainer: {

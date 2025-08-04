@@ -98,8 +98,7 @@ export default function MaintenanceScreen({ navigation }: any) {
 
     // Navegar para detalhes da manutenção
     const handleMaintenancePress = (maintenance: Maintenance) => {
-        // TODO: Implementar navegação para detalhes da manutenção
-        console.log('Manutenção selecionada:', maintenance);
+        navigation.navigate('MaintenanceDetails', { maintenanceId: maintenance.id });
     };
 
     // Navegar para adicionar nova manutenção

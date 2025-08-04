@@ -4,13 +4,13 @@ import { AppColors } from '../styles/colors';
 
 // Maintenance screens
 import AddMaintenanceScreen from '../screens/car-owner/AddMaintenanceScreen';
+import MaintenanceDetailsScreen from '../screens/car-owner/MaintenanceDetailsScreen';
 import MaintenanceScreen from '../screens/car-owner/MaintenanceScreen';
 
 export type MaintenanceStackParamList = {
     MaintenanceList: undefined;
     AddMaintenance: undefined;
-    // TODO: Adicionar outras telas da stack quando implementadas
-    // MaintenanceDetails: { maintenanceId: string };
+    MaintenanceDetails: { maintenanceId: string };
 };
 
 const MaintenanceStack = createNativeStackNavigator<MaintenanceStackParamList>();
@@ -48,7 +48,6 @@ export default function MaintenanceStackNavigator() {
                 }}
             />
 
-            {/* TODO: Adicionar outras telas quando implementadas
             <MaintenanceStack.Screen
                 name="MaintenanceDetails"
                 component={MaintenanceDetailsScreen}
@@ -57,7 +56,6 @@ export default function MaintenanceStackNavigator() {
                     headerBackTitle: 'Voltar',
                 }}
             />
-            */}
         </MaintenanceStack.Navigator>
     );
 }
