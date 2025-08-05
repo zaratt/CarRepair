@@ -1,21 +1,30 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import * as DocumentPicker from 'expo-document-picker';
-import * as ImagePicker from 'expo-image-picker';
 import React, { useState } from 'react';
 import { Alert, FlatList, Modal, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Button, Card, Chip, Text, TextInput } from 'react-native-paper';
 
-import { COMMON_SERVICES, createMaintenance, getAllMaintenances } from '../../services/maintenanceApi';
-import { mockVehicles } from '../../services/vehicleApi';
+import { CreateMaintenanceRequest } from '../../api/maintenance.api';
+import { useMaintenanceContext } from '../../hooks/useMaintenanceContext';
+import { useVehicleContext } from '../../hooks/useVehicleContext';
 import { AppColors } from '../../styles/colors';
-import { MaintenanceFormData } from '../../types/maintenance.types';
 
 interface AddMaintenanceScreenProps {
     navigation: any;
 }
 
+// 🎯 Componente principal da tela
 export default function AddMaintenanceScreen({ navigation }: AddMaintenanceScreenProps) {
+    const {
+        createMaintenance,
+        isCreating,
+        createSuccess,
+        createError,
+        isUsingRealAPI
+    } = useMaintenanceContext();
+
+    const { vehicles } = useVehicleContext();
+
     // Estados do formulário
     const [selectedVehicle, setSelectedVehicle] = useState<string>('');
     const [showVehicleModal, setShowVehicleModal] = useState(false);
@@ -27,15 +36,24 @@ export default function AddMaintenanceScreen({ navigation }: AddMaintenanceScree
     const [workshopCnpj, setWorkshopCnpj] = useState('');
     const [workshopAddress, setWorkshopAddress] = useState('');
     const [value, setValue] = useState('');
-    const [documents, setDocuments] = useState<string[]>([]);
-    const [loading, setLoading] = useState(false);
-
-    // Debug do estado do modal
-    console.log('🔍 Estado do modal de veículos:', showVehicleModal);
-    console.log('🚗 Veículos disponíveis:', mockVehicles.length);
+    const [description, setDescription] = useState('');
 
     // Validações
     const [errors, setErrors] = useState<{ [key: string]: string }>({});
+
+    // Serviços comuns (mock temporário)
+    const COMMON_SERVICES = [
+        'Troca de óleo',
+        'Troca de filtro',
+        'Revisão',
+        'Alinhamento e balanceamento',
+        'Freios',
+        'Suspensão',
+        'Embreagem',
+        'Ar condicionado',
+        'Sistema elétrico',
+        'Pneus',
+    ];
 
     // Formatação de data para pt-br
     const formatDatePtBr = (date: Date) => {
@@ -54,53 +72,7 @@ export default function AddMaintenanceScreen({ navigation }: AddMaintenanceScree
         }
     };
 
-    // Validar KM com base na última manutenção do veículo
-    const validateKm = (km: number, vehicleId: string): string | null => {
-        if (!vehicleId) return null;
-
-        const maintenances = getAllMaintenances();
-        const vehicleMaintenances = maintenances
-            .filter(m => m.vehicleId === vehicleId)
-            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-        if (vehicleMaintenances.length > 0) {
-            const lastMaintenanceKm = vehicleMaintenances[0].currentKm;
-            if (km <= lastMaintenanceKm) {
-                return `KM deve ser maior que ${lastMaintenanceKm.toLocaleString('pt-BR')} (última manutenção)`;
-            }
-        }
-
-        return null;
-    };
-
-    // Formatação de valor monetário
-    const formatCurrency = (text: string) => {
-        const numericValue = text.replace(/[^0-9]/g, '');
-        const formattedValue = (Number(numericValue) / 100).toLocaleString('pt-BR', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-        });
-        return formattedValue;
-    };
-
-    // Formatação de CNPJ
-    const formatCNPJ = (text: string) => {
-        const numericValue = text.replace(/[^0-9]/g, '');
-        return numericValue
-            .replace(/(\d{2})(\d)/, '$1.$2')
-            .replace(/(\d{3})(\d)/, '$1.$2')
-            .replace(/(\d{3})(\d)/, '$1/$2')
-            .replace(/(\d{4})(\d{1,2})/, '$1-$2')
-            .replace(/(-\d{2})\d+?$/, '$1');
-    };
-
-    // Formatação de KM
-    const formatKm = (text: string) => {
-        const numericValue = text.replace(/[^0-9]/g, '');
-        return numericValue.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-    };
-
-    // Toggle serviço selecionado
+    // Adicionar/remover serviço
     const toggleService = (service: string) => {
         setSelectedServices(prev => {
             if (prev.includes(service)) {
@@ -111,61 +83,8 @@ export default function AddMaintenanceScreen({ navigation }: AddMaintenanceScree
         });
     };
 
-    // Seleção de documentos
-    const pickDocument = async () => {
-        try {
-            const result = await DocumentPicker.getDocumentAsync({
-                type: 'application/pdf',
-                copyToCacheDirectory: true,
-            });
-
-            if (!result.canceled && result.assets[0]) {
-                const asset = result.assets[0];
-                console.log('Documento selecionado:', asset.name);
-                setDocuments(prev => [...prev, `document_${Date.now()}.pdf`]);
-                Alert.alert('Sucesso', 'Documento adicionado com sucesso!');
-            }
-        } catch (error) {
-            console.error('Erro ao selecionar documento:', error);
-            Alert.alert('Erro', 'Não foi possível selecionar o documento');
-        }
-    };
-
-    // Seleção de foto
-    const pickImage = async () => {
-        try {
-            const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-            if (!permissionResult.granted) {
-                Alert.alert('Permissão necessária', 'É necessário permitir acesso à galeria de fotos');
-                return;
-            }
-
-            const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                allowsEditing: true,
-                aspect: [4, 3],
-                quality: 0.8,
-            });
-
-            if (!result.canceled && result.assets[0]) {
-                console.log('Imagem selecionada:', result.assets[0].uri);
-                setDocuments(prev => [...prev, `image_${Date.now()}.jpg`]);
-                Alert.alert('Sucesso', 'Imagem adicionada com sucesso!');
-            }
-        } catch (error) {
-            console.error('Erro ao selecionar imagem:', error);
-            Alert.alert('Erro', 'Não foi possível selecionar a imagem');
-        }
-    };
-
-    // Remover documento
-    const removeDocument = (index: number) => {
-        setDocuments(prev => prev.filter((_, i) => i !== index));
-    };
-
     // Validar formulário
-    const validateForm = (): boolean => {
+    const validateForm = () => {
         const newErrors: { [key: string]: string } = {};
 
         if (!selectedVehicle) {
@@ -176,30 +95,25 @@ export default function AddMaintenanceScreen({ navigation }: AddMaintenanceScree
             newErrors.services = 'Selecione pelo menos um serviço';
         }
 
-        if (!currentKm.trim()) {
+        if (!currentKm) {
             newErrors.currentKm = 'Informe a quilometragem atual';
-        } else if (isNaN(Number(currentKm.replace(/\./g, '')))) {
-            newErrors.currentKm = 'Quilometragem deve ser um número válido';
-        } else {
-            // Validar KM em relação à última manutenção
-            const kmNumber = Number(currentKm.replace(/\./g, ''));
-            const kmError = validateKm(kmNumber, selectedVehicle);
-            if (kmError) {
-                newErrors.currentKm = kmError;
-            }
+        } else if (!/^\\d+$/.test(currentKm)) {
+            newErrors.currentKm = 'Quilometragem deve conter apenas números';
         }
 
         if (!workshopName.trim()) {
             newErrors.workshopName = 'Informe o nome da oficina';
         }
 
-        if (!value.trim()) {
-            newErrors.value = 'Informe o valor da manutenção';
-        } else if (isNaN(Number(value.replace(/[^0-9]/g, '')) / 100)) {
-            newErrors.value = 'Valor deve ser um número válido';
+        if (!workshopCnpj.trim()) {
+            newErrors.workshopCnpj = 'Informe o CNPJ da oficina';
         }
 
-        // Data não precisa validação pois só permite datas passadas ou atual
+        if (!value) {
+            newErrors.value = 'Informe o valor da manutenção';
+        } else if (!/^\\d+([.,]\\d{1,2})?$/.test(value)) {
+            newErrors.value = 'Valor deve ser um número válido';
+        }
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
@@ -208,42 +122,50 @@ export default function AddMaintenanceScreen({ navigation }: AddMaintenanceScree
     // Salvar manutenção
     const handleSave = async () => {
         if (!validateForm()) {
-            Alert.alert('Erro', 'Por favor, corrija os campos destacados em vermelho');
             return;
         }
 
         try {
-            setLoading(true);
-
-            const maintenanceData: Omit<MaintenanceFormData, 'id'> = {
+            const maintenanceData: CreateMaintenanceRequest = {
                 vehicleId: selectedVehicle,
-                services: selectedServices,
-                date: date.toISOString(),
-                currentKm: Number(currentKm.replace(/\./g, '')),
-                workshop: {
-                    name: workshopName,
-                    cnpj: workshopCnpj || undefined,
-                    address: workshopAddress || undefined,
-                },
-                value: Number(value.replace(/[^0-9]/g, '')) / 100,
-                documents: documents.length > 0 ? documents : [],
+                typeId: 'type1', // Valor padrão - será substituído por seleção real
+                scheduledDate: date.toISOString(),
+                currentKm: parseInt(currentKm),
+                description: description || selectedServices.join(', '),
+                estimatedCost: parseFloat(value.replace(',', '.')),
+                priority: 'MEDIUM',
+                workshopId: 'workshop1', // Mock
             };
 
-            // Simular delay de API
-            await new Promise<void>(resolve => setTimeout(() => resolve(), 1500));
+            console.log('📝 Criando manutenção:', maintenanceData);
+            createMaintenance(maintenanceData);
 
-            const newMaintenance = createMaintenance({
-                ...maintenanceData,
-                userId: 'user1', // TODO: Pegar do contexto de autenticação
-                status: 'pending',
-                documents: documents,
-            });
+            if (!isUsingRealAPI) {
+                // Se estiver usando mock, simular sucesso
+                Alert.alert(
+                    'Sucesso',
+                    'Manutenção registrada com sucesso!',
+                    [
+                        {
+                            text: 'OK',
+                            onPress: () => navigation.goBack(),
+                        },
+                    ]
+                );
+            }
 
-            console.log('✅ Manutenção criada:', newMaintenance);
+        } catch (error) {
+            console.error('Erro ao salvar manutenção:', error);
+            Alert.alert('Erro', 'Erro ao registrar manutenção. Tente novamente.');
+        }
+    };
 
+    // Efeitos para lidar com sucesso/erro da API real
+    React.useEffect(() => {
+        if (createSuccess && isUsingRealAPI) {
             Alert.alert(
-                'Sucesso!',
-                `Manutenção registrada com sucesso!\n\nCódigo de validação: ${newMaintenance.validationCode}`,
+                'Sucesso',
+                'Manutenção registrada com sucesso!',
                 [
                     {
                         text: 'OK',
@@ -251,413 +173,299 @@ export default function AddMaintenanceScreen({ navigation }: AddMaintenanceScree
                     },
                 ]
             );
-
-        } catch (error) {
-            console.error('❌ Erro ao salvar manutenção:', error);
-            Alert.alert('Erro', 'Não foi possível salvar a manutenção');
-        } finally {
-            setLoading(false);
         }
-    };
+    }, [createSuccess, isUsingRealAPI, navigation]);
 
-    // Renderizar seletor de veículo
-    const renderVehicleSelector = () => {
-        const selectedVehicleData = mockVehicles.find(v => v.id === selectedVehicle);
-        const vehicleLabel = selectedVehicleData
-            ? `${selectedVehicleData.brand} ${selectedVehicleData.model} (${selectedVehicleData.year}) - ${selectedVehicleData.plate}`
-            : 'Selecione um veículo...';
+    React.useEffect(() => {
+        if (createError && isUsingRealAPI) {
+            Alert.alert('Erro', createError);
+        }
+    }, [createError, isUsingRealAPI]);
 
-        return (
+    // Renderizar item do veículo
+    const renderVehicleItem = ({ item }: { item: any }) => (
+        <TouchableOpacity
+            style={[
+                styles.vehicleItem,
+                selectedVehicle === item.id && styles.selectedVehicleItem
+            ]}
+            onPress={() => {
+                setSelectedVehicle(item.id);
+                setShowVehicleModal(false);
+            }}
+        >
+            <View style={styles.vehicleInfo}>
+                <Text variant="titleSmall">{item.brand} {item.model}</Text>
+                <Text variant="bodySmall" style={styles.vehicleSubtitle}>
+                    {item.year} • {item.plate}
+                </Text>
+            </View>
+            {selectedVehicle === item.id && (
+                <MaterialCommunityIcons
+                    name="check-circle"
+                    size={24}
+                    color={AppColors.primary}
+                />
+            )}
+        </TouchableOpacity>
+    );
+
+    // Obter dados do veículo selecionado
+    const selectedVehicleData = vehicles.find(v => v.id === selectedVehicle);
+
+    return (
+        <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
             <Card style={styles.card}>
                 <Card.Content>
-                    <View style={styles.sectionHeader}>
-                        <MaterialCommunityIcons name="car" size={20} color={AppColors.primary} />
+                    <Text variant="headlineSmall" style={styles.title}>
+                        Nova Manutenção
+                    </Text>
+
+                    {/* Seleção de Veículo */}
+                    <View style={styles.section}>
                         <Text variant="titleMedium" style={styles.sectionTitle}>
-                            Veículo
+                            Veículo *
                         </Text>
+
+                        <TouchableOpacity
+                            style={[styles.input, errors.vehicle && styles.inputError]}
+                            onPress={() => setShowVehicleModal(true)}
+                        >
+                            <View style={styles.inputContent}>
+                                <Text style={[
+                                    styles.inputText,
+                                    !selectedVehicleData && styles.placeholderText
+                                ]}>
+                                    {selectedVehicleData
+                                        ? `${selectedVehicleData.brand} ${selectedVehicleData.model} (${selectedVehicleData.licensePlate || 'N/A'})`
+                                        : 'Selecione um veículo'
+                                    }
+                                </Text>
+                                <MaterialCommunityIcons
+                                    name="chevron-down"
+                                    size={24}
+                                    color={AppColors.text}
+                                />
+                            </View>
+                        </TouchableOpacity>
+                        {errors.vehicle && (
+                            <Text style={styles.errorText}>{errors.vehicle}</Text>
+                        )}
                     </View>
 
-                    <TouchableOpacity
-                        onPress={() => {
-                            console.log('🚗 Abrindo modal de veículos...');
-                            setShowVehicleModal(true);
-                        }}
-                        style={[styles.vehicleSelector, errors.vehicle && styles.vehicleSelectorError]}
-                    >
-                        <View style={styles.vehicleSelectorContent}>
-                            <Text variant="bodySmall" style={styles.vehicleSelectorLabel}>
-                                Veículo
-                            </Text>
-                            <Text
-                                variant="bodyMedium"
-                                style={[
-                                    styles.vehicleSelectorText,
-                                    !selectedVehicle && styles.vehicleSelectorPlaceholder
-                                ]}
-                                numberOfLines={1}
-                            >
-                                {vehicleLabel}
-                            </Text>
-                        </View>
-                        <MaterialCommunityIcons
-                            name="chevron-down"
-                            size={20}
-                            color={AppColors.text}
-                            style={styles.vehicleSelectorIcon}
-                        />
-                    </TouchableOpacity>
-                    {errors.vehicle && (
-                        <Text variant="bodySmall" style={styles.errorText}>
-                            {errors.vehicle}
-                        </Text>
-                    )}
-
-                    {/* Modal de seleção de veículo */}
+                    {/* Modal de Seleção de Veículo */}
                     <Modal
                         visible={showVehicleModal}
                         animationType="slide"
-                        transparent={false}
-                        onRequestClose={() => setShowVehicleModal(false)}
+                        presentationStyle="pageSheet"
                     >
                         <View style={styles.modalContainer}>
                             <View style={styles.modalHeader}>
-                                <Text variant="headlineSmall" style={styles.modalTitle}>
-                                    Selecionar Veículo
-                                </Text>
                                 <TouchableOpacity
                                     onPress={() => setShowVehicleModal(false)}
                                     style={styles.modalCloseButton}
                                 >
-                                    <MaterialCommunityIcons name="close" size={24} color={AppColors.text} />
+                                    <MaterialCommunityIcons
+                                        name="close"
+                                        size={24}
+                                        color={AppColors.text}
+                                    />
                                 </TouchableOpacity>
+                                <Text variant="titleLarge" style={styles.modalTitle}>
+                                    Selecionar Veículo
+                                </Text>
+                                <View style={styles.modalPlaceholder} />
                             </View>
 
                             <FlatList
-                                data={mockVehicles}
+                                data={vehicles}
                                 keyExtractor={(item) => item.id}
-                                renderItem={({ item }) => (
-                                    <TouchableOpacity
-                                        style={[
-                                            styles.vehicleOption,
-                                            selectedVehicle === item.id && styles.selectedVehicleOption
-                                        ]}
-                                        onPress={() => {
-                                            setSelectedVehicle(item.id);
-                                            setShowVehicleModal(false);
-                                        }}
-                                    >
-                                        <View style={styles.vehicleInfo}>
-                                            <Text variant="titleMedium" style={styles.vehicleTitle}>
-                                                {item.brand} {item.model} ({item.year})
-                                            </Text>
-                                            <Text variant="bodyMedium" style={styles.vehiclePlate}>
-                                                Placa: {item.plate}
-                                            </Text>
-                                            <Text variant="bodySmall" style={styles.vehicleKm}>
-                                                KM: {item.currentKm.toLocaleString('pt-BR')}
-                                            </Text>
-                                        </View>
-                                        {selectedVehicle === item.id && (
-                                            <MaterialCommunityIcons
-                                                name="check-circle"
-                                                size={24}
-                                                color={AppColors.primary}
-                                            />
-                                        )}
-                                    </TouchableOpacity>
-                                )}
-                                ItemSeparatorComponent={() => <View style={styles.separator} />}
-                                contentContainerStyle={styles.vehicleList}
+                                renderItem={renderVehicleItem}
+                                style={styles.vehicleList}
+                                showsVerticalScrollIndicator={false}
                             />
                         </View>
                     </Modal>
-                </Card.Content>
-            </Card>
-        );
-    };    // Renderizar chips de serviços
-    const renderServicesSelector = () => (
-        <Card style={styles.card}>
-            <Card.Content>
-                <View style={styles.sectionHeader}>
-                    <MaterialCommunityIcons name="wrench" size={20} color={AppColors.primary} />
-                    <Text variant="titleMedium" style={styles.sectionTitle}>
-                        Serviços Realizados
-                    </Text>
-                </View>
 
-                <View style={styles.servicesContainer}>
-                    {COMMON_SERVICES.map((service) => (
-                        <Chip
-                            key={service}
-                            selected={selectedServices.includes(service)}
-                            onPress={() => toggleService(service)}
-                            style={[
-                                styles.serviceChip,
-                                selectedServices.includes(service) && styles.selectedServiceChip
-                            ]}
-                            textStyle={[
-                                styles.serviceChipText,
-                                selectedServices.includes(service) && styles.selectedServiceChipText
-                            ]}
-                        >
-                            {service}
-                        </Chip>
-                    ))}
-                </View>
-
-                {errors.services && (
-                    <Text variant="bodySmall" style={styles.errorText}>
-                        {errors.services}
-                    </Text>
-                )}
-
-                {selectedServices.length > 0 && (
-                    <View style={styles.selectedServicesContainer}>
-                        <Text variant="bodyMedium" style={styles.selectedServicesTitle}>
-                            Serviços selecionados ({selectedServices.length}):
+                    {/* Quilometragem Atual */}
+                    <View style={styles.section}>
+                        <Text variant="titleMedium" style={styles.sectionTitle}>
+                            Quilometragem Atual *
                         </Text>
-                        <Text variant="bodySmall" style={styles.selectedServicesList}>
-                            {selectedServices.join(', ')}
-                        </Text>
-                    </View>
-                )}
-            </Card.Content>
-        </Card>
-    );
-
-    // Renderizar campos de dados
-    const renderDataFields = () => (
-        <Card style={styles.card}>
-            <Card.Content>
-                <View style={styles.sectionHeader}>
-                    <MaterialCommunityIcons name="clipboard-text" size={20} color={AppColors.primary} />
-                    <Text variant="titleMedium" style={styles.sectionTitle}>
-                        Dados da Manutenção
-                    </Text>
-                </View>
-
-                <View style={styles.row}>
-                    <View style={styles.halfWidth}>
-                        <TouchableOpacity onPress={() => setShowDatePicker(true)}>
-                            <TextInput
-                                label="Data da Manutenção"
-                                value={formatDatePtBr(date)}
-                                mode="outlined"
-                                style={styles.input}
-                                error={!!errors.date}
-                                editable={false}
-                                right={<TextInput.Icon icon="calendar" />}
-                            />
-                        </TouchableOpacity>
-                        {errors.date && (
-                            <Text variant="bodySmall" style={styles.errorText}>
-                                {errors.date}
-                            </Text>
+                        <TextInput
+                            value={currentKm}
+                            onChangeText={setCurrentKm}
+                            placeholder="Ex: 50000"
+                            keyboardType="numeric"
+                            style={[styles.textInput, errors.currentKm && styles.inputError]}
+                            mode="outlined"
+                            right={<TextInput.Affix text="km" />}
+                        />
+                        {errors.currentKm && (
+                            <Text style={styles.errorText}>{errors.currentKm}</Text>
                         )}
+                    </View>
+
+                    {/* Data da Manutenção */}
+                    <View style={styles.section}>
+                        <Text variant="titleMedium" style={styles.sectionTitle}>
+                            Data da Manutenção *
+                        </Text>
+
+                        <TouchableOpacity
+                            style={styles.input}
+                            onPress={() => setShowDatePicker(true)}
+                        >
+                            <View style={styles.inputContent}>
+                                <Text style={styles.inputText}>
+                                    {formatDatePtBr(date)}
+                                </Text>
+                                <MaterialCommunityIcons
+                                    name="calendar"
+                                    size={24}
+                                    color={AppColors.text}
+                                />
+                            </View>
+                        </TouchableOpacity>
 
                         {showDatePicker && (
                             <DateTimePicker
                                 value={date}
                                 mode="date"
-                                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                display="default"
                                 onChange={onDateChange}
-                                maximumDate={new Date()} // Não permite datas futuras
-                                locale="pt-BR"
+                                minimumDate={new Date()}
                             />
                         )}
                     </View>
 
-                    <View style={styles.halfWidth}>
-                        <TextInput
-                            label="KM Atual"
-                            value={currentKm}
-                            onChangeText={(text) => setCurrentKm(formatKm(text))}
-                            mode="outlined"
-                            style={styles.input}
-                            keyboardType="numeric"
-                            error={!!errors.currentKm}
-                            right={<TextInput.Icon icon="speedometer" />}
-                        />
-                        {errors.currentKm && (
-                            <Text variant="bodySmall" style={styles.errorText}>
-                                {errors.currentKm}
-                            </Text>
+                    {/* Serviços */}
+                    <View style={styles.section}>
+                        <Text variant="titleMedium" style={styles.sectionTitle}>
+                            Serviços Realizados *
+                        </Text>
+                        <View style={styles.servicesContainer}>
+                            {COMMON_SERVICES.map((service, index) => (
+                                <Chip
+                                    key={index}
+                                    selected={selectedServices.includes(service)}
+                                    onPress={() => toggleService(service)}
+                                    style={[
+                                        styles.serviceChip,
+                                        selectedServices.includes(service) && styles.selectedServiceChip
+                                    ]}
+                                    textStyle={[
+                                        styles.serviceChipText,
+                                        selectedServices.includes(service) && styles.selectedServiceChipText
+                                    ]}
+                                >
+                                    {service}
+                                </Chip>
+                            ))}
+                        </View>
+                        {errors.services && (
+                            <Text style={styles.errorText}>{errors.services}</Text>
                         )}
                     </View>
-                </View>
 
-                <TextInput
-                    label="Valor Total (R$)"
-                    value={value}
-                    onChangeText={(text) => setValue(formatCurrency(text))}
-                    mode="outlined"
-                    style={styles.input}
-                    keyboardType="numeric"
-                    error={!!errors.value}
-                    right={<TextInput.Icon icon="currency-usd" />}
-                />
-                {errors.value && (
-                    <Text variant="bodySmall" style={styles.errorText}>
-                        {errors.value}
-                    </Text>
-                )}
-            </Card.Content>
-        </Card>
-    );
-
-    // Renderizar dados da oficina
-    const renderWorkshopFields = () => (
-        <Card style={styles.card}>
-            <Card.Content>
-                <View style={styles.sectionHeader}>
-                    <MaterialCommunityIcons name="store" size={20} color={AppColors.primary} />
-                    <Text variant="titleMedium" style={styles.sectionTitle}>
-                        Dados da Oficina
-                    </Text>
-                </View>
-
-                <TextInput
-                    label="Nome da Oficina *"
-                    value={workshopName}
-                    onChangeText={setWorkshopName}
-                    mode="outlined"
-                    style={styles.input}
-                    error={!!errors.workshopName}
-                />
-                {errors.workshopName && (
-                    <Text variant="bodySmall" style={styles.errorText}>
-                        {errors.workshopName}
-                    </Text>
-                )}
-
-                <TextInput
-                    label="CNPJ (opcional)"
-                    value={workshopCnpj}
-                    onChangeText={(text) => setWorkshopCnpj(formatCNPJ(text))}
-                    mode="outlined"
-                    style={styles.input}
-                    keyboardType="numeric"
-                />
-
-                <TextInput
-                    label="Endereço (opcional)"
-                    value={workshopAddress}
-                    onChangeText={setWorkshopAddress}
-                    mode="outlined"
-                    style={styles.input}
-                    multiline
-                    numberOfLines={2}
-                />
-            </Card.Content>
-        </Card>
-    );
-
-    // Renderizar documentos
-    const renderDocuments = () => (
-        <Card style={styles.card}>
-            <Card.Content>
-                <View style={styles.sectionHeader}>
-                    <MaterialCommunityIcons name="paperclip" size={20} color={AppColors.primary} />
-                    <Text variant="titleMedium" style={styles.sectionTitle}>
-                        Documentos Comprobatórios
-                    </Text>
-                </View>
-
-                <Text variant="bodySmall" style={styles.documentsHint}>
-                    Adicione fotos ou PDFs dos comprovantes (nota fiscal, ordem de serviço, etc.)
-                </Text>
-
-                <View style={styles.documentButtonsContainer}>
-                    <Button
-                        mode="outlined"
-                        onPress={pickImage}
-                        style={styles.documentButton}
-                        icon="camera"
-                        textColor="#000000"
-                    >
-                        Adicionar Foto
-                    </Button>
-
-                    <Button
-                        mode="outlined"
-                        onPress={pickDocument}
-                        style={styles.documentButton}
-                        icon="file-pdf-box"
-                        textColor="#000000"
-                    >
-                        Adicionar PDF
-                    </Button>
-                </View>
-
-                {documents.length > 0 && (
-                    <View style={styles.documentsListContainer}>
-                        <Text variant="bodyMedium" style={styles.documentsListTitle}>
-                            Documentos adicionados ({documents.length}):
+                    {/* Descrição Adicional */}
+                    <View style={styles.section}>
+                        <Text variant="titleMedium" style={styles.sectionTitle}>
+                            Descrição Adicional
                         </Text>
-                        {documents.map((doc, index) => (
-                            <View key={index} style={styles.documentItem}>
-                                <MaterialCommunityIcons
-                                    name={doc.includes('pdf') ? "file-pdf-box" : "image"}
-                                    size={16}
-                                    color={AppColors.text}
-                                />
-                                <Text variant="bodySmall" style={styles.documentName}>
-                                    {doc.includes('pdf') ? 'Documento PDF' : 'Imagem'} {index + 1}
-                                </Text>
-                                <Button
-                                    mode="text"
-                                    onPress={() => removeDocument(index)}
-                                    compact
-                                    textColor={AppColors.danger}
-                                >
-                                    Remover
-                                </Button>
-                            </View>
-                        ))}
+                        <TextInput
+                            value={description}
+                            onChangeText={setDescription}
+                            placeholder="Descreva outros detalhes da manutenção..."
+                            multiline
+                            numberOfLines={3}
+                            style={styles.textInput}
+                            mode="outlined"
+                        />
                     </View>
-                )}
-            </Card.Content>
-        </Card>
-    );
 
-    return (
-        <View style={styles.container}>
-            <ScrollView
-                style={styles.scrollView}
-                contentContainerStyle={styles.scrollContent}
-                showsVerticalScrollIndicator={false}
-            >
-                {renderVehicleSelector()}
-                {renderServicesSelector()}
-                {renderDataFields()}
-                {renderWorkshopFields()}
-                {renderDocuments()}
+                    {/* Dados da Oficina */}
+                    <View style={styles.section}>
+                        <Text variant="titleMedium" style={styles.sectionTitle}>
+                            Dados da Oficina
+                        </Text>
 
-                {/* Botões de ação */}
-                <View style={styles.actionButtons}>
-                    <Button
-                        mode="outlined"
-                        onPress={() => navigation.goBack()}
-                        style={styles.cancelButton}
-                        disabled={loading}
-                        textColor="#000000"
-                    >
-                        Cancelar
-                    </Button>
+                        <TextInput
+                            value={workshopName}
+                            onChangeText={setWorkshopName}
+                            placeholder="Nome da oficina *"
+                            style={[styles.textInput, errors.workshopName && styles.inputError]}
+                            mode="outlined"
+                        />
+                        {errors.workshopName && (
+                            <Text style={styles.errorText}>{errors.workshopName}</Text>
+                        )}
 
-                    <Button
-                        mode="contained"
-                        onPress={handleSave}
-                        style={styles.saveButton}
-                        loading={loading}
-                        disabled={loading}
-                        labelStyle={styles.saveButtonText}
-                    >
-                        {loading ? 'Salvando...' : 'Registrar'}
-                    </Button>
-                </View>
-            </ScrollView>
-        </View>
+                        <TextInput
+                            value={workshopCnpj}
+                            onChangeText={setWorkshopCnpj}
+                            placeholder="CNPJ da oficina *"
+                            keyboardType="numeric"
+                            style={[styles.textInput, errors.workshopCnpj && styles.inputError]}
+                            mode="outlined"
+                        />
+                        {errors.workshopCnpj && (
+                            <Text style={styles.errorText}>{errors.workshopCnpj}</Text>
+                        )}
+
+                        <TextInput
+                            value={workshopAddress}
+                            onChangeText={setWorkshopAddress}
+                            placeholder="Endereço da oficina"
+                            multiline
+                            style={styles.textInput}
+                            mode="outlined"
+                        />
+                    </View>
+
+                    {/* Valor */}
+                    <View style={styles.section}>
+                        <Text variant="titleMedium" style={styles.sectionTitle}>
+                            Valor da Manutenção *
+                        </Text>
+                        <TextInput
+                            value={value}
+                            onChangeText={setValue}
+                            placeholder="Ex: 150,00"
+                            keyboardType="numeric"
+                            style={[styles.textInput, errors.value && styles.inputError]}
+                            mode="outlined"
+                            left={<TextInput.Affix text="R$" />}
+                        />
+                        {errors.value && (
+                            <Text style={styles.errorText}>{errors.value}</Text>
+                        )}
+                    </View>
+
+                    {/* Botões */}
+                    <View style={styles.buttonContainer}>
+                        <Button
+                            mode="outlined"
+                            onPress={() => navigation.goBack()}
+                            style={styles.cancelButton}
+                            disabled={isCreating}
+                        >
+                            Cancelar
+                        </Button>
+
+                        <Button
+                            mode="contained"
+                            onPress={handleSave}
+                            style={styles.saveButton}
+                            loading={isCreating}
+                            disabled={isCreating}
+                        >
+                            {isCreating ? 'Salvando...' : 'Registrar'}
+                        </Button>
+                    </View>
+                </Card.Content>
+            </Card>
+        </ScrollView>
     );
 }
 
@@ -666,52 +474,66 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: AppColors.white,
     },
-    scrollView: {
-        flex: 1,
-    },
-    scrollContent: {
-        padding: 16,
-        paddingBottom: 100,
-    },
     card: {
-        marginBottom: 16,
-        backgroundColor: AppColors.white,
-        elevation: 2,
+        margin: 16,
+        marginBottom: 32,
     },
-    sectionHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 16,
+    title: {
+        textAlign: 'center',
+        marginBottom: 24,
+        color: AppColors.primary,
+        fontWeight: 'bold',
+    },
+    section: {
+        marginBottom: 24,
     },
     sectionTitle: {
-        marginLeft: 8,
+        marginBottom: 12,
         color: AppColors.text,
         fontWeight: '600',
     },
-    pickerContainer: {
+    input: {
         borderWidth: 1,
         borderColor: AppColors.gray,
-        borderRadius: 4,
+        borderRadius: 8,
         backgroundColor: AppColors.white,
+        minHeight: 56,
+        justifyContent: 'center',
+        paddingHorizontal: 16,
     },
-    errorContainer: {
+    inputError: {
         borderColor: AppColors.danger,
     },
-    picker: {
-        height: 50,
+    inputContent: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    inputText: {
+        fontSize: 16,
         color: AppColors.text,
+    },
+    placeholderText: {
+        color: AppColors.secondary,
+    },
+    textInput: {
+        marginBottom: 8,
+        backgroundColor: AppColors.white,
+    },
+    errorText: {
+        color: AppColors.danger,
+        fontSize: 12,
+        marginTop: 4,
     },
     servicesContainer: {
         flexDirection: 'row',
         flexWrap: 'wrap',
         gap: 8,
-        marginBottom: 8,
     },
     serviceChip: {
         backgroundColor: AppColors.white,
         borderColor: AppColors.gray,
         borderWidth: 1,
-        marginBottom: 4,
     },
     selectedServiceChip: {
         backgroundColor: AppColors.primary,
@@ -721,77 +543,13 @@ const styles = StyleSheet.create({
         fontSize: 12,
     },
     selectedServiceChipText: {
-        color: AppColors.text,
-        fontWeight: '600',
+        color: AppColors.white,
+        fontSize: 12,
     },
-    selectedServicesContainer: {
-        marginTop: 12,
-        padding: 12,
-        backgroundColor: '#f8f9fa',
-        borderRadius: 8,
-    },
-    selectedServicesTitle: {
-        color: AppColors.text,
-        fontWeight: '600',
-        marginBottom: 4,
-    },
-    selectedServicesList: {
-        color: AppColors.text,
-        opacity: 0.8,
-        lineHeight: 18,
-    },
-    row: {
+    buttonContainer: {
         flexDirection: 'row',
         gap: 12,
-    },
-    halfWidth: {
-        flex: 1,
-    },
-    input: {
-        marginBottom: 12,
-        backgroundColor: AppColors.white,
-    },
-    documentsHint: {
-        color: AppColors.text,
-        opacity: 0.7,
-        marginBottom: 12,
-        fontStyle: 'italic',
-    },
-    documentButtonsContainer: {
-        flexDirection: 'row',
-        gap: 12,
-        marginBottom: 16,
-    },
-    documentButton: {
-        flex: 1,
-        borderColor: AppColors.primary,
-    },
-    documentsListContainer: {
-        marginTop: 8,
-    },
-    documentsListTitle: {
-        color: AppColors.text,
-        fontWeight: '600',
-        marginBottom: 8,
-    },
-    documentItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 8,
-        paddingHorizontal: 12,
-        backgroundColor: '#f8f9fa',
-        borderRadius: 8,
-        marginBottom: 4,
-    },
-    documentName: {
-        flex: 1,
-        marginLeft: 8,
-        color: AppColors.text,
-    },
-    actionButtons: {
-        flexDirection: 'row',
-        gap: 12,
-        marginTop: 16,
+        marginTop: 24,
     },
     cancelButton: {
         flex: 1,
@@ -801,50 +559,6 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: AppColors.primary,
     },
-    saveButtonText: {
-        color: '#000000',
-        fontWeight: '600',
-    },
-    errorText: {
-        color: AppColors.danger,
-        marginTop: 4,
-    },
-    // Estilos do seletor customizado de veículo
-    vehicleSelector: {
-        borderWidth: 1,
-        borderColor: AppColors.gray,
-        borderRadius: 4,
-        backgroundColor: AppColors.white,
-        paddingHorizontal: 12,
-        paddingVertical: 16,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        marginBottom: 12,
-    },
-    vehicleSelectorError: {
-        borderColor: AppColors.danger,
-    },
-    vehicleSelectorContent: {
-        flex: 1,
-    },
-    vehicleSelectorLabel: {
-        color: AppColors.text,
-        opacity: 0.6,
-        marginBottom: 4,
-        fontSize: 12,
-    },
-    vehicleSelectorText: {
-        color: AppColors.text,
-        fontSize: 16,
-    },
-    vehicleSelectorPlaceholder: {
-        opacity: 0.5,
-    },
-    vehicleSelectorIcon: {
-        marginLeft: 8,
-    },
-    // Estilos do modal de veículos
     modalContainer: {
         flex: 1,
         backgroundColor: AppColors.white,
@@ -859,44 +573,38 @@ const styles = StyleSheet.create({
     },
     modalTitle: {
         color: AppColors.text,
-        fontWeight: '600',
+        fontWeight: 'bold',
     },
     modalCloseButton: {
-        padding: 8,
+        padding: 4,
+    },
+    modalPlaceholder: {
+        width: 32,
     },
     vehicleList: {
+        flex: 1,
         padding: 16,
     },
-    vehicleOption: {
+    vehicleItem: {
         flexDirection: 'row',
+        justifyContent: 'space-between',
         alignItems: 'center',
         padding: 16,
-        backgroundColor: AppColors.white,
         borderRadius: 8,
         borderWidth: 1,
         borderColor: AppColors.gray,
+        backgroundColor: AppColors.white,
+        marginBottom: 8,
     },
-    selectedVehicleOption: {
+    selectedVehicleItem: {
         borderColor: AppColors.primary,
-        backgroundColor: '#f0f8ff',
+        backgroundColor: `${AppColors.primary}10`,
     },
     vehicleInfo: {
         flex: 1,
     },
-    vehicleTitle: {
-        color: AppColors.text,
-        fontWeight: '600',
-        marginBottom: 4,
-    },
-    vehiclePlate: {
-        color: AppColors.text,
-        marginBottom: 2,
-    },
-    vehicleKm: {
-        color: AppColors.text,
-        opacity: 0.7,
-    },
-    separator: {
-        height: 12,
+    vehicleSubtitle: {
+        color: AppColors.secondary,
+        marginTop: 4,
     },
 });

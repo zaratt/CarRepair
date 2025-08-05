@@ -1,390 +1,397 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import React, { useCallback, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
-import { Button, Card, Chip, FAB, Searchbar, Text } from 'react-native-paper';
+import { Card, Chip, FAB, Searchbar, Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { getInspectionsByUser, getInspectionStats } from '../../data/mockInspections';
+
+import { InspectionProvider, useInspectionContext } from '../../hooks/useInspectionContext';
+import { useVehicleContext } from '../../hooks/useVehicleContext';
 import { AppColors } from '../../styles/colors';
-import { Inspection, INSPECTION_RESULTS, INSPECTION_STATUS, InspectionFilters } from '../../types/inspection.types';
 
+// 🎯 Componente principal da tela (com provider)
 export default function InspectionScreen() {
+    return (
+        <InspectionProvider>
+            <InspectionScreenContent />
+        </InspectionProvider>
+    );
+}
+
+// 🎯 Conteúdo da tela
+function InspectionScreenContent() {
     const navigation = useNavigation();
-    const [inspections, setInspections] = useState<Inspection[]>([]);
-    const [filteredInspections, setFilteredInspections] = useState<Inspection[]>([]);
+    const {
+        inspections,
+        inspectionsCount,
+        stats,
+        isLoading,
+        error,
+        refetch,
+        isUsingRealAPI,
+    } = useInspectionContext();
+
+    const { vehicles } = useVehicleContext();
+
     const [searchQuery, setSearchQuery] = useState('');
-    const [refreshing, setRefreshing] = useState(false);
-    const [stats, setStats] = useState({
-        total: 0,
-        valid: 0,
-        expiring: 0,
-        expired: 0,
-        approved: 0,
-        conditional: 0,
-        rejected: 0
-    });
+    const [filteredInspections, setFilteredInspections] = useState<any[]>([]);
 
-    // Filtros ativos
-    const [activeFilters, setActiveFilters] = useState<InspectionFilters>({});
+    // Função de filtro
+    const filterInspections = useCallback(() => {
+        let filtered = inspections;
 
-    // Carregar dados
-    const loadData = useCallback(() => {
-        const userInspections = getInspectionsByUser('user1');
-        const userStats = getInspectionStats('user1');
+        // Filtrar por busca de texto
+        if (searchQuery.trim()) {
+            const query = searchQuery.toLowerCase();
+            filtered = filtered.filter(inspection => {
+                const vehicle = vehicles.find(v => v.id === inspection.vehicleId);
+                const vehicleName = vehicle ? `${vehicle.brand} ${vehicle.model}`.toLowerCase() : '';
+                const certificateNumber = inspection.certificateNumber?.toLowerCase() || '';
+                const location = inspection.location?.toLowerCase() || '';
 
-        setInspections(userInspections);
-        setFilteredInspections(userInspections);
-        setStats(userStats);
-    }, []);
+                return (
+                    vehicleName.includes(query) ||
+                    certificateNumber.includes(query) ||
+                    location.includes(query)
+                );
+            });
+        }
 
-    // Carregar dados quando a tela ganhar foco
-    useFocusEffect(loadData);
+        // Ordenar por data (mais recente primeiro)
+        filtered.sort((a, b) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime());
+
+        setFilteredInspections(filtered);
+    }, [inspections, vehicles, searchQuery]);
+
+    // Aplicar filtros quando os dados mudarem
+    React.useEffect(() => {
+        filterInspections();
+    }, [filterInspections]);
 
     // Função de refresh
-    const onRefresh = useCallback(async () => {
-        setRefreshing(true);
-        await new Promise<void>(resolve => setTimeout(() => resolve(), 1000)); // Simular delay
-        loadData();
-        setRefreshing(false);
-    }, [loadData]);
-
-    // Filtrar inspeções
-    const filterInspections = useCallback((
-        inspectionsList: Inspection[],
-        search: string,
-        filters: InspectionFilters
-    ) => {
-        let filtered = [...inspectionsList];
-
-        // Filtro de busca por placa, marca ou modelo
-        if (search.trim()) {
-            const searchLower = search.toLowerCase();
-            filtered = filtered.filter(inspection =>
-                inspection.vehiclePlate.toLowerCase().includes(searchLower) ||
-                inspection.vehicleBrand.toLowerCase().includes(searchLower) ||
-                inspection.vehicleModel.toLowerCase().includes(searchLower) ||
-                inspection.inspectionCenter.name.toLowerCase().includes(searchLower)
-            );
-        }
-
-        // Filtro por status
-        if (filters.status) {
-            filtered = filtered.filter(inspection => inspection.status === filters.status);
-        }
-
-        // Filtro por tipo
-        if (filters.type) {
-            filtered = filtered.filter(inspection => inspection.type === filters.type);
-        }
-
-        // Filtro por resultado
-        if (filters.result) {
-            filtered = filtered.filter(inspection => inspection.result === filters.result);
-        }
-
-        // Filtro por veículo
-        if (filters.vehicleId) {
-            filtered = filtered.filter(inspection => inspection.vehicleId === filters.vehicleId);
-        }
-
-        return filtered;
-    }, []);
-
-    // Aplicar filtros quando houver mudanças
-    React.useEffect(() => {
-        const filtered = filterInspections(inspections, searchQuery, activeFilters);
-        setFilteredInspections(filtered);
-    }, [inspections, searchQuery, activeFilters, filterInspections]);
-
-    // Aplicar/remover filtro
-    const toggleFilter = (key: keyof InspectionFilters, value: any) => {
-        setActiveFilters(prev => {
-            const newFilters = { ...prev };
-            if (newFilters[key] === value) {
-                delete newFilters[key];
-            } else {
-                newFilters[key] = value;
-            }
-            return newFilters;
-        });
-    };
+    const onRefresh = useCallback(() => {
+        refetch();
+    }, [refetch]);
 
     // Navegar para detalhes
-    const navigateToDetails = (inspection: Inspection) => {
+    const navigateToDetails = (inspection: any) => {
         (navigation as any).navigate('InspectionDetails', { inspectionId: inspection.id });
+    };
+
+    // Navegar para nova inspeção
+    const navigateToNewInspection = () => {
+        (navigation as any).navigate('AddInspection');
     };
 
     // Obter cor do status
     const getStatusColor = (status: string) => {
-        switch (status) {
-            case 'valid': return '#4CAF50';
-            case 'expiring_soon': return '#FF9800';
-            case 'expired': return '#F44336';
-            default: return '#666';
+        switch (status?.toLowerCase()) {
+            case 'scheduled':
+                return AppColors.primary;
+            case 'in_progress':
+                return '#2196F3';
+            case 'completed':
+                return '#4CAF50';
+            case 'cancelled':
+                return AppColors.danger;
+            default:
+                return AppColors.gray;
         }
     };
 
     // Obter cor do resultado
     const getResultColor = (result: string) => {
-        switch (result) {
-            case 'approved': return '#4CAF50';
-            case 'conditional': return '#FF9800';
-            case 'rejected': return '#F44336';
-            default: return '#666';
+        switch (result?.toLowerCase()) {
+            case 'approved':
+            case 'pass':
+                return '#4CAF50';
+            case 'conditional':
+            case 'warning':
+                return '#FF9800';
+            case 'rejected':
+            case 'fail':
+                return AppColors.danger;
+            default:
+                return AppColors.gray;
         }
     };
 
-    // Renderizar card de vistoria
-    const renderInspectionCard = ({ item }: { item: Inspection }) => (
-        <Pressable onPress={() => navigateToDetails(item)}>
-            <Card style={styles.inspectionCard}>
-                <Card.Content>
-                    {/* Header do card */}
-                    <View style={styles.cardHeader}>
-                        <View style={styles.vehicleInfo}>
-                            <Text variant="titleMedium" style={styles.vehicleName}>
-                                {item.vehicleBrand} {item.vehicleModel}
-                            </Text>
-                            <Text variant="bodySmall" style={styles.vehiclePlate}>
-                                {item.vehiclePlate}
-                            </Text>
-                        </View>
-                        <View style={styles.statusContainer}>
+    // Renderizar card de inspeção
+    const renderInspectionCard = ({ item }: { item: any }) => {
+        const vehicle = vehicles.find(v => v.id === item.vehicleId);
+        const vehicleName = vehicle ? `${vehicle.brand} ${vehicle.model}` : 'Veículo não encontrado';
+
+        return (
+            <Pressable onPress={() => navigateToDetails(item)}>
+                <Card style={styles.inspectionCard}>
+                    <Card.Content>
+                        <View style={styles.cardHeader}>
+                            <View style={styles.cardTitleContainer}>
+                                <Text variant="titleMedium" style={styles.cardTitle}>
+                                    {vehicleName}
+                                </Text>
+                                <Text variant="bodySmall" style={styles.cardSubtitle}>
+                                    {item.type || 'Inspeção Geral'}
+                                </Text>
+                            </View>
+
                             <Chip
-                                mode="flat"
-                                style={[styles.statusChip, { backgroundColor: getStatusColor(item.status) + '20' }]}
-                                textStyle={[styles.statusText, { color: getStatusColor(item.status) }]}
+                                style={[
+                                    styles.statusChip,
+                                    { backgroundColor: getStatusColor(item.status) }
+                                ]}
+                                textStyle={styles.statusChipText}
                             >
-                                {INSPECTION_STATUS[item.status]}
+                                {item.status === 'scheduled' ? 'Agendada' :
+                                    item.status === 'in_progress' ? 'Em Andamento' :
+                                        item.status === 'completed' ? 'Concluída' :
+                                            item.status === 'cancelled' ? 'Cancelada' :
+                                                item.status}
                             </Chip>
                         </View>
-                    </View>
 
-                    {/* Informações principais */}
-                    <View style={styles.inspectionInfo}>
-                        <View style={styles.infoRow}>
-                            <MaterialCommunityIcons name="calendar" size={16} color="#666" />
-                            <Text variant="bodySmall" style={styles.infoText}>
-                                Vistoria: {format(new Date(item.inspectionDate), 'dd/MM/yyyy', { locale: ptBR })}
-                            </Text>
-                        </View>
-                        <View style={styles.infoRow}>
-                            <MaterialCommunityIcons name="calendar-clock" size={16} color="#666" />
-                            <Text variant="bodySmall" style={styles.infoText}>
-                                Validade: {format(new Date(item.expiryDate), 'dd/MM/yyyy', { locale: ptBR })}
-                            </Text>
-                        </View>
-                        <View style={styles.infoRow}>
-                            <MaterialCommunityIcons name="office-building" size={16} color="#666" />
-                            <Text variant="bodySmall" style={styles.infoText}>
-                                {item.inspectionCenter.name}
-                            </Text>
-                        </View>
-                    </View>
+                        <View style={styles.cardDetails}>
+                            <View style={styles.cardDetailRow}>
+                                <MaterialCommunityIcons
+                                    name="calendar"
+                                    size={16}
+                                    color={AppColors.text}
+                                />
+                                <Text variant="bodySmall" style={styles.cardDetailText}>
+                                    {format(new Date(item.scheduledDate), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                                </Text>
+                            </View>
 
-                    {/* Resultado e ações */}
-                    <View style={styles.cardFooter}>
-                        <Chip
-                            mode="flat"
-                            style={[styles.resultChip, { backgroundColor: getResultColor(item.result) + '20' }]}
-                            textStyle={[styles.resultText, { color: getResultColor(item.result) }]}
-                        >
-                            {INSPECTION_RESULTS[item.result]}
-                        </Chip>
-                        <Text variant="bodySmall" style={styles.costText}>
-                            {new Intl.NumberFormat('pt-BR', {
-                                style: 'currency',
-                                currency: 'BRL'
-                            }).format(item.cost)}
-                        </Text>
-                    </View>
-                </Card.Content>
-            </Card>
-        </Pressable>
-    );
+                            {item.location && (
+                                <View style={styles.cardDetailRow}>
+                                    <MaterialCommunityIcons
+                                        name="map-marker"
+                                        size={16}
+                                        color={AppColors.text}
+                                    />
+                                    <Text variant="bodySmall" style={styles.cardDetailText}>
+                                        {item.location}
+                                    </Text>
+                                </View>
+                            )}
 
-    // Renderizar estado vazio
-    const renderEmptyState = () => (
+                            {item.certificateNumber && (
+                                <View style={styles.cardDetailRow}>
+                                    <MaterialCommunityIcons
+                                        name="certificate"
+                                        size={16}
+                                        color={AppColors.text}
+                                    />
+                                    <Text variant="bodySmall" style={styles.cardDetailText}>
+                                        Certificado: {item.certificateNumber}
+                                    </Text>
+                                </View>
+                            )}
+                        </View>
+
+                        {item.overallRating && (
+                            <View style={styles.cardFooter}>
+                                <Chip
+                                    style={[
+                                        styles.resultChip,
+                                        { backgroundColor: getResultColor(item.overallRating) }
+                                    ]}
+                                    textStyle={styles.resultChipText}
+                                >
+                                    {item.overallRating === 'EXCELLENT' ? 'Excelente' :
+                                        item.overallRating === 'GOOD' ? 'Bom' :
+                                            item.overallRating === 'FAIR' ? 'Regular' :
+                                                item.overallRating === 'POOR' ? 'Ruim' :
+                                                    item.overallRating === 'CRITICAL' ? 'Crítico' :
+                                                        item.overallRating}
+                                </Chip>
+                            </View>
+                        )}
+                    </Card.Content>
+                </Card>
+            </Pressable>
+        );
+    };
+
+    // Componente vazio
+    const renderEmptyComponent = () => (
         <View style={styles.emptyContainer}>
-            <MaterialCommunityIcons name="clipboard-search" size={64} color="#ccc" />
-            <Text variant="titleMedium" style={styles.emptyTitle}>
-                Nenhuma vistoria encontrada
-            </Text>
-            <Text variant="bodyMedium" style={styles.emptySubtitle}>
-                {inspections.length === 0
-                    ? 'Registre a primeira vistoria dos seus veículos'
-                    : 'Tente ajustar os filtros de busca'
+            <MaterialCommunityIcons
+                name="clipboard-check-outline"
+                size={64}
+                color={AppColors.gray}
+                style={styles.emptyIcon}
+            />
+            <Text variant="headlineSmall" style={styles.emptyTitle}>
+                {searchQuery
+                    ? 'Nenhuma inspeção encontrada'
+                    : 'Nenhuma inspeção registrada'
                 }
             </Text>
-            {inspections.length === 0 && (
-                <Button
-                    mode="contained"
-                    onPress={() => (navigation as any).navigate('AddInspection')}
-                    style={styles.emptyButton}
-                    buttonColor={AppColors.primary}
-                >
-                    Registrar Primeira Vistoria
-                </Button>
+            <Text variant="bodyMedium" style={styles.emptySubtitle}>
+                {searchQuery
+                    ? 'Tente ajustar os filtros de busca'
+                    : 'Agende sua primeira inspeção'
+                }
+            </Text>
+        </View>
+    );
+
+    // Header com estatísticas
+    const renderHeader = () => (
+        <View style={styles.header}>
+            {/* Barra de busca */}
+            <Searchbar
+                placeholder="Buscar por veículo, certificado ou local..."
+                onChangeText={setSearchQuery}
+                value={searchQuery}
+                style={styles.searchbar}
+                iconColor={AppColors.primary}
+            />
+
+            {/* Estatísticas */}
+            {stats && (
+                <View style={styles.statsContainer}>
+                    <Text variant="titleMedium" style={styles.statsTitle}>
+                        Resumo das Inspeções
+                    </Text>
+                    <View style={styles.statsRow}>
+                        <View style={styles.statItem}>
+                            <Text variant="headlineSmall" style={styles.statNumber}>
+                                {stats.total}
+                            </Text>
+                            <Text variant="bodySmall" style={styles.statLabel}>
+                                Total
+                            </Text>
+                        </View>
+                        <View style={styles.statItem}>
+                            <Text variant="headlineSmall" style={styles.statNumber}>
+                                {stats.completed}
+                            </Text>
+                            <Text variant="bodySmall" style={styles.statLabel}>
+                                Concluídas
+                            </Text>
+                        </View>
+                        <View style={styles.statItem}>
+                            <Text variant="headlineSmall" style={styles.statNumber}>
+                                {stats.upcomingDue}
+                            </Text>
+                            <Text variant="bodySmall" style={styles.statLabel}>
+                                Próximas
+                            </Text>
+                        </View>
+                        <View style={styles.statItem}>
+                            <Text variant="headlineSmall" style={[styles.statNumber, { color: AppColors.danger }]}>
+                                {stats.overdueInspections}
+                            </Text>
+                            <Text variant="bodySmall" style={styles.statLabel}>
+                                Vencidas
+                            </Text>
+                        </View>
+                    </View>
+                </View>
             )}
         </View>
     );
 
     return (
         <SafeAreaView style={styles.container}>
-            {/* Barra de busca */}
-            <View style={styles.searchContainer}>
-                <Searchbar
-                    placeholder="Buscar por placa, veículo ou centro..."
-                    onChangeText={setSearchQuery}
-                    value={searchQuery}
-                    style={styles.searchBar}
-                />
-            </View>
-
-            {/* Cards de estatísticas */}
-            <View style={styles.statsContainer}>
-                <View style={styles.statsRow}>
-                    <Pressable
-                        style={[styles.statCard, { backgroundColor: '#E3F2FD' }]}
-                        onPress={() => toggleFilter('status', 'valid')}
-                    >
-                        <Text variant="titleLarge" style={[styles.statNumber, { color: '#1976D2' }]}>
-                            {stats.valid}
-                        </Text>
-                        <Text variant="bodySmall" style={styles.statLabel}>Válidas</Text>
-                    </Pressable>
-
-                    <Pressable
-                        style={[styles.statCard, { backgroundColor: '#FFF3E0' }]}
-                        onPress={() => toggleFilter('status', 'expiring_soon')}
-                    >
-                        <Text variant="titleLarge" style={[styles.statNumber, { color: '#F57C00' }]}>
-                            {stats.expiring}
-                        </Text>
-                        <Text variant="bodySmall" style={styles.statLabel}>Vencendo</Text>
-                    </Pressable>
-
-                    <Pressable
-                        style={[styles.statCard, { backgroundColor: '#FFEBEE' }]}
-                        onPress={() => toggleFilter('status', 'expired')}
-                    >
-                        <Text variant="titleLarge" style={[styles.statNumber, { color: '#D32F2F' }]}>
-                            {stats.expired}
-                        </Text>
-                        <Text variant="bodySmall" style={styles.statLabel}>Vencidas</Text>
-                    </Pressable>
-                </View>
-            </View>
-
-            {/* Filtros ativos */}
-            {Object.keys(activeFilters).length > 0 && (
-                <View style={styles.filtersContainer}>
-                    <FlatList
-                        data={Object.entries(activeFilters)}
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        keyExtractor={([key]) => key}
-                        renderItem={({ item: [key, value] }) => (
-                            <Chip
-                                mode="flat"
-                                onClose={() => toggleFilter(key as keyof InspectionFilters, value)}
-                                style={styles.filterChip}
-                            >
-                                {key === 'status' ? INSPECTION_STATUS[value as keyof typeof INSPECTION_STATUS] : value}
-                            </Chip>
-                        )}
-                        contentContainerStyle={styles.filtersList}
-                    />
-                </View>
-            )}
-
-            {/* Lista de vistorias */}
             <FlatList
                 data={filteredInspections}
-                renderItem={renderInspectionCard}
                 keyExtractor={(item) => item.id}
-                contentContainerStyle={[
-                    styles.listContainer,
-                    filteredInspections.length === 0 && styles.emptyListContainer
-                ]}
-                ListEmptyComponent={renderEmptyState}
+                renderItem={renderInspectionCard}
+                ListHeaderComponent={renderHeader}
+                ListEmptyComponent={renderEmptyComponent}
                 refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+                    <RefreshControl
+                        refreshing={isLoading}
+                        onRefresh={onRefresh}
+                        colors={[AppColors.primary]}
+                    />
                 }
                 showsVerticalScrollIndicator={false}
+                contentContainerStyle={[
+                    styles.listContent,
+                    filteredInspections.length === 0 && styles.emptyListContent
+                ]}
             />
 
-            {/* FAB para adicionar vistoria */}
+            {/* FAB para nova inspeção */}
             <FAB
                 icon="plus"
+                onPress={navigateToNewInspection}
                 style={styles.fab}
-                onPress={() => (navigation as any).navigate('AddInspection')}
-                label="Nova Vistoria"
+                color={AppColors.white}
             />
+
+            {/* Debug info */}
+            {!isUsingRealAPI && (
+                <View style={styles.debugContainer}>
+                    <Text style={styles.debugText}>
+                        🔧 Modo Mock - {inspections.length} inspeções
+                    </Text>
+                </View>
+            )}
         </SafeAreaView>
     );
 }
 
-
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#f5f5f5',
+        backgroundColor: AppColors.white,
     },
-    searchContainer: {
-        paddingHorizontal: 16,
-        paddingVertical: 8,
+    header: {
+        padding: 16,
+        backgroundColor: AppColors.white,
     },
-    searchBar: {
+    searchbar: {
+        marginBottom: 16,
+        backgroundColor: AppColors.white,
         elevation: 2,
     },
     statsContainer: {
-        paddingHorizontal: 16,
-        paddingVertical: 8,
+        backgroundColor: AppColors.white,
+        borderRadius: 12,
+        padding: 16,
+        elevation: 2,
+        marginBottom: 8,
+    },
+    statsTitle: {
+        color: AppColors.text,
+        marginBottom: 12,
+        fontWeight: '600',
     },
     statsRow: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
+        justifyContent: 'space-around',
     },
-    statCard: {
-        flex: 1,
-        padding: 16,
-        borderRadius: 12,
+    statItem: {
         alignItems: 'center',
-        marginHorizontal: 4,
-        elevation: 2,
+        flex: 1,
     },
     statNumber: {
+        color: AppColors.primary,
         fontWeight: 'bold',
-        marginBottom: 4,
     },
     statLabel: {
-        color: '#666',
+        color: AppColors.text,
+        marginTop: 4,
         textAlign: 'center',
     },
-    filtersContainer: {
-        paddingVertical: 8,
-    },
-    filtersList: {
-        paddingHorizontal: 16,
-    },
-    filterChip: {
-        marginRight: 8,
-    },
-    listContainer: {
-        paddingHorizontal: 16,
+    listContent: {
         paddingBottom: 100,
     },
-    emptyListContainer: {
+    emptyListContent: {
         flexGrow: 1,
-        justifyContent: 'center',
     },
     inspectionCard: {
-        marginBottom: 12,
+        margin: 8,
+        marginHorizontal: 16,
         elevation: 2,
-        borderRadius: 12,
+        backgroundColor: AppColors.white,
     },
     cardHeader: {
         flexDirection: 'row',
@@ -392,80 +399,87 @@ const styles = StyleSheet.create({
         alignItems: 'flex-start',
         marginBottom: 12,
     },
-    vehicleInfo: {
+    cardTitleContainer: {
         flex: 1,
+        marginRight: 12,
     },
-    vehicleName: {
+    cardTitle: {
+        color: AppColors.text,
         fontWeight: '600',
-        color: '#222',
     },
-    vehiclePlate: {
-        color: '#666',
+    cardSubtitle: {
+        color: AppColors.secondary,
         marginTop: 2,
     },
-    statusContainer: {
-        marginLeft: 12,
-    },
     statusChip: {
-        height: 28,
+        height: 32,
     },
-    statusText: {
+    statusChipText: {
+        color: AppColors.white,
         fontSize: 12,
-        fontWeight: '500',
+        fontWeight: '600',
     },
-    inspectionInfo: {
+    cardDetails: {
         marginBottom: 12,
     },
-    infoRow: {
+    cardDetailRow: {
         flexDirection: 'row',
         alignItems: 'center',
         marginBottom: 4,
     },
-    infoText: {
+    cardDetailText: {
+        color: AppColors.text,
         marginLeft: 8,
-        color: '#666',
         flex: 1,
     },
     cardFooter: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
+        alignItems: 'flex-start',
     },
     resultChip: {
         height: 28,
     },
-    resultText: {
-        fontSize: 12,
-        fontWeight: '500',
-    },
-    costText: {
-        color: '#1976D2',
+    resultChipText: {
+        color: AppColors.white,
+        fontSize: 11,
         fontWeight: '600',
     },
     emptyContainer: {
+        flex: 1,
+        justifyContent: 'center',
         alignItems: 'center',
-        paddingVertical: 48,
         paddingHorizontal: 32,
+        paddingTop: 64,
+    },
+    emptyIcon: {
+        opacity: 0.5,
+        marginBottom: 16,
     },
     emptyTitle: {
-        marginTop: 16,
-        marginBottom: 8,
+        color: AppColors.text,
         textAlign: 'center',
-        color: '#333',
+        marginBottom: 8,
     },
     emptySubtitle: {
+        color: AppColors.secondary,
         textAlign: 'center',
-        color: '#666',
-        marginBottom: 24,
-    },
-    emptyButton: {
-        marginTop: 8,
     },
     fab: {
         position: 'absolute',
         margin: 16,
         right: 0,
-        bottom: 0,
+        bottom: 80,
         backgroundColor: AppColors.primary,
+    },
+    debugContainer: {
+        position: 'absolute',
+        top: 10,
+        right: 10,
+        backgroundColor: 'rgba(0,0,0,0.7)',
+        padding: 4,
+        borderRadius: 4,
+    },
+    debugText: {
+        color: 'white',
+        fontSize: 10,
     },
 });

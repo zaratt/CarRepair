@@ -1,61 +1,38 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useState } from 'react';
 import { Alert, FlatList, StyleSheet, View } from 'react-native';
 import { Chip, FAB, Searchbar, Text } from 'react-native-paper';
 
 import MaintenanceCard from '../../components/maintenance/MaintenanceCard';
-import { getAllMaintenances } from '../../services/maintenanceApi';
-import { getVehicleById } from '../../services/vehicleApi';
+import { MaintenanceProvider, useMaintenanceContext } from '../../hooks/useMaintenanceContext';
+import { useVehicleContext } from '../../hooks/useVehicleContext';
 import { AppColors } from '../../styles/colors';
-import { Maintenance, MaintenanceStatus } from '../../types/maintenance.types';
-import { Vehicle } from '../../types/vehicle.types';
+import { MaintenanceStatus } from '../../types/maintenance.types';
 
+// 🎯 Componente principal da tela (com provider)
 export default function MaintenanceScreen({ navigation }: any) {
-    const [maintenances, setMaintenances] = useState<Maintenance[]>([]);
-    const [filteredMaintenances, setFilteredMaintenances] = useState<Maintenance[]>([]);
-    const [vehicles, setVehicles] = useState<{ [key: string]: Vehicle }>({});
+    return (
+        <MaintenanceProvider>
+            <MaintenanceScreenContent navigation={navigation} />
+        </MaintenanceProvider>
+    );
+}
+
+// 🎯 Conteúdo da tela
+function MaintenanceScreenContent({ navigation }: any) {
+    const {
+        maintenances,
+        isLoading,
+        error,
+        refetch,
+        isUsingRealAPI,
+    } = useMaintenanceContext();
+
+    const { vehicles } = useVehicleContext();
+
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedStatus, setSelectedStatus] = useState<MaintenanceStatus | 'all'>('all');
-    const [loading, setLoading] = useState(true);
-
-    // Função para buscar dados
-    const loadData = useCallback(async () => {
-        try {
-            setLoading(true);
-
-            // Buscar manutenções
-            const maintenanceData = getAllMaintenances();
-            setMaintenances(maintenanceData);
-
-            // Buscar veículos para cada manutenção (individual para tratar erros)
-            const vehicleMap: { [key: string]: Vehicle } = {};
-
-            for (const maintenance of maintenanceData) {
-                try {
-                    const vehicle = await getVehicleById(maintenance.vehicleId);
-                    if (vehicle) {
-                        vehicleMap[maintenance.vehicleId] = vehicle;
-                    }
-                } catch (error) {
-                    console.warn(`Erro ao buscar veículo ${maintenance.vehicleId}:`, error);
-                }
-            }
-
-            setVehicles(vehicleMap);
-
-        } catch (error) {
-            console.error('Erro ao carregar dados:', error);
-            Alert.alert('Erro', 'Não foi possível carregar as manutenções');
-        } finally {
-            setLoading(false);
-        }
-    }, []);    // Recarregar dados quando a tela receber foco
-    useFocusEffect(
-        useCallback(() => {
-            loadData();
-        }, [loadData])
-    );
+    const [filteredMaintenances, setFilteredMaintenances] = useState<any[]>([]);
 
     // Função para filtrar manutenções
     const filterMaintenances = useCallback(() => {
@@ -70,11 +47,11 @@ export default function MaintenanceScreen({ navigation }: any) {
         if (searchQuery.trim()) {
             const query = searchQuery.toLowerCase();
             filtered = filtered.filter(maintenance => {
-                const vehicle = vehicles[maintenance.vehicleId];
+                const vehicle = vehicles.find(v => v.id === maintenance.vehicleId);
                 const vehicleName = vehicle ? `${vehicle.brand} ${vehicle.model}`.toLowerCase() : '';
-                const workshopName = maintenance.workshop.name.toLowerCase();
-                const services = maintenance.services.join(' ').toLowerCase();
-                const validationCode = maintenance.validationCode.toLowerCase();
+                const workshopName = maintenance.workshop?.name?.toLowerCase() || '';
+                const services = maintenance.services?.join(' ')?.toLowerCase() || '';
+                const validationCode = maintenance.validationCode?.toLowerCase() || '';
 
                 return (
                     vehicleName.includes(query) ||
@@ -96,8 +73,15 @@ export default function MaintenanceScreen({ navigation }: any) {
         filterMaintenances();
     }, [filterMaintenances]);
 
+    // Mostrar erro se houver
+    React.useEffect(() => {
+        if (error) {
+            Alert.alert('Erro', 'Não foi possível carregar as manutenções');
+        }
+    }, [error]);
+
     // Navegar para detalhes da manutenção
-    const handleMaintenancePress = (maintenance: Maintenance) => {
+    const handleMaintenancePress = (maintenance: any) => {
         navigation.navigate('MaintenanceDetails', { maintenanceId: maintenance.id });
     };
 
@@ -112,13 +96,16 @@ export default function MaintenanceScreen({ navigation }: any) {
     };
 
     // Renderizar item da lista
-    const renderMaintenanceItem = ({ item }: { item: Maintenance }) => (
-        <MaintenanceCard
-            maintenance={item}
-            vehicle={vehicles[item.vehicleId]}
-            onPress={handleMaintenancePress}
-        />
-    );
+    const renderMaintenanceItem = ({ item }: { item: any }) => {
+        const vehicle = vehicles.find(v => v.id === item.vehicleId);
+        return (
+            <MaintenanceCard
+                maintenance={item}
+                vehicle={vehicle as any} // Conversão temporária para resolver conflito de tipos
+                onPress={handleMaintenancePress}
+            />
+        );
+    };
 
     // Header da lista com estatísticas
     const renderListHeader = () => (
@@ -208,8 +195,8 @@ export default function MaintenanceScreen({ navigation }: any) {
                 ListHeaderComponent={renderListHeader}
                 ListEmptyComponent={renderEmptyComponent}
                 showsVerticalScrollIndicator={false}
-                refreshing={loading}
-                onRefresh={loadData}
+                refreshing={isLoading}
+                onRefresh={refetch}
                 contentContainerStyle={[
                     styles.listContent,
                     filteredMaintenances.length === 0 && styles.emptyListContent

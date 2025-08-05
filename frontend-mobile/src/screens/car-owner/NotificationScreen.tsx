@@ -1,396 +1,387 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import React, { useCallback, useState } from 'react';
-import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
-import { Button, Card, Chip, FAB, Switch, Text } from 'react-native-paper';
+import { FlatList, RefreshControl, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Button, Card, Chip, FAB, Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import MockNotificationData from '../../data/mockNotifications';
+
+import { NotificationProvider, useNotificationContext } from '../../hooks/useNotificationContext';
 import { AppColors } from '../../styles/colors';
-import {
-    NotificationCategory,
-    NotificationHistory,
-    NotificationPriority,
-    NotificationSettings,
-    NotificationStats,
-    NotificationStatus
-} from '../../types/notification.types';
 
+// 🎯 Componente principal da tela (com provider)
 export default function NotificationScreen() {
-    const navigation = useNavigation();
-
-    // Estados
-    const [settings, setSettings] = useState<NotificationSettings | null>(null);
-    const [recentNotifications, setRecentNotifications] = useState<NotificationHistory[]>([]);
-    const [upcomingNotifications, setUpcomingNotifications] = useState<NotificationHistory[]>([]);
-    const [stats, setStats] = useState<NotificationStats | null>(null);
-    const [refreshing, setRefreshing] = useState(false);
-    const [loading, setLoading] = useState(true);
-
-    // Carregar dados
-    const loadData = useCallback(async () => {
-        try {
-            const userId = 'user1'; // Em produção, vem do contexto de auth
-
-            const [
-                userSettings,
-                recentHistory,
-                upcomingHistory,
-                userStats
-            ] = await Promise.all([
-                MockNotificationData.getSettings(userId),
-                MockNotificationData.getHistory(userId, 10),
-                MockNotificationData.getUpcomingNotifications(userId, 30),
-                MockNotificationData.getStats(userId)
-            ]);
-
-            setSettings(userSettings);
-            setRecentNotifications(recentHistory);
-            setUpcomingNotifications(upcomingHistory);
-            setStats(userStats);
-        } catch (error) {
-            console.error('Erro ao carregar dados de notificações:', error);
-        } finally {
-            setLoading(false);
-        }
-    }, []);
-
-    // Carregar dados quando a tela ganhar foco
-    useFocusEffect(
-        useCallback(() => {
-            loadData();
-        }, [loadData])
+    return (
+        <NotificationProvider>
+            <NotificationScreenContent />
+        </NotificationProvider>
     );
+}
+
+// 🎯 Conteúdo da tela
+function NotificationScreenContent() {
+    const navigation = useNavigation();
+    const {
+        notifications,
+        notificationsCount,
+        unreadCount,
+        stats,
+        preferences,
+        isLoading,
+        error,
+        markAsRead,
+        markAllAsRead,
+        updatePreferences,
+        testNotification,
+        refetch,
+        isUsingRealAPI,
+    } = useNotificationContext();
+
+    const [filteredNotifications, setFilteredNotifications] = useState<any[]>([]);
+    const [selectedFilter, setSelectedFilter] = useState<'all' | 'unread' | 'read'>('all');
+
+    // Função de filtro
+    const filterNotifications = useCallback(() => {
+        let filtered = notifications;
+
+        switch (selectedFilter) {
+            case 'unread':
+                filtered = filtered.filter(n => !n.isRead);
+                break;
+            case 'read':
+                filtered = filtered.filter(n => n.isRead);
+                break;
+            default:
+                // 'all' - sem filtro
+                break;
+        }
+
+        // Ordenar por data (mais recente primeiro)
+        filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+        setFilteredNotifications(filtered);
+    }, [notifications, selectedFilter]);
+
+    // Aplicar filtros quando os dados mudarem
+    React.useEffect(() => {
+        filterNotifications();
+    }, [filterNotifications]);
 
     // Função de refresh
-    const onRefresh = useCallback(async () => {
-        setRefreshing(true);
-        await loadData();
-        setRefreshing(false);
-    }, [loadData]);
+    const onRefresh = useCallback(() => {
+        refetch();
+    }, [refetch]);
 
-    // Alternar configuração global
-    const toggleGlobalNotifications = async (enabled: boolean) => {
-        if (!settings) return;
-
-        const updatedSettings = {
-            ...settings,
-            general: {
-                ...settings.general,
-                pushEnabled: enabled
-            }
-        };
-
-        await MockNotificationData.saveSettings(updatedSettings);
-        setSettings(updatedSettings);
-    };
-
-    // Alternar categoria de notificação
-    const toggleCategory = async (category: 'maintenance' | 'inspection' | 'tips', enabled: boolean) => {
-        if (!settings) return;
-
-        let updatedSettings = { ...settings };
-
-        switch (category) {
-            case 'maintenance':
-                updatedSettings.maintenanceNotifications.enabled = enabled;
-                break;
-            case 'inspection':
-                updatedSettings.inspectionNotifications.enabled = enabled;
-                break;
-            case 'tips':
-                updatedSettings.tipsNotifications.enabled = enabled;
-                break;
-        }
-
-        await MockNotificationData.saveSettings(updatedSettings);
-        setSettings(updatedSettings);
+    // Navegar para configurações
+    const navigateToSettings = () => {
+        (navigation as any).navigate('NotificationSettings');
     };
 
     // Obter cor da prioridade
-    const getPriorityColor = (priority: NotificationPriority): string => {
-        switch (priority) {
-            case NotificationPriority.CRITICAL: return '#D32F2F';
-            case NotificationPriority.HIGH: return '#F57C00';
-            case NotificationPriority.MEDIUM: return '#1976D2';
-            case NotificationPriority.LOW: return '#388E3C';
-            default: return '#757575';
+    const getPriorityColor = (priority: string) => {
+        switch (priority?.toLowerCase()) {
+            case 'urgent':
+                return AppColors.danger;
+            case 'high':
+                return '#FF5722';
+            case 'medium':
+                return '#FF9800';
+            case 'low':
+                return '#4CAF50';
+            default:
+                return AppColors.gray;
         }
     };
 
-    // Obter ícone da categoria
-    const getCategoryIcon = (category: NotificationCategory): keyof typeof MaterialCommunityIcons.glyphMap => {
-        switch (category) {
-            case NotificationCategory.MAINTENANCE: return 'wrench';
-            case NotificationCategory.INSPECTION: return 'clipboard-check';
-            case NotificationCategory.TIPS: return 'lightbulb';
-            case NotificationCategory.DOCUMENTS: return 'file-document';
-            default: return 'bell';
+    // Obter ícone do tipo
+    const getTypeIcon = (type: string) => {
+        switch (type?.toLowerCase()) {
+            case 'maintenance':
+                return 'wrench';
+            case 'inspection':
+                return 'clipboard-check';
+            case 'reminder':
+                return 'bell';
+            case 'promotion':
+                return 'tag';
+            case 'security':
+                return 'shield-check';
+            default:
+                return 'information';
         }
-    };
-
-    // Marcar notificação como vista
-    const markAsViewed = async (notificationId: string) => {
-        await MockNotificationData.markNotificationAction('user1', notificationId, 'viewed');
-        loadData(); // Recarregar para atualizar
     };
 
     // Renderizar item de notificação
-    const renderNotificationItem = ({ item }: { item: NotificationHistory }) => (
-        <Card style={styles.notificationCard} mode="elevated">
-            <Card.Content>
-                <View style={styles.notificationHeader}>
-                    <View style={styles.notificationTitleRow}>
-                        <MaterialCommunityIcons
-                            name={getCategoryIcon(item.category)}
-                            size={20}
-                            color={getPriorityColor(item.priority)}
-                        />
-                        <Text variant="titleSmall" style={styles.notificationTitle}>
-                            {item.title}
-                        </Text>
-                    </View>
-                    <View style={styles.notificationMeta}>
-                        <Chip
-                            icon={item.status === NotificationStatus.SCHEDULED ? 'clock' : 'check'}
-                            mode="outlined"
-                            compact
-                            style={[
-                                styles.statusChip,
-                                { borderColor: getPriorityColor(item.priority) }
-                            ]}
-                        >
-                            {item.status === NotificationStatus.SCHEDULED ? 'Agendada' : 'Enviada'}
-                        </Chip>
-                    </View>
-                </View>
+    const renderNotificationItem = ({ item }: { item: any }) => (
+        <TouchableOpacity
+            onPress={() => {
+                if (!item.isRead) {
+                    markAsRead(item.id);
+                }
+            }}
+            activeOpacity={0.7}
+        >
+            <Card style={[
+                styles.notificationCard,
+                !item.isRead && styles.unreadCard
+            ]}>
+                <Card.Content>
+                    <View style={styles.cardHeader}>
+                        <View style={styles.typeContainer}>
+                            <MaterialCommunityIcons
+                                name={getTypeIcon(item.type)}
+                                size={24}
+                                color={getPriorityColor(item.priority)}
+                            />
+                            <View style={styles.titleContainer}>
+                                <Text variant="titleMedium" style={[
+                                    styles.cardTitle,
+                                    !item.isRead && styles.unreadTitle
+                                ]}>
+                                    {item.title}
+                                </Text>
+                                <Text variant="bodySmall" style={styles.timeText}>
+                                    {format(new Date(item.createdAt), "dd 'de' MMM 'às' HH:mm", { locale: ptBR })}
+                                </Text>
+                            </View>
+                        </View>
 
-                <Text variant="bodyMedium" style={styles.notificationMessage}>
-                    {item.message}
-                </Text>
+                        <View style={styles.badgeContainer}>
+                            {!item.isRead && (
+                                <View style={styles.unreadBadge} />
+                            )}
+                            <Chip
+                                style={[
+                                    styles.priorityChip,
+                                    { backgroundColor: getPriorityColor(item.priority) }
+                                ]}
+                                textStyle={styles.priorityChipText}
+                            >
+                                {item.priority === 'URGENT' ? 'Urgente' :
+                                    item.priority === 'HIGH' ? 'Alta' :
+                                        item.priority === 'MEDIUM' ? 'Média' :
+                                            item.priority === 'LOW' ? 'Baixa' :
+                                                item.priority}
+                            </Chip>
+                        </View>
+                    </View>
 
-                <View style={styles.notificationFooter}>
-                    <Text variant="bodySmall" style={styles.notificationDate}>
-                        {item.status === NotificationStatus.SCHEDULED
-                            ? `Agendada para: ${format(new Date(item.scheduledFor), 'dd/MM/yyyy \'às\' HH:mm', { locale: ptBR })}`
-                            : `Enviada: ${format(new Date(item.sentAt!), 'dd/MM/yyyy \'às\' HH:mm', { locale: ptBR })}`
-                        }
+                    <Text variant="bodyMedium" style={styles.cardMessage}>
+                        {item.message}
                     </Text>
 
-                    {item.status === NotificationStatus.DELIVERED && !item.actionTaken && (
-                        <Button
-                            mode="outlined"
-                            compact
-                            onPress={() => markAsViewed(item.id)}
-                            style={styles.actionButton}
-                        >
-                            Marcar como vista
-                        </Button>
+                    {item.data?.vehicleId && (
+                        <View style={styles.extraInfo}>
+                            <MaterialCommunityIcons
+                                name="car"
+                                size={16}
+                                color={AppColors.secondary}
+                            />
+                            <Text variant="bodySmall" style={styles.extraInfoText}>
+                                Veículo relacionado
+                            </Text>
+                        </View>
                     )}
-                </View>
-            </Card.Content>
-        </Card>
+                </Card.Content>
+            </Card>
+        </TouchableOpacity>
     );
 
-    if (loading) {
-        return (
-            <SafeAreaView style={styles.container}>
-                <View style={styles.loadingContainer}>
-                    <Text>Carregando notificações...</Text>
+    // Header com filtros e estatísticas
+    const renderHeader = () => (
+        <View style={styles.header}>
+            {/* Estatísticas */}
+            {stats && (
+                <Card style={styles.statsCard}>
+                    <Card.Content>
+                        <Text variant="titleMedium" style={styles.statsTitle}>
+                            Resumo das Notificações
+                        </Text>
+                        <View style={styles.statsRow}>
+                            <View style={styles.statItem}>
+                                <Text variant="headlineSmall" style={styles.statNumber}>
+                                    {stats.total}
+                                </Text>
+                                <Text variant="bodySmall" style={styles.statLabel}>
+                                    Total
+                                </Text>
+                            </View>
+                            <View style={styles.statItem}>
+                                <Text variant="headlineSmall" style={[styles.statNumber, { color: AppColors.primary }]}>
+                                    {stats.unread}
+                                </Text>
+                                <Text variant="bodySmall" style={styles.statLabel}>
+                                    Não Lidas
+                                </Text>
+                            </View>
+                            <View style={styles.statItem}>
+                                <Text variant="headlineSmall" style={styles.statNumber}>
+                                    {stats.scheduled}
+                                </Text>
+                                <Text variant="bodySmall" style={styles.statLabel}>
+                                    Agendadas
+                                </Text>
+                            </View>
+                            <View style={styles.statItem}>
+                                <Text variant="headlineSmall" style={[styles.statNumber, { color: AppColors.danger }]}>
+                                    {stats.failed}
+                                </Text>
+                                <Text variant="bodySmall" style={styles.statLabel}>
+                                    Falharam
+                                </Text>
+                            </View>
+                        </View>
+                    </Card.Content>
+                </Card>
+            )}
+
+            {/* Filtros */}
+            <View style={styles.filtersContainer}>
+                <Text variant="titleMedium" style={styles.filtersTitle}>
+                    Filtros
+                </Text>
+                <View style={styles.chipContainer}>
+                    <Chip
+                        selected={selectedFilter === 'all'}
+                        onPress={() => setSelectedFilter('all')}
+                        style={[
+                            styles.filterChip,
+                            selectedFilter === 'all' && styles.selectedFilterChip
+                        ]}
+                        textStyle={[
+                            styles.filterChipText,
+                            selectedFilter === 'all' && styles.selectedFilterChipText
+                        ]}
+                    >
+                        Todas ({notificationsCount})
+                    </Chip>
+                    <Chip
+                        selected={selectedFilter === 'unread'}
+                        onPress={() => setSelectedFilter('unread')}
+                        style={[
+                            styles.filterChip,
+                            selectedFilter === 'unread' && styles.selectedFilterChip
+                        ]}
+                        textStyle={[
+                            styles.filterChipText,
+                            selectedFilter === 'unread' && styles.selectedFilterChipText
+                        ]}
+                    >
+                        Não Lidas ({unreadCount})
+                    </Chip>
+                    <Chip
+                        selected={selectedFilter === 'read'}
+                        onPress={() => setSelectedFilter('read')}
+                        style={[
+                            styles.filterChip,
+                            selectedFilter === 'read' && styles.selectedFilterChip
+                        ]}
+                        textStyle={[
+                            styles.filterChipText,
+                            selectedFilter === 'read' && styles.selectedFilterChipText
+                        ]}
+                    >
+                        Lidas ({notificationsCount - unreadCount})
+                    </Chip>
                 </View>
-            </SafeAreaView>
-        );
-    }
+            </View>
+
+            {/* Ações rápidas */}
+            <View style={styles.actionsContainer}>
+                <Button
+                    mode="outlined"
+                    onPress={markAllAsRead}
+                    disabled={unreadCount === 0}
+                    style={styles.actionButton}
+                >
+                    Marcar Todas Como Lidas
+                </Button>
+
+                {!isUsingRealAPI && (
+                    <Button
+                        mode="contained"
+                        onPress={() => {
+                            testNotification({
+                                type: 'maintenance',
+                                title: 'Teste de Notificação',
+                                message: 'Esta é uma notificação de teste',
+                                channels: ['push'],
+                            });
+                        }}
+                        style={styles.actionButton}
+                    >
+                        Testar Notificação
+                    </Button>
+                )}
+            </View>
+        </View>
+    );
+
+    // Componente vazio
+    const renderEmptyComponent = () => (
+        <View style={styles.emptyContainer}>
+            <MaterialCommunityIcons
+                name="bell-outline"
+                size={64}
+                color={AppColors.gray}
+                style={styles.emptyIcon}
+            />
+            <Text variant="headlineSmall" style={styles.emptyTitle}>
+                {selectedFilter === 'all'
+                    ? 'Nenhuma notificação'
+                    : selectedFilter === 'unread'
+                        ? 'Nenhuma notificação não lida'
+                        : 'Nenhuma notificação lida'
+                }
+            </Text>
+            <Text variant="bodyMedium" style={styles.emptySubtitle}>
+                {selectedFilter === 'all'
+                    ? 'Suas notificações aparecerão aqui'
+                    : 'Tente alterar o filtro selecionado'
+                }
+            </Text>
+        </View>
+    );
 
     return (
         <SafeAreaView style={styles.container}>
             <FlatList
-                data={[]} // Lista vazia para usar apenas header e footer
-                renderItem={() => null}
-                showsVerticalScrollIndicator={false}
+                data={filteredNotifications}
+                keyExtractor={(item) => item.id}
+                renderItem={renderNotificationItem}
+                ListHeaderComponent={renderHeader}
+                ListEmptyComponent={renderEmptyComponent}
                 refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+                    <RefreshControl
+                        refreshing={isLoading}
+                        onRefresh={onRefresh}
+                        colors={[AppColors.primary]}
+                    />
                 }
-                ListHeaderComponent={
-                    <>
-                        {/* Configurações Principais */}
-                        <Card style={styles.settingsCard} mode="elevated">
-                            <Card.Content>
-                                <Text variant="titleMedium" style={styles.sectionTitle}>
-                                    🔔 Configurações de Notificações
-                                </Text>
-
-                                {/* Toggle global */}
-                                <View style={styles.settingRow}>
-                                    <View style={styles.settingInfo}>
-                                        <Text variant="bodyLarge">Notificações Push</Text>
-                                        <Text variant="bodySmall" style={styles.settingDescription}>
-                                            Receber notificações no dispositivo
-                                        </Text>
-                                    </View>
-                                    <Switch
-                                        value={settings?.general.pushEnabled || false}
-                                        onValueChange={toggleGlobalNotifications}
-                                        thumbColor={AppColors.primary}
-                                    />
-                                </View>
-
-                                {settings?.general.pushEnabled && (
-                                    <>
-                                        {/* Manutenções */}
-                                        <View style={styles.settingRow}>
-                                            <View style={styles.settingInfo}>
-                                                <View style={styles.settingTitleRow}>
-                                                    <MaterialCommunityIcons name="wrench" size={18} color="#1976D2" />
-                                                    <Text variant="bodyLarge">Manutenções</Text>
-                                                </View>
-                                                <Text variant="bodySmall" style={styles.settingDescription}>
-                                                    Lembretes por quilometragem e tempo
-                                                </Text>
-                                            </View>
-                                            <Switch
-                                                value={settings?.maintenanceNotifications.enabled || false}
-                                                onValueChange={(enabled) => toggleCategory('maintenance', enabled)}
-                                                thumbColor={AppColors.primary}
-                                            />
-                                        </View>
-
-                                        {/* Vistorias */}
-                                        <View style={styles.settingRow}>
-                                            <View style={styles.settingInfo}>
-                                                <View style={styles.settingTitleRow}>
-                                                    <MaterialCommunityIcons name="clipboard-check" size={18} color="#F57C00" />
-                                                    <Text variant="bodyLarge">Vistorias</Text>
-                                                </View>
-                                                <Text variant="bodySmall" style={styles.settingDescription}>
-                                                    Lembretes situacionais (venda/compra)
-                                                </Text>
-                                            </View>
-                                            <Switch
-                                                value={settings?.inspectionNotifications.enabled || false}
-                                                onValueChange={(enabled) => toggleCategory('inspection', enabled)}
-                                                thumbColor={AppColors.primary}
-                                            />
-                                        </View>
-
-                                        {/* Dicas */}
-                                        <View style={styles.settingRow}>
-                                            <View style={styles.settingInfo}>
-                                                <View style={styles.settingTitleRow}>
-                                                    <MaterialCommunityIcons name="lightbulb" size={18} color="#388E3C" />
-                                                    <Text variant="bodyLarge">Dicas e Cuidados</Text>
-                                                </View>
-                                                <Text variant="bodySmall" style={styles.settingDescription}>
-                                                    Dicas sazonais e personalizadas
-                                                </Text>
-                                            </View>
-                                            <Switch
-                                                value={settings?.tipsNotifications.enabled || false}
-                                                onValueChange={(enabled) => toggleCategory('tips', enabled)}
-                                                thumbColor={AppColors.primary}
-                                            />
-                                        </View>
-                                    </>
-                                )}
-                            </Card.Content>
-                        </Card>
-
-                        {/* Estatísticas */}
-                        {stats && (
-                            <Card style={styles.statsCard} mode="elevated">
-                                <Card.Content>
-                                    <Text variant="titleMedium" style={styles.sectionTitle}>
-                                        📊 Estatísticas
-                                    </Text>
-
-                                    <View style={styles.statsGrid}>
-                                        <View style={styles.statItem}>
-                                            <Text variant="titleLarge" style={[styles.statNumber, { color: '#1976D2' }]}>
-                                                {stats.total}
-                                            </Text>
-                                            <Text variant="bodySmall" style={styles.statLabel}>Total</Text>
-                                        </View>
-                                        <View style={styles.statItem}>
-                                            <Text variant="titleLarge" style={[styles.statNumber, { color: '#388E3C' }]}>
-                                                {stats.actionTaken}
-                                            </Text>
-                                            <Text variant="bodySmall" style={styles.statLabel}>Ações</Text>
-                                        </View>
-                                        <View style={styles.statItem}>
-                                            <Text variant="titleLarge" style={[styles.statNumber, { color: '#F57C00' }]}>
-                                                {stats.effectiveness}%
-                                            </Text>
-                                            <Text variant="bodySmall" style={styles.statLabel}>Efetividade</Text>
-                                        </View>
-                                    </View>
-                                </Card.Content>
-                            </Card>
-                        )}
-
-                        {/* Próximas Notificações */}
-                        {upcomingNotifications.length > 0 && (
-                            <>
-                                <Text variant="titleMedium" style={styles.sectionTitle}>
-                                    📅 Próximas Notificações ({upcomingNotifications.length})
-                                </Text>
-                                {upcomingNotifications.slice(0, 3).map(notification => (
-                                    <View key={notification.id}>
-                                        {renderNotificationItem({ item: notification })}
-                                    </View>
-                                ))}
-                            </>
-                        )}
-
-                        {/* Histórico Recente */}
-                        <Text variant="titleMedium" style={styles.sectionTitle}>
-                            📋 Histórico Recente
-                        </Text>
-                    </>
-                }
-                ListFooterComponent={
-                    <View style={styles.historyContainer}>
-                        {recentNotifications.length > 0 ? (
-                            recentNotifications.map(notification => (
-                                <View key={notification.id}>
-                                    {renderNotificationItem({ item: notification })}
-                                </View>
-                            ))
-                        ) : (
-                            <Card style={styles.emptyCard} mode="outlined">
-                                <Card.Content>
-                                    <View style={styles.emptyContainer}>
-                                        <MaterialCommunityIcons
-                                            name="bell-off"
-                                            size={48}
-                                            color="#757575"
-                                        />
-                                        <Text variant="bodyLarge" style={styles.emptyText}>
-                                            Nenhuma notificação ainda
-                                        </Text>
-                                        <Text variant="bodySmall" style={styles.emptySubtext}>
-                                            Configure suas preferências acima para começar a receber lembretes
-                                        </Text>
-                                    </View>
-                                </Card.Content>
-                            </Card>
-                        )}
-
-                        <View style={styles.bottomPadding} />
-                    </View>
-                }
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={[
+                    styles.listContent,
+                    filteredNotifications.length === 0 && styles.emptyListContent
+                ]}
             />
 
-            {/* FAB para configurações avançadas */}
+            {/* FAB para configurações */}
             <FAB
                 icon="cog"
-                style={[styles.fab, { backgroundColor: AppColors.primary }]}
-                onPress={() => {
-                    // Navegar para configurações avançadas
-                    console.log('Configurações avançadas');
-                }}
-                label="Configurações"
+                onPress={navigateToSettings}
+                style={styles.fab}
+                color={AppColors.white}
             />
+
+            {/* Debug info */}
+            {!isUsingRealAPI && (
+                <View style={styles.debugContainer}>
+                    <Text style={styles.debugText}>
+                        🔔 Modo Mock - {notifications.length} notificações
+                    </Text>
+                </View>
+            )}
         </SafeAreaView>
     );
 }
@@ -398,132 +389,186 @@ export default function NotificationScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#f5f5f5',
+        backgroundColor: AppColors.white,
     },
-    loadingContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    settingsCard: {
-        margin: 16,
-        marginBottom: 12,
+    header: {
+        padding: 16,
+        backgroundColor: AppColors.white,
     },
     statsCard: {
-        margin: 16,
-        marginTop: 8,
+        marginBottom: 16,
+        elevation: 2,
+    },
+    statsTitle: {
+        color: AppColors.text,
         marginBottom: 12,
+        fontWeight: '600',
     },
-    notificationCard: {
-        margin: 16,
-        marginVertical: 6,
-    },
-    emptyCard: {
-        margin: 16,
-        marginVertical: 8,
-    },
-    sectionTitle: {
-        marginHorizontal: 16,
-        marginVertical: 12,
-        fontWeight: 'bold',
-        color: '#222',
-    },
-    settingRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingVertical: 12,
-        borderBottomWidth: 1,
-        borderBottomColor: '#f0f0f0',
-    },
-    settingInfo: {
-        flex: 1,
-        marginRight: 16,
-    },
-    settingTitleRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-    },
-    settingDescription: {
-        color: '#666',
-        marginTop: 2,
-    },
-    statsGrid: {
+    statsRow: {
         flexDirection: 'row',
         justifyContent: 'space-around',
-        marginTop: 8,
     },
     statItem: {
         alignItems: 'center',
+        flex: 1,
     },
     statNumber: {
+        color: AppColors.text,
         fontWeight: 'bold',
     },
     statLabel: {
-        color: '#666',
-        marginTop: 2,
+        color: AppColors.secondary,
+        marginTop: 4,
+        textAlign: 'center',
     },
-    notificationHeader: {
+    filtersContainer: {
+        marginBottom: 16,
+    },
+    filtersTitle: {
+        color: AppColors.text,
         marginBottom: 8,
-    },
-    notificationTitleRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        marginBottom: 4,
-    },
-    notificationTitle: {
         fontWeight: '600',
-        flex: 1,
     },
-    notificationMeta: {
-        alignItems: 'flex-end',
-    },
-    notificationMessage: {
-        marginBottom: 12,
-        lineHeight: 20,
-    },
-    notificationFooter: {
+    chipContainer: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: 8,
     },
-    notificationDate: {
-        color: '#666',
-        flex: 1,
+    filterChip: {
+        backgroundColor: AppColors.white,
+        borderColor: AppColors.gray,
+        borderWidth: 1,
     },
-    statusChip: {
-        alignSelf: 'flex-start',
+    selectedFilterChip: {
+        backgroundColor: AppColors.primary,
+    },
+    filterChipText: {
+        color: AppColors.text,
+        fontSize: 12,
+    },
+    selectedFilterChipText: {
+        color: AppColors.white,
+        fontSize: 12,
+    },
+    actionsContainer: {
+        flexDirection: 'row',
+        gap: 8,
+        flexWrap: 'wrap',
     },
     actionButton: {
-        marginLeft: 8,
+        flex: 1,
+        minWidth: 120,
     },
-    historyContainer: {
-        paddingBottom: 100, // Espaço para o FAB
+    listContent: {
+        paddingBottom: 100,
+    },
+    emptyListContent: {
+        flexGrow: 1,
+    },
+    notificationCard: {
+        margin: 8,
+        marginHorizontal: 16,
+        elevation: 2,
+        backgroundColor: AppColors.white,
+    },
+    unreadCard: {
+        borderLeftWidth: 4,
+        borderLeftColor: AppColors.primary,
+    },
+    cardHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        marginBottom: 8,
+    },
+    typeContainer: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        flex: 1,
+    },
+    titleContainer: {
+        marginLeft: 12,
+        flex: 1,
+    },
+    cardTitle: {
+        color: AppColors.text,
+        fontWeight: '500',
+    },
+    unreadTitle: {
+        fontWeight: '600',
+    },
+    timeText: {
+        color: AppColors.secondary,
+        marginTop: 2,
+    },
+    badgeContainer: {
+        alignItems: 'flex-end',
+        gap: 4,
+    },
+    unreadBadge: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: AppColors.primary,
+    },
+    priorityChip: {
+        height: 24,
+    },
+    priorityChipText: {
+        color: AppColors.white,
+        fontSize: 10,
+        fontWeight: '600',
+    },
+    cardMessage: {
+        color: AppColors.text,
+        marginBottom: 8,
+        lineHeight: 20,
+    },
+    extraInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    extraInfoText: {
+        color: AppColors.secondary,
+        marginLeft: 4,
     },
     emptyContainer: {
+        flex: 1,
+        justifyContent: 'center',
         alignItems: 'center',
-        paddingVertical: 32,
+        paddingHorizontal: 32,
+        paddingTop: 64,
     },
-    emptyText: {
-        marginTop: 16,
-        marginBottom: 8,
-        fontWeight: '500',
-        color: '#666',
+    emptyIcon: {
+        opacity: 0.5,
+        marginBottom: 16,
     },
-    emptySubtext: {
+    emptyTitle: {
+        color: AppColors.text,
         textAlign: 'center',
-        color: '#999',
-        lineHeight: 18,
+        marginBottom: 8,
     },
-    bottomPadding: {
-        height: 32,
+    emptySubtitle: {
+        color: AppColors.secondary,
+        textAlign: 'center',
     },
     fab: {
         position: 'absolute',
         margin: 16,
         right: 0,
-        bottom: 0,
+        bottom: 80,
+        backgroundColor: AppColors.primary,
+    },
+    debugContainer: {
+        position: 'absolute',
+        top: 10,
+        right: 10,
+        backgroundColor: 'rgba(0,0,0,0.7)',
+        padding: 4,
+        borderRadius: 4,
+    },
+    debugText: {
+        color: 'white',
+        fontSize: 10,
     },
 });
