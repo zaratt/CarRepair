@@ -1,6 +1,10 @@
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 import { AuthService } from '../services/authService';
 import { AuthUser, ChangePasswordData, LoginCredentials, RegisterData } from '../types/auth';
+import { useAuth as useAuthAPI } from './useAuth';
+
+// 🔄 Flag para alternar entre Mock e API Real
+const USE_REAL_API = false; // Alterar para true quando backend estiver pronto
 
 interface AuthContextData {
     user: AuthUser | null;
@@ -23,12 +27,30 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const [user, setUser] = useState<AuthUser | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
+    // 🔄 Hook da API real (para quando estiver pronto)
+    const realAPI = useAuthAPI();
+
     const isAuthenticated = !!user;
 
     // ✅ VERIFICAR AUTENTICAÇÃO NA INICIALIZAÇÃO
     useEffect(() => {
-        checkAuthState();
+        if (USE_REAL_API) {
+            // Usar API real
+            realAPI.initializeAuth();
+            setIsLoading(false);
+        } else {
+            // Usar mock atual
+            checkAuthState();
+        }
     }, []);
+
+    // 📊 Sincronizar estados quando usar API real
+    useEffect(() => {
+        if (USE_REAL_API) {
+            setUser(realAPI.user as AuthUser | null);
+            setIsLoading(realAPI.isLoading);
+        }
+    }, [realAPI.user, realAPI.isLoading]);
 
     const checkAuthState = async () => {
         try {
@@ -55,15 +77,38 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     // ✅ LOGIN
     const login = async (credentials: LoginCredentials) => {
-        try {
-            setIsLoading(true);
-            const response = await AuthService.login(credentials);
-            setUser(response.data.user);
-        } catch (error) {
-            setUser(null);
-            throw error;
-        } finally {
-            setIsLoading(false);
+        if (USE_REAL_API) {
+            // Usar API real
+            return new Promise<void>((resolve, reject) => {
+                realAPI.login({
+                    email: credentials.email,
+                    password: credentials.password
+                });
+
+                // Monitorar resultado
+                const checkResult = () => {
+                    if (realAPI.loginError) {
+                        reject(new Error(realAPI.loginError));
+                    } else if (realAPI.user) {
+                        resolve();
+                    } else {
+                        setTimeout(checkResult, 100);
+                    }
+                };
+                checkResult();
+            });
+        } else {
+            // Usar mock atual
+            try {
+                setIsLoading(true);
+                const response = await AuthService.login(credentials);
+                setUser(response.data.user);
+            } catch (error) {
+                setUser(null);
+                throw error;
+            } finally {
+                setIsLoading(false);
+            }
         }
     };
 
@@ -83,14 +128,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     // ✅ LOGOUT
     const logout = async () => {
-        try {
-            setIsLoading(true);
-            await AuthService.logout();
+        if (USE_REAL_API) {
+            realAPI.logout();
             setUser(null);
-        } catch (error) {
-            console.error('Erro ao fazer logout:', error);
-        } finally {
-            setIsLoading(false);
+        } else {
+            try {
+                setIsLoading(true);
+                await AuthService.logout();
+                setUser(null);
+            } catch (error) {
+                console.error('Erro ao fazer logout:', error);
+            } finally {
+                setIsLoading(false);
+            }
         }
     };
 

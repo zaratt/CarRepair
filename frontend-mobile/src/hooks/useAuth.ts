@@ -1,0 +1,235 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+    AuthAPI,
+    ChangePasswordRequest,
+    LoginRequest,
+    RegisterRequest
+} from '../api/auth.api';
+import { TokenManager } from '../api/client';
+import { queryKeys, reactQueryUtils } from '../api/queryClient';
+
+// 🔑 Hook para autenticação com React Query
+export const useAuth = () => {
+    const queryClient = useQueryClient();
+
+    // 👤 Query para obter usuário atual
+    const userQuery = useQuery({
+        queryKey: queryKeys.auth.user,
+        queryFn: async () => {
+            const token = await TokenManager.getAccessToken();
+            if (!token) {
+                throw new Error('No token available');
+            }
+            return AuthAPI.getCurrentUser();
+        },
+        enabled: false, // Só executa quando chamado manualmente
+        retry: false,
+    });
+
+    // 🚪 Mutation para login
+    const loginMutation = useMutation({
+        mutationFn: async (credentials: LoginRequest) => {
+            const response = await AuthAPI.login(credentials);
+
+            // Salvar tokens
+            await TokenManager.setTokens(response.tokens);
+
+            // Salvar dados do usuário
+            await AsyncStorage.setItem('user', JSON.stringify(response.user));
+
+            return response;
+        },
+        onSuccess: (data) => {
+            // Atualizar cache do usuário
+            queryClient.setQueryData(queryKeys.auth.user, data.user);
+
+            // Habilitar query do usuário
+            queryClient.invalidateQueries({ queryKey: queryKeys.auth.user });
+        },
+        onError: (error) => {
+            console.error('❌ Erro no login:', error);
+        },
+    });
+
+    // 📝 Mutation para registro
+    const registerMutation = useMutation({
+        mutationFn: async (userData: RegisterRequest) => {
+            const response = await AuthAPI.register(userData);
+
+            // Salvar tokens
+            await TokenManager.setTokens(response.tokens);
+
+            // Salvar dados do usuário
+            await AsyncStorage.setItem('user', JSON.stringify(response.user));
+
+            return response;
+        },
+        onSuccess: (data) => {
+            // Atualizar cache do usuário
+            queryClient.setQueryData(queryKeys.auth.user, data.user);
+
+            // Habilitar query do usuário
+            queryClient.invalidateQueries({ queryKey: queryKeys.auth.user });
+        },
+        onError: (error) => {
+            console.error('❌ Erro no registro:', error);
+        },
+    });
+
+    // 🚪 Mutation para logout
+    const logoutMutation = useMutation({
+        mutationFn: async () => {
+            const refreshToken = await TokenManager.getRefreshToken();
+
+            // Fazer logout no servidor
+            if (refreshToken) {
+                await AuthAPI.logout(refreshToken);
+            }
+
+            // Limpar tokens e dados locais
+            await Promise.all([
+                TokenManager.clearTokens(),
+                AsyncStorage.removeItem('user'),
+                AsyncStorage.removeItem('onboarding_completed'),
+            ]);
+        },
+        onSuccess: () => {
+            // Limpar todos os caches
+            reactQueryUtils.clearCache();
+
+            console.log('✅ Logout realizado com sucesso');
+        },
+        onError: (error) => {
+            // Mesmo com erro, limpar dados locais
+            console.warn('⚠️ Erro no logout, mas limpando dados locais:', error);
+
+            Promise.all([
+                TokenManager.clearTokens(),
+                AsyncStorage.removeItem('user'),
+                reactQueryUtils.clearCache(),
+            ]);
+        },
+    });
+
+    // 🔄 Mutation para alterar senha
+    const changePasswordMutation = useMutation({
+        mutationFn: (data: ChangePasswordRequest) => AuthAPI.changePassword(data),
+        onSuccess: () => {
+            console.log('✅ Senha alterada com sucesso');
+        },
+        onError: (error) => {
+            console.error('❌ Erro ao alterar senha:', error);
+        },
+    });
+
+    // 📧 Mutation para esqueceu senha
+    const forgotPasswordMutation = useMutation({
+        mutationFn: (email: string) => AuthAPI.forgotPassword({ email }),
+        onSuccess: () => {
+            console.log('✅ Email de recuperação enviado');
+        },
+        onError: (error) => {
+            console.error('❌ Erro ao enviar email de recuperação:', error);
+        },
+    });
+
+    // 🔍 Função para verificar se está autenticado
+    const checkAuthStatus = async (): Promise<boolean> => {
+        try {
+            const token = await TokenManager.getAccessToken();
+            if (!token) return false;
+
+            // Tentar obter dados do usuário
+            const userData = await AuthAPI.getCurrentUser();
+
+            // Atualizar cache
+            queryClient.setQueryData(queryKeys.auth.user, userData);
+
+            return true;
+        } catch (error) {
+            console.log('🔍 Não está autenticado:', error);
+
+            // Limpar dados inválidos
+            await Promise.all([
+                TokenManager.clearTokens(),
+                AsyncStorage.removeItem('user'),
+            ]);
+
+            return false;
+        }
+    };
+
+    // 🔄 Função para inicializar autenticação (verificar token existente)
+    const initializeAuth = async (): Promise<void> => {
+        try {
+            // Verificar se há dados salvos localmente
+            const [token, savedUser] = await Promise.all([
+                TokenManager.getAccessToken(),
+                AsyncStorage.getItem('user'),
+            ]);
+
+            if (token && savedUser) {
+                const userData = JSON.parse(savedUser);
+
+                // Definir dados no cache
+                queryClient.setQueryData(queryKeys.auth.user, userData);
+
+                // Verificar validade do token em background
+                checkAuthStatus().catch(console.error);
+            }
+        } catch (error) {
+            console.error('❌ Erro ao inicializar auth:', error);
+        }
+    };
+
+    // 📊 Estados derivados
+    const isAuthenticated = !!userQuery.data;
+    const user = userQuery.data;
+    const isLoading = userQuery.isLoading || loginMutation.isPending || registerMutation.isPending;
+
+    return {
+        // 📊 Estados
+        user,
+        isAuthenticated,
+        isLoading,
+
+        // 🔍 Status das operações
+        isLoginLoading: loginMutation.isPending,
+        isRegisterLoading: registerMutation.isPending,
+        isLogoutLoading: logoutMutation.isPending,
+        isChangePasswordLoading: changePasswordMutation.isPending,
+        isForgotPasswordLoading: forgotPasswordMutation.isPending,
+
+        // ❌ Erros
+        loginError: loginMutation.error?.message,
+        registerError: registerMutation.error?.message,
+        changePasswordError: changePasswordMutation.error?.message,
+        forgotPasswordError: forgotPasswordMutation.error?.message,
+
+        // ✅ Sucessos
+        forgotPasswordSuccess: forgotPasswordMutation.isSuccess,
+        changePasswordSuccess: changePasswordMutation.isSuccess,
+
+        // 🎯 Ações
+        login: loginMutation.mutate,
+        register: registerMutation.mutate,
+        logout: logoutMutation.mutate,
+        changePassword: changePasswordMutation.mutate,
+        forgotPassword: forgotPasswordMutation.mutate,
+
+        // 🔧 Utilitários
+        checkAuthStatus,
+        initializeAuth,
+
+        // 🧹 Reset de erros
+        clearErrors: () => {
+            loginMutation.reset();
+            registerMutation.reset();
+            changePasswordMutation.reset();
+            forgotPasswordMutation.reset();
+        },
+    };
+};
+
+export default useAuth;
