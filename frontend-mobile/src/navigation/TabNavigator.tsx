@@ -12,6 +12,7 @@ import {
 // Stack Navigators
 import InspectionStackNavigator from './InspectionStackNavigator';
 import MaintenanceStackNavigator from './MaintenanceStackNavigator';
+import NotificationStackNavigator from './NotificationStackNavigator';
 import ProfileStackNavigator from './ProfileStackNavigator';
 import VehicleStackNavigator from './VehicleStackNavigator';
 
@@ -77,6 +78,17 @@ export default function TabNavigator() {
                     tabBarLabel: 'Manutenções',
                     tabBarIcon: ({ color, size }) => (
                         <TabIcon name="wrench" color={color} size={size} badge={2} />
+                    ),
+                }}
+            />
+
+            <Tab.Screen
+                name="Notifications"
+                component={NotificationStackNavigator}
+                options={{
+                    tabBarLabel: 'Notificações',
+                    tabBarIcon: ({ color, size }) => (
+                        <TabIcon name="bell" color={color} size={size} badge={5} />
                     ),
                 }}
             />
