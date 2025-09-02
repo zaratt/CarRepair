@@ -4,14 +4,15 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import React, { useCallback, useMemo } from 'react';
 import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
-import { ActivityIndicator, Card, Text } from 'react-native-paper';
+import { ActivityIndicator, Badge, Card, Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDashboardSummary, useDashboardVehicles } from '../../api/api';
 import { useAuthContext as useAuth } from '../../contexts/AuthContext';
+import { useNotifications } from '../../hooks/useNotifications';
 
 export default function HomeScreen() {
     const { user } = useAuth();
-    const navigation = useNavigation();
+    const navigation = useNavigation<any>(); // ou tipagem específica se necessário
 
     // Queries
     const {
@@ -25,6 +26,12 @@ export default function HomeScreen() {
         isLoading: vehiclesLoading,
         refetch: refetchVehicles
     } = useDashboardVehicles(user?.id || '');
+
+    const {
+        notifications,
+        unreadCount,
+        isLoading: notificationsLoading
+    } = useNotifications();
 
     const isLoading = summaryLoading || vehiclesLoading;
 
@@ -159,12 +166,36 @@ export default function HomeScreen() {
             >
                 {/* Header */}
                 <View style={styles.header}>
-                    <Text variant="headlineMedium" style={styles.welcomeText}>
-                        Olá, {user?.name || 'Usuário'}! 👋
-                    </Text>
-                    <Text variant="bodyMedium" style={styles.subtitleText}>
-                        Aqui está o resumo dos seus veículos
-                    </Text>
+                    <View style={styles.headerContent}>
+                        <View style={styles.welcomeSection}>
+                            <Text variant="headlineMedium" style={styles.welcomeText}>
+                                Olá, {user?.name || 'Usuário'}! 👋
+                            </Text>
+                            <Text variant="bodyMedium" style={styles.subtitleText}>
+                                Aqui está o resumo dos seus veículos
+                            </Text>
+                        </View>
+
+                        {/* Sino de Notificações */}
+                        <Pressable
+                            style={styles.notificationBell}
+                            onPress={() => {
+                                // Navegar para a tela de notificações
+                                navigation.navigate('NotificationList');
+                            }}
+                        >
+                            <MaterialCommunityIcons
+                                name="bell"
+                                size={28}
+                                color="#1976d2"
+                            />
+                            {unreadCount > 0 && (
+                                <Badge style={styles.notificationBadge} size={20}>
+                                    {unreadCount > 99 ? '99+' : unreadCount.toString()}
+                                </Badge>
+                            )}
+                        </Pressable>
+                    </View>
                 </View>
 
                 {/* Cards de Resumo */}
@@ -252,6 +283,28 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         paddingTop: 20,
         paddingBottom: 10,
+    },
+    headerContent: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+    },
+    welcomeSection: {
+        flex: 1,
+    },
+    notificationBell: {
+        position: 'relative',
+        padding: 8,
+        marginLeft: 10,
+    },
+    notificationBadge: {
+        position: 'absolute',
+        top: 0,
+        right: 0,
+        backgroundColor: '#ff4444',
+        color: '#fff',
+        fontSize: 10,
+        fontWeight: 'bold',
     },
     welcomeText: {
         fontWeight: 'bold',

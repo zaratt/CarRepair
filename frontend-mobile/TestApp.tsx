@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import * as React from 'react';
 import { PaperProvider } from 'react-native-paper';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import TabNavigator from './src/navigation/TabNavigator';
+import RootStackNavigator from './src/navigation/RootStackNavigator';
 import { customTheme } from './src/styles/theme';
 
 const queryClient = new QueryClient();
@@ -14,7 +14,7 @@ export default function TestApp() {
             <QueryClientProvider client={queryClient}>
                 <PaperProvider theme={customTheme}>
                     <NavigationContainer>
-                        <TabNavigator />
+                        <RootStackNavigator />
                     </NavigationContainer>
                 </PaperProvider>
             </QueryClientProvider>

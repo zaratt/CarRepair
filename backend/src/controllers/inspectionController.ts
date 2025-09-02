@@ -105,7 +105,7 @@ export const scheduleInspection = asyncHandler(async (req: Request, res: Respons
 
 // Obter vistorias do usuário
 export const getUserInspections = asyncHandler(async (req: Request, res: Response) => {
-    const userId = req.params.userId;
+    const userId = req.params.userId || 'default_user'; // Para quando não há userId na rota
 
     // Mock data
     const inspections = [

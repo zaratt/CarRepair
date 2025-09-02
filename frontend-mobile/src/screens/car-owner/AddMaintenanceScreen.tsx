@@ -211,7 +211,7 @@ export default function AddMaintenanceScreen({ navigation }: AddMaintenanceScree
     );
 
     // Obter dados do veículo selecionado
-    const selectedVehicleData = vehicles.find(v => v.id === selectedVehicle);
+    const selectedVehicleData = (vehicles || []).find(v => v.id === selectedVehicle);
 
     return (
         <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>

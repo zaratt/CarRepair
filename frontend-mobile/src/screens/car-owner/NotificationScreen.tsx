@@ -4,7 +4,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import React, { useCallback, useState } from 'react';
 import { FlatList, RefreshControl, StyleSheet, TouchableOpacity, View } from 'react-native';
-import { Button, Card, Chip, FAB, Text } from 'react-native-paper';
+import { Button, Card, Chip, Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { NotificationProvider, useNotificationContext } from '../../hooks/useNotificationContext';
@@ -43,7 +43,7 @@ function NotificationScreenContent() {
 
     // Função de filtro
     const filterNotifications = useCallback(() => {
-        let filtered = notifications;
+        let filtered = notifications || []; // Garantir que sempre seja um array
 
         switch (selectedFilter) {
             case 'unread':
@@ -366,13 +366,15 @@ function NotificationScreenContent() {
                 ]}
             />
 
-            {/* FAB para configurações */}
+            {/* FAB para configurações - DESABILITADO TEMPORARIAMENTE */}
+            {/* 
             <FAB
                 icon="cog"
                 onPress={navigateToSettings}
                 style={styles.fab}
                 color={AppColors.white}
             />
+            */}
 
             {/* Debug info */}
             {!isUsingRealAPI && (

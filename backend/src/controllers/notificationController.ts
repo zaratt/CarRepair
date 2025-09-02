@@ -73,7 +73,7 @@ export const updateNotificationPreferences = asyncHandler(async (req: Request, r
 
 // Obter notificações do usuário
 export const getUserNotifications = asyncHandler(async (req: Request, res: Response) => {
-    const userId = req.params.userId;
+    const userId = req.params.userId || 'default_user'; // Para quando não há userId na rota
     const { page = 1, limit = 20, unreadOnly = false } = req.query;
 
     // Mock data
@@ -186,7 +186,7 @@ export const markNotificationAsRead = asyncHandler(async (req: Request, res: Res
 
 // Marcar todas as notificações como lidas
 export const markAllNotificationsAsRead = asyncHandler(async (req: Request, res: Response) => {
-    const userId = req.params.userId;
+    const userId = req.params.userId || req.body.userId || 'default_user'; // Aceitar userId do body ou params
 
     // Mock response
     const response: ApiResponse = {
@@ -221,7 +221,7 @@ export const deleteNotification = asyncHandler(async (req: Request, res: Respons
 
 // Obter estatísticas de notificações
 export const getNotificationStats = asyncHandler(async (req: Request, res: Response) => {
-    const userId = req.params.userId;
+    const userId = req.params.userId || 'default_user'; // Para quando não há userId na rota
 
     // Mock data
     const stats = {

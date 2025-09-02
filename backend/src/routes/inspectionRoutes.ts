@@ -8,6 +8,9 @@ import {
 
 const router = Router();
 
+// Lista de inspeções (rota principal)
+router.get('/', getUserInspections);
+
 // Estatísticas de vistorias
 router.get('/stats', getInspectionStats);
 

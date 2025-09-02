@@ -170,9 +170,9 @@ export const useNotifications = (filters?: NotificationFilters) => {
 
     return {
         // 📊 Dados
-        notifications: notificationsResponse?.data || [],
-        notificationsCount: notificationsResponse?.total || 0,
-        unreadCount: notificationsResponse?.unread || 0,
+        notifications: notificationsResponse?.data?.notifications || [],
+        notificationsCount: notificationsResponse?.data?.pagination?.total || 0,
+        unreadCount: notificationsResponse?.data?.unreadCount || 0,
         stats,
 
         // 🔄 Estados de loading
