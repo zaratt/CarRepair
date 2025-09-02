@@ -1,12 +1,11 @@
-import { PrismaClient } from '@prisma/client';
 import { Request, Response } from 'express';
 import fs from 'fs';
 import path from 'path';
 import { config } from '../config';
+import { prisma } from '../config/prisma';
 import { asyncHandler } from '../middleware/errorHandler';
 import { ApiResponse } from '../types';
 
-const prisma = new PrismaClient();
 
 /**
  * Estatísticas gerais do sistema
@@ -55,7 +54,7 @@ export const getSystemStats = asyncHandler(async (req: Request, res: Response) =
         _count: {
             id: true
         }
-    });
+    }) as Array<{ validationStatus: string; _count: { id: number } }>;
 
     // Usuários por perfil
     const usersByProfile = await prisma.user.groupBy({
@@ -63,7 +62,7 @@ export const getSystemStats = asyncHandler(async (req: Request, res: Response) =
         _count: {
             id: true
         }
-    });
+    }) as Array<{ profile: string; _count: { id: number } }>;
 
     // Verificar espaço em disco (uploads)
     let uploadStats = null;

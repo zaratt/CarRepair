@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Request, Response, Router } from 'express';
 import {
     createMaintenance,
     deleteMaintenance,
@@ -22,6 +22,38 @@ router.get('/',
     validatePagination,
     asyncHandler(getMaintenances)
 );
+
+// GET /api/maintenances/stats - Estatísticas gerais de manutenções
+router.get('/stats', asyncHandler(async (req: Request, res: Response) => {
+    res.json({
+        success: true,
+        message: 'Maintenance statistics',
+        data: {
+            total: 0,
+            completed: 0,
+            pending: 0,
+            validated: 0
+        }
+    });
+}));
+
+// GET /api/maintenance-types - Tipos de manutenção
+router.get('/types', asyncHandler(async (req: Request, res: Response) => {
+    res.json({
+        success: true,
+        message: 'Maintenance types',
+        data: [
+            'Troca de óleo',
+            'Revisão geral',
+            'Freios',
+            'Suspensão',
+            'Motor',
+            'Elétrica',
+            'Ar condicionado',
+            'Outros'
+        ]
+    });
+}));
 
 // GET /api/maintenances/:id - Buscar manutenção por ID
 router.get('/:id',

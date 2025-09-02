@@ -1,5 +1,5 @@
-import { PrismaClient } from '@prisma/client';
 import { Request, Response } from 'express';
+import { prisma } from '../config/prisma';
 import { incrementLoginAttempts, resetLoginAttempts } from '../middleware/auth';
 import { asyncHandler, ConflictError, NotFoundError, ValidationError } from '../middleware/errorHandler';
 import { ApiResponse } from '../types';
@@ -14,8 +14,6 @@ import {
     verifyPassword
 } from '../utils/auth';
 import { getUserTypeFromDocument, validateDocument } from '../utils/documentValidation';
-
-const prisma = new PrismaClient();
 
 // Registrar novo usuário com senha
 export const register = asyncHandler(async (req: Request, res: Response) => {

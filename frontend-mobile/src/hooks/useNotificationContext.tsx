@@ -95,7 +95,7 @@ interface NotificationContextData {
 }
 
 // 🎛️ Flag para controlar qual sistema usar
-const USE_REAL_API = false; // 🚧 Alterar para true quando backend estiver pronto
+const USE_REAL_API = true; // ✅ Backend configurado com Prisma Accelerate
 
 // 🔔 Contexto principal
 const NotificationContext = createContext<NotificationContextData>({} as NotificationContextData);

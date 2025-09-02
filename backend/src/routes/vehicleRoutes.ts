@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Request, Response, Router } from 'express';
 import {
     createVehicle,
     deleteVehicle,
@@ -23,6 +23,20 @@ router.get('/',
     validatePagination,
     asyncHandler(getVehicles)
 );
+
+// GET /api/vehicles/stats - Estatísticas gerais de veículos
+router.get('/stats', asyncHandler(async (req: Request, res: Response) => {
+    res.json({
+        success: true,
+        message: 'Vehicle statistics',
+        data: {
+            total: 0,
+            active: 0,
+            brands: 0,
+            models: 0
+        }
+    });
+}));
 
 // GET /api/vehicles/search/:plate - Buscar veículos por placa (busca parcial)
 router.get('/search/:plate',

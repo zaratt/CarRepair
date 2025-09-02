@@ -2,7 +2,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Button, Snackbar, Text, TextInput } from 'react-native-paper';
-import { useAuth } from '../hooks/useAuth';
+import { useAuthContext as useAuth } from '../contexts/AuthContext';
 import { EmailValidator } from '../utils/validators';
 
 interface Props {

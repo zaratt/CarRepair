@@ -2,7 +2,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { Button, SegmentedButtons, Snackbar, Text, TextInput } from 'react-native-paper';
-import { useAuth } from '../hooks/useAuth';
+import { useAuthContext } from '../contexts/AuthContext';
+import { RegisterData } from '../types/auth';
 import {
     DocumentValidator,
     EmailValidator,
@@ -35,7 +36,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
         type: 'error'
     });
 
-    const { register, isLoading } = useAuth();
+    const { register, isLoading } = useAuthContext();
 
     const updateFormData = (field: string, value: string) => {
         setFormData(prev => ({
@@ -103,7 +104,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
         }
 
         try {
-            await register({
+            const registerData: RegisterData = {
                 name: formData.name.trim(),
                 email: EmailValidator.normalizeEmail(formData.email),
                 password: formData.password,
@@ -112,7 +113,9 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
                 phone: formData.phone || undefined,
                 city: formData.city || undefined,
                 state: formData.state ? formData.state.toUpperCase() : undefined,
-            });
+            };
+
+            await register(registerData);
 
             setSnackbar({
                 visible: true,

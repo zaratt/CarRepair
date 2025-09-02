@@ -37,6 +37,24 @@ app.use('/api/maintenances', maintenanceRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/workshops', workshopRoutes);
 
+// Rota específica para tipos de manutenção (compatibilidade)
+app.get('/api/maintenance-types', (req, res) => {
+    res.json({
+        success: true,
+        message: 'Maintenance types',
+        data: [
+            'Troca de óleo',
+            'Revisão geral',
+            'Freios',
+            'Suspensão',
+            'Motor',
+            'Elétrica',
+            'Ar condicionado',
+            'Outros'
+        ]
+    });
+});
+
 // Health check endpoint com informações da configuração
 app.get('/health', (req, res) => {
     const response: ApiResponse = {

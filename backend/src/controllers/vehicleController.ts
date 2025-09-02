@@ -1,9 +1,7 @@
-import { PrismaClient } from '@prisma/client';
 import { Request, Response } from 'express';
+import { prisma } from '../config/prisma';
 import { asyncHandler, ConflictError, NotFoundError, ValidationError } from '../middleware/errorHandler';
 import { ApiResponse, PaginationResponse, VehicleCreateData } from '../types';
-
-const prisma = new PrismaClient();
 
 // Criar novo veículo
 export const createVehicle = asyncHandler(async (req: Request, res: Response) => {

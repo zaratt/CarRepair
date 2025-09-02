@@ -30,7 +30,10 @@ export class AuthService {
     // ✅ REGISTRO DE USUÁRIO
     static async register(data: RegisterData): Promise<AuthResponse> {
         try {
-            const response = await api.post('/users', data);
+            // Remover confirmPassword antes de enviar para o backend
+            const { confirmPassword, ...registerData } = data;
+
+            const response = await api.post('/auth/register', registerData);
 
             if (response.status === 201) {
                 const authData: AuthResponse = response.data;
@@ -51,7 +54,7 @@ export class AuthService {
     // ✅ LOGIN
     static async login(credentials: LoginCredentials): Promise<AuthResponse> {
         try {
-            const response = await api.post('/login', credentials);
+            const response = await api.post('/auth/login', credentials);
 
             if (response.status === 200) {
                 const authData: AuthResponse = response.data;

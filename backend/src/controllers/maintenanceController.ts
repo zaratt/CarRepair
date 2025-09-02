@@ -1,10 +1,9 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../config/prisma';
 import { Request, Response } from 'express';
 import { asyncHandler, NotFoundError, ValidationError } from '../middleware/errorHandler';
 import { ApiResponse, MaintenanceCreateData, PaginationResponse } from '../types';
 import { formatCurrency, formatKilometers } from '../utils/parsing';
 
-const prisma = new PrismaClient();
 
 // Criar nova manutenção
 export const createMaintenance = asyncHandler(async (req: Request, res: Response) => {

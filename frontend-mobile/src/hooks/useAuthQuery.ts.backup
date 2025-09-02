@@ -10,7 +10,7 @@ import { TokenManager } from '../api/client';
 import { queryKeys, reactQueryUtils } from '../api/queryClient';
 
 // 🔑 Hook para autenticação com React Query
-export const useAuth = () => {
+export const useAuthQuery = () => {
     const queryClient = useQueryClient();
 
     // 👤 Query para obter usuário atual
@@ -232,4 +232,4 @@ export const useAuth = () => {
     };
 };
 
-export default useAuth;
+export default useAuthQuery;

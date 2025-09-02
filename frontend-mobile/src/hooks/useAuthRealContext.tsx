@@ -2,9 +2,6 @@ import { createContext, ReactNode, useContext, useEffect, useState } from 'react
 import { AuthService } from '../services/authService';
 import { AuthUser, ChangePasswordData, LoginCredentials, RegisterData } from '../types/auth';
 
-// 🔄 Flag para alternar entre Mock e API Real
-const USE_REAL_API = true; // ✅ Backend configurado com Prisma Accelerate
-
 interface AuthContextData {
     user: AuthUser | null;
     isLoading: boolean;
@@ -13,7 +10,6 @@ interface AuthContextData {
     register: (data: RegisterData) => Promise<void>;
     logout: () => Promise<void>;
     changePassword: (data: ChangePasswordData) => Promise<void>;
-    refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextData>({} as AuthContextData);
@@ -28,36 +24,29 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     const isAuthenticated = !!user;
 
-    // ✅ VERIFICAR AUTENTICAÇÃO NA INICIALIZAÇÃO
+    // Verificar autenticação na inicialização
     useEffect(() => {
         initializeAuth();
     }, []);
 
-    // Função para inicializar autenticação
     const initializeAuth = async () => {
         try {
             setIsLoading(true);
 
-            // ✅ LIMPEZA EMERGENCIAL PRIMEIRO
-            const { emergencyStorageCleanup } = await import('../utils/emergencyCleanup');
-            await emergencyStorageCleanup();
-
+            // Verificar se existe token válido
             const isLoggedIn = await AuthService.isLoggedIn();
             if (isLoggedIn) {
                 const userData = await AuthService.getUser();
                 setUser(userData);
             }
         } catch (error) {
-            console.error('Erro ao verificar estado de autenticação:', error);
-            // Se houver erro, limpar dados locais
-            await AuthService.logout();
+            console.log('No valid session found');
             setUser(null);
         } finally {
             setIsLoading(false);
         }
     };
 
-    // ✅ LOGIN
     const login = async (credentials: LoginCredentials): Promise<void> => {
         try {
             setIsLoading(true);
@@ -71,8 +60,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
     };
 
-    // ✅ REGISTRO
-    const register = async (data: RegisterData) => {
+    const register = async (data: RegisterData): Promise<void> => {
         try {
             setIsLoading(true);
             const response = await AuthService.register(data);
@@ -85,14 +73,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
     };
 
-    // ✅ LOGOUT
     const logout = async (): Promise<void> => {
         try {
             setIsLoading(true);
+            console.log('Logout executado');
             await AuthService.logout();
             setUser(null);
         } catch (error) {
-            console.error('Erro ao fazer logout:', error);
+            console.error('Erro no logout:', error);
             // Mesmo com erro, limpar usuário local
             setUser(null);
         } finally {
@@ -100,59 +88,40 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
     };
 
-    // ✅ MUDANÇA DE SENHA
-    const changePassword = async (data: ChangePasswordData) => {
+    const changePassword = async (data: ChangePasswordData): Promise<void> => {
         try {
+            setIsLoading(true);
             await AuthService.changePassword(data);
-            // Senha alterada com sucesso, não precisa alterar o usuário
         } catch (error) {
             throw error;
+        } finally {
+            setIsLoading(false);
         }
-    };
-
-    // ✅ ATUALIZAR DADOS DO USUÁRIO
-    const refreshUser = async () => {
-        try {
-            if (isAuthenticated) {
-                const userData = await AuthService.getProfile();
-                setUser(userData);
-            }
-        } catch (error) {
-            console.error('Erro ao atualizar dados do usuário:', error);
-            // Se houver erro, fazer logout
-            await logout();
-            throw error;
-        }
-    };
-
-    const contextValue: AuthContextData = {
-        user,
-        isLoading,
-        isAuthenticated,
-        login,
-        register,
-        logout,
-        changePassword,
-        refreshUser,
     };
 
     return (
-        <AuthContext.Provider value={contextValue}>
+        <AuthContext.Provider
+            value={{
+                user,
+                isLoading,
+                isAuthenticated,
+                login,
+                register,
+                logout,
+                changePassword,
+            }}
+        >
             {children}
         </AuthContext.Provider>
     );
 }
 
-// ✅ HOOK PARA USAR O CONTEXTO DE AUTENTICAÇÃO
 export function useAuth(): AuthContextData {
     const context = useContext(AuthContext);
 
     if (!context) {
-        throw new Error('useAuth deve ser usado dentro de um AuthProvider');
+        throw new Error('useAuth must be used within an AuthProvider');
     }
 
     return context;
 }
-
-// Exportação default para compatibilidade
-export default AuthProvider;

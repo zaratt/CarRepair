@@ -2,9 +2,6 @@ import { createContext, ReactNode, useContext, useEffect, useState } from 'react
 import { AuthService } from '../services/authService';
 import { AuthUser, ChangePasswordData, LoginCredentials, RegisterData } from '../types/auth';
 
-// 🔄 Flag para alternar entre Mock e API Real
-const USE_REAL_API = true; // ✅ Backend configurado com Prisma Accelerate
-
 interface AuthContextData {
     user: AuthUser | null;
     isLoading: boolean;
@@ -72,7 +69,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     };
 
     // ✅ REGISTRO
-    const register = async (data: RegisterData) => {
+    const register = async (data: RegisterData): Promise<void> => {
         try {
             setIsLoading(true);
             const response = await AuthService.register(data);
@@ -101,7 +98,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     };
 
     // ✅ MUDANÇA DE SENHA
-    const changePassword = async (data: ChangePasswordData) => {
+    const changePassword = async (data: ChangePasswordData): Promise<void> => {
         try {
             await AuthService.changePassword(data);
             // Senha alterada com sucesso, não precisa alterar o usuário
@@ -111,7 +108,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     };
 
     // ✅ ATUALIZAR DADOS DO USUÁRIO
-    const refreshUser = async () => {
+    const refreshUser = async (): Promise<void> => {
         try {
             if (isAuthenticated) {
                 const userData = await AuthService.getProfile();
@@ -144,15 +141,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
 }
 
 // ✅ HOOK PARA USAR O CONTEXTO DE AUTENTICAÇÃO
-export function useAuth(): AuthContextData {
+export function useAuthContext(): AuthContextData {
     const context = useContext(AuthContext);
 
     if (!context) {
-        throw new Error('useAuth deve ser usado dentro de um AuthProvider');
+        throw new Error('useAuthContext deve ser usado dentro de um AuthProvider');
     }
 
     return context;
 }
 
-// Exportação default para compatibilidade
 export default AuthProvider;

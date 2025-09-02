@@ -3,7 +3,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { Text } from 'react-native-paper';
-import { useAuth } from '../hooks/useAuth';
+import { useAuthContext as useAuth } from '../contexts/AuthContext';
 import AvailableWorkshopsScreen from '../screens/AvailableWorkshopsScreen';
 import HelpScreen from '../screens/HelpScreen';
 import HomeScreen from '../screens/HomeScreen';

@@ -67,7 +67,7 @@ interface SingleMaintenanceContextData {
 }
 
 // 🎛️ Flag para controlar qual sistema usar
-const USE_REAL_API = false; // 🚧 Alterar para true quando backend estiver pronto
+const USE_REAL_API = true; // ✅ Backend configurado com Prisma Accelerate
 
 // 🏗️ Contexto principal
 const MaintenanceContext = createContext<MaintenanceContextData>({} as MaintenanceContextData);

@@ -1,11 +1,9 @@
-import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { Request, Response } from 'express';
+import { prisma } from '../config/prisma';
 import { asyncHandler, ConflictError, NotFoundError, ValidationError } from '../middleware/errorHandler';
 import { ApiResponse, PaginationResponse, UserCreateData, UserUpdateData } from '../types';
 import { formatPhone, getUserTypeFromDocument, validateDocument } from '../utils/documentValidation';
-
-const prisma = new PrismaClient();
 
 // Criar novo usuário
 export const createUser = asyncHandler(async (req: Request, res: Response) => {
@@ -151,22 +149,22 @@ export const getUsers = asyncHandler(async (req: Request, res: Response) => {
     ]);
 
     // ✅ BUSCAR CONTADORES EM BATCH
-    const userIds = users.map(u => u.id);
+    const userIds = users.map((u: any) => u.id);
 
     const vehicleCounts = await prisma.vehicle.groupBy({
         by: ['ownerId'],
         where: { ownerId: { in: userIds } },
         _count: { id: true }
-    });
+    }) as Array<{ ownerId: string; _count: { id: number } }>;
 
     const workshopCounts = await prisma.workshop.groupBy({
         by: ['userId'],
         where: { userId: { in: userIds } },
         _count: { id: true }
-    });
+    }) as Array<{ userId: string; _count: { id: number } }>;
 
     // Formatar usuários
-    const formattedUsers = users.map(user => {
+    const formattedUsers = users.map((user: any) => {
         const documentValidation = validateDocument(user.cpfCnpj);
         const vehiclesCount = vehicleCounts.find(vc => vc.ownerId === user.id)?._count.id || 0;
         const workshopsCount = workshopCounts.find(wc => wc.userId === user.id)?._count.id || 0;
@@ -288,7 +286,7 @@ export const getUserById = asyncHandler(async (req: Request, res: Response) => {
             stats: {
                 vehiclesCount: vehiclesCount,
                 workshopsCount: workshopsCount,
-                activeVehicles: vehicles.filter(v => v.active).length
+                activeVehicles: vehicles.filter((v: any) => v.active).length
             }
         }
     };

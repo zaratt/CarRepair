@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 import { Button, Card, Switch, Text, TextInput } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAuth } from '../hooks/useAuth';
+import { useAuthContext as useAuth } from '../contexts/AuthContext';
 
 // 🧪 Componente para testar Autenticação Real vs Mock
 export default function AuthTestScreen() {

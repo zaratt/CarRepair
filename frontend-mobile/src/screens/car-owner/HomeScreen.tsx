@@ -7,7 +7,7 @@ import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, View } fro
 import { ActivityIndicator, Card, Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDashboardSummary, useDashboardVehicles } from '../../api/api';
-import { useAuth } from '../../hooks/useAuth';
+import { useAuthContext as useAuth } from '../../contexts/AuthContext';
 
 export default function HomeScreen() {
     const { user } = useAuth();

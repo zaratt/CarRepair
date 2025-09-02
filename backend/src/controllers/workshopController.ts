@@ -1,10 +1,9 @@
-import { PrismaClient } from '@prisma/client';
 import { Request, Response } from 'express';
+import { prisma } from '../config/prisma';
 import { asyncHandler, ConflictError, NotFoundError, ValidationError } from '../middleware/errorHandler';
 import { ApiResponse, PaginationResponse } from '../types';
 import { formatPhone, validateDocument } from '../utils/documentValidation';
 
-const prisma = new PrismaClient();
 
 // Interfaces específicas do Workshop
 interface WorkshopCreateData {
@@ -183,7 +182,7 @@ export const getWorkshops = asyncHandler(async (req: Request, res: Response) => 
     ]);
 
     // Formatar oficinas
-    const formattedWorkshops = workshops.map(workshop => ({
+    const formattedWorkshops = workshops.map((workshop: any) => ({
         ...workshop,
         formatted: {
             phone: formatPhone(workshop.phone),
@@ -417,7 +416,7 @@ export const searchWorkshops = asyncHandler(async (req: Request, res: Response) 
         ]
     });
 
-    const formattedWorkshops = workshops.map(workshop => ({
+    const formattedWorkshops = workshops.map((workshop: any) => ({
         ...workshop,
         formatted: {
             phone: formatPhone(workshop.phone),

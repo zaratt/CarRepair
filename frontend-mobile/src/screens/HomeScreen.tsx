@@ -7,7 +7,7 @@ import { ActivityIndicator, Card, Divider, IconButton, Text } from 'react-native
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getStatistics, useDashboardSummary, useDashboardVehicles } from '../api/api';
 import FloatingBottomTabs from '../components/FloatingBottomTabs';
-import { useAuth } from '../hooks/useAuth';
+import { useAuthContext as useAuth } from '../contexts/AuthContext';
 import { RootStackParamList } from '../navigation/types';
 
 type Props = {
