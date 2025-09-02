@@ -3,7 +3,9 @@ import express from 'express';
 import { config, validateConfig } from './config';
 import { errorHandler } from './middleware/errorHandler';
 import authRoutes from './routes/authRoutes';
+import inspectionRoutes from './routes/inspectionRoutes';
 import maintenanceRoutes from './routes/maintenanceRoutes';
+import notificationRoutes from './routes/notificationRoutes';
 import systemRoutes from './routes/systemRoutes';
 import userRoutes from './routes/userRoutes';
 import vehicleRoutes from './routes/vehicleRoutes';
@@ -36,6 +38,8 @@ app.use('/api/vehicles', vehicleRoutes);
 app.use('/api/maintenances', maintenanceRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/workshops', workshopRoutes);
+app.use('/api/inspections', inspectionRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Rota específica para tipos de manutenção (compatibilidade)
 app.get('/api/maintenance-types', (req, res) => {
@@ -82,6 +86,8 @@ app.get('/health', (req, res) => {
                 maintenances: '/api/maintenances',
                 users: '/api/users',
                 workshops: '/api/workshops',
+                inspections: '/api/inspections',
+                notifications: '/api/notifications',
                 health: '/health'
             }
         }
