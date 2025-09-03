@@ -4,9 +4,10 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import React, { useCallback, useState } from 'react';
 import { FlatList, RefreshControl, StyleSheet, TouchableOpacity, View } from 'react-native';
-import { Button, Card, Chip, Text } from 'react-native-paper';
+import { ActivityIndicator, Button, Card, Chip, Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import ErrorState from '../../components/common/ErrorState';
 import { NotificationProvider, useNotificationContext } from '../../hooks/useNotificationContext';
 import { AppColors } from '../../styles/colors';
 
@@ -344,6 +345,34 @@ function NotificationScreenContent() {
         </View>
     );
 
+    // Estado de loading inicial
+    if (isLoading && (!notifications || notifications.length === 0)) {
+        return (
+            <SafeAreaView style={styles.container}>
+                <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color={AppColors.primary} />
+                    <Text variant="bodyMedium" style={styles.loadingText}>
+                        Carregando notificações...
+                    </Text>
+                </View>
+            </SafeAreaView>
+        );
+    }
+
+    // Estado de erro
+    if (error) {
+        return (
+            <SafeAreaView style={styles.container}>
+                <ErrorState
+                    title="Erro ao carregar notificações"
+                    message="Não foi possível carregar suas notificações. Verifique sua conexão e tente novamente."
+                    onRetry={refetch}
+                    icon="bell-alert-outline"
+                />
+            </SafeAreaView>
+        );
+    }
+
     return (
         <SafeAreaView style={styles.container}>
             <FlatList
@@ -572,5 +601,16 @@ const styles = StyleSheet.create({
     debugText: {
         color: 'white',
         fontSize: 10,
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+    },
+    loadingText: {
+        marginTop: 16,
+        color: AppColors.text,
+        textAlign: 'center',
     },
 });

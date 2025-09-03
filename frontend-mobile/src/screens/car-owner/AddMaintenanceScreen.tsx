@@ -278,7 +278,7 @@ export default function AddMaintenanceScreen({ navigation }: AddMaintenanceScree
                             </View>
 
                             <FlatList
-                                data={vehicles}
+                                data={vehicles || []}
                                 keyExtractor={(item) => item.id}
                                 renderItem={renderVehicleItem}
                                 style={styles.vehicleList}
