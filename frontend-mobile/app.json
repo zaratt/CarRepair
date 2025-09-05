@@ -13,7 +13,7 @@
     ],
     "splash": {
       "image": "./assets/splash-icon.png",
-      "resizeMode": "cover",
+      "resizeMode": "contain",
       "backgroundColor": "#F7C910"
     },
     "assetBundlePatterns": [
@@ -21,27 +21,12 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "splash": {
-        "image": "./assets/splash-icon.png",
-        "resizeMode": "cover",
-        "backgroundColor": "#F7C910",
-        "tabletImage": "./assets/splash-icon.png"
-      }
+      "bundleIdentifier": "com.zaratt.automazo-app"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#F7C910"
-      },
-      "splash": {
-        "image": "./assets/splash-icon.png",
-        "resizeMode": "cover",
-        "backgroundColor": "#F7C910",
-        "mdpi": "./assets/splash-icon.png",
-        "hdpi": "./assets/splash-icon.png",
-        "xhdpi": "./assets/splash-icon.png",
-        "xxhdpi": "./assets/splash-icon.png",
-        "xxxhdpi": "./assets/splash-icon.png"
       }
     },
     "web": {

@@ -6,7 +6,6 @@ import { Text } from 'react-native-paper';
 import { useAuthContext as useAuth } from '../contexts/AuthContext';
 import AvailableWorkshopsScreen from '../screens/AvailableWorkshopsScreen';
 import HelpScreen from '../screens/HelpScreen';
-import HomeScreen from '../screens/HomeScreen';
 import InspectionDetailScreen from '../screens/InspectionDetailScreen';
 import InspectionFormScreen from '../screens/InspectionFormScreen';
 import InspectionListScreen from '../screens/InspectionListScreen';
@@ -24,11 +23,12 @@ import WorkshopDetailScreen from '../screens/WorkshopDetailScreen';
 import WorkshopFormScreen from '../screens/WorkshopFormScreen';
 import WorkshopListScreen from '../screens/WorkshopListScreen';
 import WorkshopPendingMaintenancesScreen from '../screens/WorkshopPendingMaintenancesScreen';
+import RootStackNavigator from './RootStackNavigator';
 
 export type RootStackParamList = {
     Login: undefined;
     Register: undefined;
-    Home: undefined;
+    MainApp: undefined;
     VehicleForm: { vehicle?: any } | undefined;
     VehicleDetail: { vehicleId: string };
     UserForm: { user?: any } | undefined;
@@ -70,7 +70,7 @@ const AuthStack = () => (
 // ✅ APP STACK (Para usuários autenticados)
 const AppStack = () => (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="Home" component={HomeScreen} />
+        <Stack.Screen name="MainApp" component={RootStackNavigator} />
         <Stack.Screen name="UserList" component={UserListScreen} />
         <Stack.Screen name="VehicleList" component={VehicleListScreen} />
         <Stack.Screen name="WorkshopList" component={WorkshopListScreen} />
