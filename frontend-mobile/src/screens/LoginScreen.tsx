@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Button, Snackbar, Text, TextInput } from 'react-native-paper';
 import { useAuthContext as useAuth } from '../contexts/AuthContext';
+import { AppColors } from '../styles/colors';
 import { EmailValidator } from '../utils/validators';
 
 interface Props {
@@ -55,23 +56,16 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
     };
 
     return (
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f6f6f6' }}>
-            <View style={{
-                width: '100%',
-                maxWidth: 380,
-                backgroundColor: '#fff',
-                borderRadius: 18,
-                padding: 28,
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.08,
-                shadowRadius: 8,
-                elevation: 4,
-                alignItems: 'center',
-            }}>
-                <MaterialCommunityIcons name="car-wrench" size={48} color="#1976d2" style={{ marginBottom: 12 }} />
-                <Text variant="titleLarge" style={{ marginBottom: 8, fontWeight: 'bold', color: '#222' }}>Bem-vindo!</Text>
-                <Text style={{ marginBottom: 24, color: '#666', textAlign: 'center' }}>
+        <View style={styles.container}>
+            <View style={styles.loginBox}>
+                <MaterialCommunityIcons
+                    name="car-wrench"
+                    size={48}
+                    color={AppColors.text}
+                    style={styles.icon}
+                />
+                <Text variant="titleLarge" style={styles.title}>Bem-vindo!</Text>
+                <Text style={styles.subtitle}>
                     Faça login para acessar seus veículos e manutenções.
                 </Text>
 
@@ -81,9 +75,15 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                     onChangeText={setEmail}
                     autoCapitalize="none"
                     keyboardType="email-address"
-                    style={{ marginBottom: 16, width: 260, backgroundColor: '#f3f6fa', borderRadius: 8 }}
+                    style={styles.input}
                     left={<TextInput.Icon icon="email-outline" />}
                     disabled={isLoading}
+                    theme={{
+                        colors: {
+                            primary: AppColors.text,
+                            onSurface: AppColors.text,
+                        }
+                    }}
                 />
 
                 <TextInput
@@ -91,7 +91,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                     value={password}
                     onChangeText={setPassword}
                     secureTextEntry={!showPassword}
-                    style={{ marginBottom: 24, width: 260, backgroundColor: '#f3f6fa', borderRadius: 8 }}
+                    style={styles.input}
                     left={<TextInput.Icon icon="lock-outline" />}
                     right={
                         <TextInput.Icon
@@ -100,6 +100,12 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                         />
                     }
                     disabled={isLoading}
+                    theme={{
+                        colors: {
+                            primary: AppColors.text,
+                            onSurface: AppColors.text,
+                        }
+                    }}
                 />
 
                 <Button
@@ -107,9 +113,11 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                     onPress={handleLogin}
                     loading={isLoading}
                     disabled={isLoading}
-                    style={{ marginBottom: 12, width: 260, borderRadius: 8, backgroundColor: '#1976d2' }}
-                    contentStyle={{ paddingVertical: 6 }}
-                    labelStyle={{ fontWeight: 'bold', fontSize: 16 }}
+                    style={styles.loginButton}
+                    contentStyle={styles.buttonContent}
+                    labelStyle={styles.buttonLabel}
+                    buttonColor={AppColors.primary}
+                    textColor={AppColors.text}
                 >
                     Entrar
                 </Button>
@@ -118,13 +126,13 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                     mode="text"
                     onPress={goToRegister}
                     disabled={isLoading}
-                    style={{ marginBottom: 12 }}
-                    labelStyle={{ color: '#1976d2' }}
+                    style={styles.registerButton}
+                    labelStyle={styles.registerButtonLabel}
                 >
                     Criar nova conta
                 </Button>
 
-                <Text style={{ color: '#888', fontSize: 13, marginBottom: 0, textAlign: 'center' }}>
+                <Text style={styles.helpText}>
                     Use seu e-mail e senha para acessar
                 </Text>
             </View>
@@ -133,9 +141,9 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                 visible={snackbar.visible}
                 onDismiss={() => setSnackbar({ ...snackbar, visible: false })}
                 duration={3000}
-                style={{ backgroundColor: '#d32f2f', borderRadius: 8, marginBottom: 24 }}
+                style={styles.snackbar}
             >
-                <Text style={{ color: '#fff', fontWeight: 'bold' }}>{snackbar.message}</Text>
+                <Text style={styles.snackbarText}>{snackbar.message}</Text>
             </Snackbar>
         </View>
     );
@@ -146,25 +154,74 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
+        backgroundColor: AppColors.primary, // Fundo amarelo #F7C910
         padding: 24,
-        backgroundColor: '#f7f7f7',
     },
-    form: {
+    loginBox: {
         width: '100%',
-        maxWidth: 350,
-        backgroundColor: '#fff',
-        borderRadius: 12,
-        padding: 24,
-        elevation: 2,
+        maxWidth: 380,
+        backgroundColor: AppColors.white, // Caixa central branca
+        borderRadius: 18,
+        padding: 28,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+        elevation: 4,
+        alignItems: 'center',
+    },
+    icon: {
+        marginBottom: 12,
+    },
+    title: {
+        marginBottom: 8,
+        fontWeight: 'bold',
+        color: AppColors.text, // Texto preto
+    },
+    subtitle: {
+        marginBottom: 24,
+        color: AppColors.text,
+        textAlign: 'center',
+        opacity: 0.7,
     },
     input: {
-        width: '100%',
-        marginBottom: 18,
-        backgroundColor: '#fff',
-    },
-    button: {
-        marginTop: 8,
         marginBottom: 16,
+        width: 260,
+        backgroundColor: AppColors.white,
+    },
+    loginButton: {
+        marginBottom: 12,
+        width: 260,
+        borderRadius: 8,
+    },
+    buttonContent: {
+        paddingVertical: 6,
+    },
+    buttonLabel: {
+        fontWeight: 'bold',
+        fontSize: 16,
+        color: AppColors.text, // Texto preto no botão
+    },
+    registerButton: {
+        marginBottom: 12,
+    },
+    registerButtonLabel: {
+        color: AppColors.text, // Texto preto
+    },
+    helpText: {
+        color: AppColors.text,
+        fontSize: 13,
+        textAlign: 'center',
+        opacity: 0.6,
+    },
+    snackbar: {
+        backgroundColor: AppColors.danger,
+        borderRadius: 8,
+        marginBottom: 24,
+    },
+    snackbarText: {
+        color: AppColors.white,
+        fontWeight: 'bold',
     },
 });
 

@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { Button, SegmentedButtons, Snackbar, Text, TextInput } from 'react-native-paper';
 import { useAuthContext } from '../contexts/AuthContext';
+import { AppColors } from '../styles/colors';
 import { RegisterData } from '../types/auth';
 import {
     DocumentValidator,
@@ -172,7 +173,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
     return (
         <ScrollView style={styles.container}>
             <View style={styles.header}>
-                <MaterialCommunityIcons name="account-plus" size={48} color="#1976d2" style={{ marginBottom: 12 }} />
+                <MaterialCommunityIcons name="account-plus" size={48} color="#060606ff" style={{ marginBottom: 12 }} />
                 <Text variant="titleLarge" style={{ marginBottom: 12, fontWeight: 'bold', color: '#222' }}>
                     Criar Conta
                 </Text>
@@ -317,7 +318,9 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
                         disabled={isLoading}
                         style={[styles.button, styles.primaryButton]}
                         contentStyle={{ paddingVertical: 6 }}
-                        labelStyle={{ fontWeight: 'bold', fontSize: 16 }}
+                        labelStyle={{ fontWeight: 'bold', fontSize: 16, color: AppColors.text }}
+                        buttonColor={AppColors.primary}
+                        textColor={AppColors.text}
                     >
                         Criar Conta
                     </Button>
@@ -329,7 +332,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
                             disabled={isLoading}
                             style={[styles.button, styles.clearButton]}
                             contentStyle={{ paddingVertical: 4 }}
-                            labelStyle={{ color: '#ff6b35', fontWeight: '500' }}
+                            labelStyle={{ color: AppColors.danger, fontWeight: '500' }}
                             icon="eraser"
                         >
                             Limpar
@@ -340,7 +343,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
                             onPress={goToLogin}
                             disabled={isLoading}
                             style={styles.textButton}
-                            labelStyle={{ color: '#1976d2' }}
+                            labelStyle={{ color: AppColors.text }}
                         >
                             Já tenho uma conta
                         </Button>
@@ -353,12 +356,12 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
                 onDismiss={() => setSnackbar({ ...snackbar, visible: false })}
                 duration={4000}
                 style={{
-                    backgroundColor: snackbar.type === 'success' ? '#4caf50' : '#d32f2f',
+                    backgroundColor: snackbar.type === 'success' ? '#4caf50' : AppColors.danger,
                     borderRadius: 8,
                     marginBottom: 24
                 }}
             >
-                <Text style={{ color: '#fff', fontWeight: 'bold' }}>{snackbar.message}</Text>
+                <Text style={{ color: AppColors.white, fontWeight: 'bold' }}>{snackbar.message}</Text>
             </Snackbar>
         </ScrollView>
     );
@@ -367,16 +370,16 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#f6f6f6',
+        backgroundColor: AppColors.primary, // Fundo amarelo #F7C910
     },
     header: {
         alignItems: 'center',
-        paddingTop: 50, // ✅ Mudança: 40px → 50px (mais 10px para afastar dos sensores)
+        paddingTop: 50,
         paddingHorizontal: 24,
         paddingBottom: 20,
     },
     form: {
-        backgroundColor: '#fff',
+        backgroundColor: AppColors.white, // Caixa central branca
         marginHorizontal: 16,
         borderRadius: 18,
         padding: 24,
@@ -390,7 +393,7 @@ const styles = StyleSheet.create({
     sectionTitle: {
         fontSize: 18,
         fontWeight: 'bold',
-        color: '#222',
+        color: AppColors.text, // Texto preto
         marginBottom: 16,
         marginTop: 8,
     },
@@ -399,15 +402,16 @@ const styles = StyleSheet.create({
     },
     input: {
         marginBottom: 16,
-        backgroundColor: '#f3f6fa',
+        backgroundColor: AppColors.white, // Fundo branco para inputs
         borderRadius: 8,
     },
     passwordInfo: {
         fontSize: 12,
-        color: '#666',
+        color: AppColors.text, // Texto preto
         marginBottom: 24,
         textAlign: 'center',
         lineHeight: 16,
+        opacity: 0.7,
     },
     buttonContainer: {
         marginTop: 8,
@@ -417,7 +421,7 @@ const styles = StyleSheet.create({
         borderRadius: 8,
     },
     primaryButton: {
-        backgroundColor: '#1976d2',
+        backgroundColor: AppColors.primary, // Botão amarelo #F7C910
     },
     secondaryButtonsContainer: {
         flexDirection: 'row',
@@ -427,7 +431,7 @@ const styles = StyleSheet.create({
     },
     clearButton: {
         flex: 1,
-        borderColor: '#ff6b35',
+        borderColor: AppColors.danger, // Borda vermelha para botão de limpar
         borderWidth: 1.5,
     },
     textButton: {
