@@ -5,7 +5,7 @@ import { AppColors } from '../styles/colors';
 import TabNavigator from './TabNavigator';
 
 export type RootStackParamList = {
-    Home: undefined;
+    MainTabs: undefined;
     NotificationList: undefined;
 };
 
@@ -15,7 +15,7 @@ export default function RootStackNavigator() {
     return (
         <RootStack.Navigator screenOptions={{ headerShown: false }}>
             <RootStack.Screen
-                name="Home"
+                name="MainTabs"
                 component={TabNavigator}
             />
             <RootStack.Screen

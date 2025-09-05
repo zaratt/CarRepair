@@ -2,7 +2,7 @@ import { Inspection, Maintenance, User, Vehicle, Workshop } from '../types';
 
 export type RootStackParamList = {
     Login: undefined;
-    Home: undefined;
+    MainTabs: undefined;
     VehicleList: undefined;
     VehicleForm: { vehicle?: Vehicle };
     VehicleDetail: { vehicleId: string };
@@ -19,4 +19,5 @@ export type RootStackParamList = {
     InspectionDetail: { inspectionId: string };
     AvailableWorkshopsScreen: undefined;
     WorkshopPendingMaintenances: undefined;
+    NotificationList: undefined;
 };
