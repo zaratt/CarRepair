@@ -409,13 +409,13 @@ const styles = StyleSheet.create({
         marginBottom: 24,
     },
     addButton: {
-        backgroundColor: '#1976d2',
+        backgroundColor: '#F7C910', // Amarelo Automazo
         paddingHorizontal: 24,
         paddingVertical: 12,
         borderRadius: 8,
     },
     addButtonText: {
-        color: '#fff',
+        color: '#000000', // Texto preto
         fontWeight: '500',
     },
     bottomSpacer: {

@@ -1,53 +1,53 @@
 import { MaterialIcons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useState } from 'react';
-import { Alert, Image, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { Badge, Button, Card, Divider, Text, TextInput } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { deleteUserFull, updateUserProfile } from '../api/api';
 import FloatingBottomTabs from '../components/FloatingBottomTabs';
+import { useAuthContext } from '../contexts/AuthContext';
 
 const PROFILE_TOP_HEIGHT = 350;
 const PROFILE_COLOR = '#1976d2';
 
 const ProfileScreen: React.FC = ({ navigation }: any) => {
-    const [user, setUser] = useState<any>(null);
+    const { user, refreshUser, logout } = useAuthContext();
     const [loading, setLoading] = useState(false);
     const [editing, setEditing] = useState(false);
     const [form, setForm] = useState({ name: '', phone: '', city: '', state: '' });
 
     useEffect(() => {
-        AsyncStorage.getItem('user').then((userStr) => {
-            if (userStr) {
-                const u = JSON.parse(userStr);
-                setUser(u);
-                setForm({
-                    name: u.name || '',
-                    phone: u.phone || '',
-                    city: u.city || '',
-                    state: u.state || '',
-                });
-            }
-        });
-    }, []);
+        if (user) {
+            setForm({
+                name: user.name || '',
+                phone: user.phone || '',
+                city: user.city || '',
+                state: user.state || '',
+            });
+        }
+    }, [user]);
 
     const handleEdit = () => setEditing(true);
 
     const handleSave = async () => {
+        if (!user) return;
+
         setLoading(true);
         try {
             const updated = await updateUserProfile(user.id, form);
-            setUser(updated);
-            setEditing(false);
-            await AsyncStorage.setItem('user', JSON.stringify(updated));
+            // Atualizar dados do usuário no contexto
+            await refreshUser();
         } catch {
             Alert.alert('Erro', 'Não foi possível atualizar o perfil.');
         } finally {
             setLoading(false);
+            setEditing(false);
         }
     };
 
     const handleDeleteAccount = async () => {
+        if (!user) return;
+
         Alert.alert(
             'Encerrar Conta',
             'Tem certeza que deseja encerrar sua conta? Todos os seus dados serão apagados e não poderão ser recuperados.',
@@ -58,8 +58,7 @@ const ProfileScreen: React.FC = ({ navigation }: any) => {
                         setLoading(true);
                         try {
                             await deleteUserFull(user.id);
-                            await AsyncStorage.removeItem('user');
-                            // Não navega manualmente, AuthContext/AppNavigator deve redirecionar
+                            await logout(); // Usar logout do AuthContext
                         } catch {
                             Alert.alert('Erro', 'Não foi possível encerrar a conta.');
                         } finally {
@@ -93,11 +92,7 @@ const ProfileScreen: React.FC = ({ navigation }: any) => {
                 </View>
                 <View style={{ height: PROFILE_TOP_HEIGHT, backgroundColor: PROFILE_COLOR, alignItems: 'center', justifyContent: 'center' }}>
                     <View style={styles.avatarCircle}>
-                        {user?.photoUrl ? (
-                            <Image source={{ uri: user.photoUrl }} style={styles.avatarImg} />
-                        ) : (
-                            <MaterialIcons name="person" size={80} color="#fff" />
-                        )}
+                        <MaterialIcons name="person" size={80} color="#fff" />
                     </View>
                     {editing ? (
                         <>

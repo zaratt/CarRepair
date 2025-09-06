@@ -74,7 +74,7 @@ interface SingleInspectionContextData {
 }
 
 // 🎛️ Flag para controlar qual sistema usar
-const USE_REAL_API = false; // 🚧 Alterar para true quando backend estiver pronto
+const USE_REAL_API = true; // ✅ Usando API real de produção
 
 // 🔍 Contexto principal
 const InspectionContext = createContext<InspectionContextData>({} as InspectionContextData);

@@ -65,7 +65,7 @@ export default function TabNavigator() {
                 options={{
                     tabBarLabel: 'Veículos',
                     tabBarIcon: ({ color, size }) => (
-                        <TabIcon name="car" color={color} size={size} badge={3} />
+                        <TabIcon name="car" color={color} size={size} />
                     ),
                 }}
             />
@@ -76,7 +76,7 @@ export default function TabNavigator() {
                 options={{
                     tabBarLabel: 'Manutenções',
                     tabBarIcon: ({ color, size }) => (
-                        <TabIcon name="wrench" color={color} size={size} badge={2} />
+                        <TabIcon name="wrench" color={color} size={size} />
                     ),
                 }}
             />
@@ -87,7 +87,7 @@ export default function TabNavigator() {
                 options={{
                     tabBarLabel: 'Vistorias',
                     tabBarIcon: ({ color, size }) => (
-                        <TabIcon name="clipboard-check" color={color} size={size} badge={1} />
+                        <TabIcon name="clipboard-check" color={color} size={size} />
                     ),
                 }}
             />
