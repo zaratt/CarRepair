@@ -41,8 +41,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
             const isLoggedIn = await AuthService.isLoggedIn();
             if (isLoggedIn) {
-                const userData = await AuthService.getUser();
-                setUser(userData);
+                // ✅ BUSCAR DADOS ATUALIZADOS DO BACKEND
+                try {
+                    const userData = await AuthService.getProfile();
+                    setUser(userData);
+                } catch (profileError) {
+                    console.warn('Erro ao buscar perfil atualizado, usando dados locais:', profileError);
+                    // Fallback para dados locais se o backend não responder
+                    const localUserData = await AuthService.getUser();
+                    setUser(localUserData);
+                }
             }
         } catch (error) {
             console.error('Erro ao verificar estado de autenticação:', error);

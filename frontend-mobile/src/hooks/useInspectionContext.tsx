@@ -96,8 +96,8 @@ export const InspectionProvider: React.FC<InspectionProviderProps> = ({ children
     const contextValue: InspectionContextData = useMemo(() => {
         if (USE_REAL_API) {
             return {
-                inspections: apiHooks.inspections,
-                inspectionsCount: apiHooks.inspectionsCount,
+                inspections: apiHooks.inspections || [],
+                inspectionsCount: apiHooks.inspectionsCount || 0,
                 stats: apiHooks.stats ? {
                     total: apiHooks.stats.total || 0,
                     scheduled: apiHooks.stats.scheduled || 0,
@@ -110,7 +110,7 @@ export const InspectionProvider: React.FC<InspectionProviderProps> = ({ children
                     upcomingDue: apiHooks.stats.upcomingDue || 0,
                     overdueInspections: apiHooks.stats.overdueInspections || 0,
                 } : undefined,
-                types: apiHooks.types,
+                types: apiHooks.types || [],
                 isLoading: apiHooks.isLoading,
                 isCreating: apiHooks.isCreating,
                 isUpdating: apiHooks.isUpdating,

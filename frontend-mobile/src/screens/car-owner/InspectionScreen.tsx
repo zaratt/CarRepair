@@ -8,15 +8,17 @@ import { Card, Chip, FAB, Searchbar, Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { InspectionProvider, useInspectionContext } from '../../hooks/useInspectionContext';
-import { useVehicleContext } from '../../hooks/useVehicleContext';
+import { useVehicleContext, VehicleProvider } from '../../hooks/useVehicleContext';
 import { AppColors } from '../../styles/colors';
 
 // 🎯 Componente principal da tela (com provider)
 export default function InspectionScreen() {
     return (
-        <InspectionProvider>
-            <InspectionScreenContent />
-        </InspectionProvider>
+        <VehicleProvider>
+            <InspectionProvider>
+                <InspectionScreenContent />
+            </InspectionProvider>
+        </VehicleProvider>
     );
 }
 
@@ -40,13 +42,13 @@ function InspectionScreenContent() {
 
     // Função de filtro
     const filterInspections = useCallback(() => {
-        let filtered = inspections;
+        let filtered = inspections || [];
 
         // Filtrar por busca de texto
         if (searchQuery.trim()) {
             const query = searchQuery.toLowerCase();
             filtered = filtered.filter(inspection => {
-                const vehicle = vehicles.find(v => v.id === inspection.vehicleId);
+                const vehicle = (vehicles || []).find(v => v.id === inspection.vehicleId);
                 const vehicleName = vehicle ? `${vehicle.brand} ${vehicle.model}`.toLowerCase() : '';
                 const certificateNumber = inspection.certificateNumber?.toLowerCase() || '';
                 const location = inspection.location?.toLowerCase() || '';
@@ -63,9 +65,7 @@ function InspectionScreenContent() {
         filtered.sort((a, b) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime());
 
         setFilteredInspections(filtered);
-    }, [inspections, vehicles, searchQuery]);
-
-    // Aplicar filtros quando os dados mudarem
+    }, [inspections, vehicles, searchQuery]);    // Aplicar filtros quando os dados mudarem
     React.useEffect(() => {
         filterInspections();
     }, [filterInspections]);
@@ -120,7 +120,7 @@ function InspectionScreenContent() {
 
     // Renderizar card de inspeção
     const renderInspectionCard = ({ item }: { item: any }) => {
-        const vehicle = vehicles.find(v => v.id === item.vehicleId);
+        const vehicle = (vehicles || []).find(v => v.id === item.vehicleId);
         const vehicleName = vehicle ? `${vehicle.brand} ${vehicle.model}` : 'Veículo não encontrado';
 
         return (
@@ -330,7 +330,7 @@ function InspectionScreenContent() {
             {!isUsingRealAPI && (
                 <View style={styles.debugContainer}>
                     <Text style={styles.debugText}>
-                        🔧 Modo Mock - {inspections.length} inspeções
+                        🔧 Modo Mock - {(inspections || []).length} inspeções
                     </Text>
                 </View>
             )}

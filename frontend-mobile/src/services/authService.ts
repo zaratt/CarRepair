@@ -258,12 +258,20 @@ export class AuthService {
                 return true;
             }
 
+            // ✅ Validação adicional para caracteres especiais
+            if (decoded.includes('ÿ') || decoded.includes('\u0000')) {
+                console.warn('Token contém caracteres inválidos');
+                return true;
+            }
+
             const payload = JSON.parse(decoded);
 
             const exp = payload.exp * 1000; // Converter para milliseconds
             return Date.now() > exp;
         } catch (error) {
             console.error('Erro ao verificar expiração do token:', error);
+            // ✅ Limpar token corrompido automaticamente
+            this.clearCorruptedStorage();
             return true; // Se não conseguir verificar, considerar expirado
         }
     }
