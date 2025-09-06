@@ -8,6 +8,45 @@
    - ✅ Algoritmo brasileiro oficial implementado
    - ✅ Lista de CPFs inválidos conhecidos
    - ✅ Validação rigorosa dos dígitos verificadores
+
+2. **🏢 CNPJ (14 dígitos numéricos - ATUAL):**
+   - ✅ Algoritmo brasileiro oficial implementado
+   - ✅ Validação rigorosa dos dígitos verificadores
+   - ✅ Formato: `99.999.999/0001-99`
+
+## ⚠️ **IMPORTANTE - CNPJ ALFANUMÉRICO (JULHO 2026)**
+
+### **📅 MUDANÇA REGULAMENTÁRIA:**
+A partir de **julho de 2026**, o CNPJ será **alfanumérico**:
+
+- **🔄 Formato Atual:** `99.999.999/0001-99` (14 dígitos numéricos)
+- **🆕 Formato Futuro:** `AA.AAA.AAA/0001-99` (alfanumérico nos primeiros 12 caracteres)
+- **📋 Últimos 2 dígitos:** Continuam sendo números (dígitos verificadores)
+
+### **🔧 PREPARAÇÃO NECESSÁRIA:**
+```typescript
+// Validação atual (até julho 2026)
+export function isValidCNPJ(cnpj: string): boolean {
+    const cleanCNPJ = cnpj.replace(/[^\d]/g, ''); // Apenas números
+    return cleanCNPJ.length === 14 && validateCNPJDigits(cleanCNPJ);
+}
+
+// Validação futura (pós julho 2026)
+export function isValidCNPJAlphanumeric(cnpj: string): boolean {
+    const cleanCNPJ = cnpj.replace(/[^A-Za-z0-9]/g, ''); // Letras e números
+    const base = cleanCNPJ.substring(0, 12); // Primeiros 12: alfanumérico
+    const digits = cleanCNPJ.substring(12, 14); // Últimos 2: numérico
+    
+    return cleanCNPJ.length === 14 && 
+           /^[A-Za-z0-9]{12}$/.test(base) && 
+           /^\d{2}$/.test(digits);
+}
+
+// Validação híbrida (durante transição)
+export function isValidCNPJHybrid(cnpj: string): boolean {
+    return isValidCNPJ(cnpj) || isValidCNPJAlphanumeric(cnpj);
+}
+```
    - ✅ Formatação automática: `111.444.777-35`
 
 2. **🏢 CNPJ (14 caracteres alfanuméricos):**

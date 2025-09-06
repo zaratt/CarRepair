@@ -45,7 +45,8 @@ const UserListScreen: React.FC<Props> = ({ navigation }) => {
     useEffect(() => {
         if (!userId || !profile) return;
         setLoading(true);
-        axios.get('http://localhost:3000/api/users', {
+        const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://automazo-production.up.railway.app/api';
+        axios.get(`${API_URL}/users`, {
             params: { userId, profile }
         })
             .then(res => setUsers(res.data))

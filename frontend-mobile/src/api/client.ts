@@ -2,18 +2,21 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 
 // 🌐 Configuração da API Base
-const API_BASE_URL = __DEV__
+const isDevelopment = process.env.EXPO_PUBLIC_ENV === 'development';
+const API_BASE_URL = isDevelopment
     ? 'http://localhost:3000/api' // Desenvolvimento local
-    : 'https://your-production-api.com/api'; // Produção
+    : 'https://automazo-production.up.railway.app/api'; // Produção
 
 // 🔧 Criação da instância do Axios
 const apiClient: AxiosInstance = axios.create({
     baseURL: API_BASE_URL,
-    timeout: 10000, // 10 segundos
+    timeout: 15000, // 15 segundos (aumentado para conexões móveis)
     headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
     },
+    // Configuração para lidar com certificados SSL em produção
+    validateStatus: (status) => status < 500, // Aceita códigos de status < 500
 });
 
 // 📝 Tipos para tokens
@@ -97,7 +100,7 @@ apiClient.interceptors.request.use(
         }
 
         // Log para debug (apenas em desenvolvimento)
-        if (__DEV__) {
+        if (isDevelopment) {
             console.log(`🌐 API Request: ${config.method?.toUpperCase()} ${config.url}`);
         }
 
@@ -113,7 +116,7 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
     (response: AxiosResponse) => {
         // Log para debug (apenas em desenvolvimento)
-        if (__DEV__) {
+        if (isDevelopment) {
             console.log(`✅ API Response: ${response.config.method?.toUpperCase()} ${response.config.url} - ${response.status}`);
         }
         return response;
@@ -185,7 +188,7 @@ apiClient.interceptors.response.use(
         }
 
         // Log para debug
-        if (__DEV__) {
+        if (isDevelopment) {
             console.error(`❌ API Error: ${error.config?.method?.toUpperCase()} ${error.config?.url} - ${error.response?.status || 'Network Error'}`);
         }
 
