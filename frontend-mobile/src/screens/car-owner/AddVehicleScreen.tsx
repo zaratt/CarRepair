@@ -6,14 +6,16 @@ import { Dropdown } from 'react-native-element-dropdown';
 import { Button, Card, Text, TextInput } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { createVehicle } from '../../api/api';
 import VehiclePhotos from '../../components/vehicle/VehiclePhotos';
+import { useAuthContext } from '../../contexts/AuthContext';
 import { fipeApiService } from '../../services/fipeApi';
-import { createVehicle } from '../../services/vehicleApi';
 import { AppColors } from '../../styles/colors';
 import { FipeBrand, FipeModel, FipeVehicleData, FipeYear } from '../../types/vehicle.types';
 
 export default function AddVehicleScreen() {
     const navigation = useNavigation();
+    const { user } = useAuthContext();
 
     // Estados dos dropdowns FIPE
     const [brands, setBrands] = useState<FipeBrand[]>([]);
@@ -178,27 +180,30 @@ export default function AddVehicleScreen() {
 
             setSaving(true);
 
-            // Preparar dados para envio
+            // Preparar dados para envio (formato correto para API)
             const vehicleData = {
-                brand: fipeData.brand,
-                model: fipeData.model,
-                year: fipeData.year,
-                plate: plate.trim().toUpperCase(),
-                currentKm: Number(currentKm),
-                color: color.trim(),
-                fipeValue: fipeApiService.parseFipeValue(fipeData.value),
-                fipeCode: fipeData.code,
-                photos: photos,
+                licensePlate: plate.trim().toUpperCase(),
+                brandId: 'temp-brand-id', // TODO: Implementar mapeamento de marca FIPE -> brandId
+                modelId: 'temp-model-id', // TODO: Implementar mapeamento de modelo FIPE -> modelId
+                yearManufacture: parseInt(fipeData.year.toString()),
+                modelYear: parseInt(fipeData.year.toString()),
+                fuelType: 'GASOLINE' as const, // TODO: Implementar seleção de combustível
+                vin: '', // Campo obrigatório mas vazio por enquanto
+                ownerId: user?.id,
             };
 
             console.log('💾 Salvando veículo...', vehicleData);
+            console.log('👤 Usuário:', user);
 
-            // TODO: Remover mock e usar API real
-            // const newVehicle = await vehicleApiService.createVehicle(vehicleData);
-
-            // Simulando delay da API
-            await new Promise(resolve => setTimeout(() => resolve(true), 2000));
+            // Criar veículo primeiro sem fotos
             const newVehicle = await createVehicle(vehicleData);
+
+            console.log('✅ Veículo criado:', newVehicle);
+
+            // TODO: Implementar upload de fotos separadamente se necessário
+            if (photos.length > 0) {
+                console.log('📸 Fotos serão implementadas posteriormente:', photos);
+            }
 
             console.log('✅ Veículo salvo com sucesso!', newVehicle);
 

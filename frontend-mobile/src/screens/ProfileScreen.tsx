@@ -34,11 +34,21 @@ const ProfileScreen: React.FC = ({ navigation }: any) => {
 
         setLoading(true);
         try {
+            console.log('💾 Salvando dados do perfil:', form);
+            console.log('👤 User ID:', user.id);
+
             const updated = await updateUserProfile(user.id, form);
+            console.log('✅ Resposta do backend:', updated);
+
             // Atualizar dados do usuário no contexto
+            console.log('🔄 Atualizando contexto do usuário...');
             await refreshUser();
-        } catch {
-            Alert.alert('Erro', 'Não foi possível atualizar o perfil.');
+
+            console.log('✅ Perfil atualizado com sucesso');
+            Alert.alert('Sucesso', 'Perfil atualizado com sucesso!');
+        } catch (error) {
+            console.error('❌ Erro ao salvar perfil:', error);
+            Alert.alert('Erro', 'Não foi possível atualizar o perfil: ' + (error as any)?.message || 'Erro desconhecido');
         } finally {
             setLoading(false);
             setEditing(false);
