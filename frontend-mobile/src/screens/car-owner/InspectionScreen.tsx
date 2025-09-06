@@ -48,13 +48,19 @@ function InspectionScreenContent() {
         if (searchQuery.trim()) {
             const query = searchQuery.toLowerCase();
             filtered = filtered.filter(inspection => {
-                const vehicle = (vehicles || []).find(v => v.id === inspection.vehicleId);
-                const vehicleName = vehicle ? `${vehicle.brand} ${vehicle.model}`.toLowerCase() : '';
+                // Usar dados do backend ou fazer lookup como fallback
+                const vehicleName = inspection.vehicleName ||
+                    inspection.vehicleBrand && inspection.vehicleModel ? `${inspection.vehicleBrand} ${inspection.vehicleModel}` :
+                    (() => {
+                        const vehicle = (vehicles || []).find(v => v.id === inspection.vehicleId);
+                        return vehicle ? `${vehicle.brand} ${vehicle.model}` : '';
+                    })();
+
                 const certificateNumber = inspection.certificateNumber?.toLowerCase() || '';
                 const location = inspection.location?.toLowerCase() || '';
 
                 return (
-                    vehicleName.includes(query) ||
+                    vehicleName.toLowerCase().includes(query) ||
                     certificateNumber.includes(query) ||
                     location.includes(query)
                 );
@@ -120,8 +126,12 @@ function InspectionScreenContent() {
 
     // Renderizar card de inspeção
     const renderInspectionCard = ({ item }: { item: any }) => {
+        // Usar o nome do veículo que vem do backend, ou tentar fazer lookup como fallback
         const vehicle = (vehicles || []).find(v => v.id === item.vehicleId);
-        const vehicleName = vehicle ? `${vehicle.brand} ${vehicle.model}` : 'Veículo não encontrado';
+        const vehicleName = item.vehicleName ||
+            item.vehicleBrand && item.vehicleModel ? `${item.vehicleBrand} ${item.vehicleModel}` :
+            vehicle ? `${vehicle.brand} ${vehicle.model}` :
+                'Veículo não identificado';
 
         return (
             <Pressable onPress={() => navigateToDetails(item)}>
@@ -133,7 +143,7 @@ function InspectionScreenContent() {
                                     {vehicleName}
                                 </Text>
                                 <Text variant="bodySmall" style={styles.cardSubtitle}>
-                                    {item.type || 'Inspeção Geral'}
+                                    {item.typeName || item.type || 'Inspeção Geral'}
                                 </Text>
                             </View>
 

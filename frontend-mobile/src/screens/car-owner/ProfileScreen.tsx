@@ -61,7 +61,6 @@ export default function ProfileScreen() {
                     </Text>
                     <Text variant="bodyMedium" style={styles.userEmail}>
                         {user.email || 'Email não disponível'}
-                        {user.email}
                     </Text>
                 </View>
 

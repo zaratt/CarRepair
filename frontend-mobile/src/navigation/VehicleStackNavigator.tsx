@@ -1,5 +1,6 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React from 'react';
+import { VehicleProvider } from '../hooks/useVehicleContext';
 import { AppColors } from '../styles/colors';
 
 // Vehicle screens
@@ -17,50 +18,52 @@ const VehicleStack = createNativeStackNavigator<VehicleStackParamList>();
 
 export default function VehicleStackNavigator() {
     return (
-        <VehicleStack.Navigator
-            screenOptions={{
-                headerStyle: {
-                    backgroundColor: AppColors.primary,
-                },
-                headerTintColor: AppColors.text,
-                headerTitleStyle: {
-                    fontWeight: 'bold',
-                    color: AppColors.text,
-                },
-            }}
-        >
-            <VehicleStack.Screen
-                name="VehicleList"
-                component={VehiclesScreen}
-                options={{
-                    title: 'Meus Veículos',
-                    headerLeft: () => null, // Remove botão voltar
-                    headerBackVisible: false, // Garante que não há botão voltar
+        <VehicleProvider>
+            <VehicleStack.Navigator
+                screenOptions={{
+                    headerStyle: {
+                        backgroundColor: AppColors.primary,
+                    },
+                    headerTintColor: AppColors.text,
+                    headerTitleStyle: {
+                        fontWeight: 'bold',
+                        color: AppColors.text,
+                    },
                 }}
-            />
+            >
+                <VehicleStack.Screen
+                    name="VehicleList"
+                    component={VehiclesScreen}
+                    options={{
+                        title: 'Meus Veículos',
+                        headerLeft: () => null, // Remove botão voltar
+                        headerBackVisible: false, // Garante que não há botão voltar
+                    }}
+                />
 
-            <VehicleStack.Screen
-                name="VehicleDetails"
-                component={VehicleDetailsScreen}
-                options={({ route }) => {
-                    // TODO: Pegar nome do veículo baseado no ID
-                    // const vehicleId = route.params.vehicleId;
-                    return {
-                        title: 'Detalhes do Veículo',
+                <VehicleStack.Screen
+                    name="VehicleDetails"
+                    component={VehicleDetailsScreen}
+                    options={({ route }) => {
+                        // TODO: Pegar nome do veículo baseado no ID
+                        // const vehicleId = route.params.vehicleId;
+                        return {
+                            title: 'Detalhes do Veículo',
+                            headerBackTitle: 'Voltar',
+                        };
+                    }}
+                />
+
+                {/* Tela de adicionar veículo */}
+                <VehicleStack.Screen
+                    name="AddVehicle"
+                    component={AddVehicleScreen}
+                    options={{
+                        title: 'Adicionar Veículo',
                         headerBackTitle: 'Voltar',
-                    };
-                }}
-            />
-
-            {/* Tela de adicionar veículo */}
-            <VehicleStack.Screen
-                name="AddVehicle"
-                component={AddVehicleScreen}
-                options={{
-                    title: 'Adicionar Veículo',
-                    headerBackTitle: 'Voltar',
-                }}
-            />
-        </VehicleStack.Navigator>
+                    }}
+                />
+            </VehicleStack.Navigator>
+        </VehicleProvider>
     );
 }

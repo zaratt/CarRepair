@@ -6,7 +6,7 @@ import { FAB, Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import VehicleCard from '../../components/vehicle/VehicleCard';
-import { VehicleProvider, useVehicleContext } from '../../hooks/useVehicleContext';
+import { useVehicleContext } from '../../hooks/useVehicleContext';
 import { AppColors } from '../../styles/colors';
 import { Vehicle } from '../../types/vehicle.types';
 
@@ -149,13 +149,9 @@ const VehiclesContent = () => {
     );
 };
 
-// 🏗️ Componente principal com Provider
+// 🏗️ Componente principal (Provider já está no VehicleStackNavigator)
 export default function VehiclesScreen() {
-    return (
-        <VehicleProvider>
-            <VehiclesContent />
-        </VehicleProvider>
-    );
+    return <VehiclesContent />;
 }
 
 const styles = StyleSheet.create({

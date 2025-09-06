@@ -95,6 +95,24 @@ function NotificationScreenContent() {
         }
     };
 
+    // Obter cor do texto baseada no contraste da cor de fundo
+    const getTextColorForBackground = (backgroundColor: string) => {
+        // Para cores mais claras (como amarelo #FF9800), usar texto escuro
+        // Para cores mais escuras, usar texto branco
+        switch (backgroundColor) {
+            case '#FF9800': // Amarelo - usar texto escuro
+                return '#333333';
+            case '#4CAF50': // Verde - usar texto branco  
+                return AppColors.white;
+            case '#FF5722': // Vermelho - usar texto branco
+                return AppColors.white;
+            case AppColors.danger: // Vermelho padrão - usar texto branco
+                return AppColors.white;
+            default:
+                return AppColors.white;
+        }
+    };
+
     // Obter ícone do tipo
     const getTypeIcon = (type: string) => {
         switch (type?.toLowerCase()) {
@@ -157,7 +175,10 @@ function NotificationScreenContent() {
                                     styles.priorityChip,
                                     { backgroundColor: getPriorityColor(item.priority) }
                                 ]}
-                                textStyle={styles.priorityChipText}
+                                textStyle={[
+                                    styles.priorityChipText,
+                                    { color: getTextColorForBackground(getPriorityColor(item.priority)) }
+                                ]}
                             >
                                 {item.priority === 'URGENT' ? 'Urgente' :
                                     item.priority === 'HIGH' ? 'Alta' :
