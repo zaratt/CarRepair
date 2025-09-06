@@ -106,8 +106,7 @@ export const getVehicles = asyncHandler(async (req: Request, res: Response) => {
                         phone: true,
                     }
                 },
-                brand: true,
-                model: true,
+                // Removido brand e model includes pois estamos usando dados FIPE
                 photos: {
                     take: 1, // Apenas a primeira foto para listagem
                     orderBy: { createdAt: 'desc' }
@@ -124,8 +123,23 @@ export const getVehicles = asyncHandler(async (req: Request, res: Response) => {
         prisma.vehicle.count({ where })
     ]);
 
-    const response: PaginationResponse<typeof vehicles[0]> = {
-        data: vehicles,
+    // Mapear veículos para incluir informações básicas de marca/modelo
+    const mappedVehicles = vehicles.map(vehicle => ({
+        ...vehicle,
+        // Adicionar informações básicas de marca/modelo para compatibilidade
+        brand: {
+            id: vehicle.fipeBrandId?.toString() || 'unknown',
+            name: 'Marca FIPE' // TODO: Implementar lookup real da FIPE
+        },
+        model: {
+            id: vehicle.fipeModelId?.toString() || 'unknown',
+            name: 'Modelo FIPE', // TODO: Implementar lookup real da FIPE
+            brandId: vehicle.fipeBrandId?.toString() || 'unknown'
+        }
+    }));
+
+    const response: PaginationResponse<typeof mappedVehicles[0]> = {
+        data: mappedVehicles,
         pagination: {
             page,
             limit,
@@ -154,8 +168,7 @@ export const getVehicleById = asyncHandler(async (req: Request, res: Response) =
                     state: true,
                 }
             },
-            brand: true,
-            model: true,
+            // Removido brand e model includes pois estamos usando dados FIPE
             photos: {
                 orderBy: { createdAt: 'desc' }
             },
@@ -193,10 +206,24 @@ export const getVehicleById = asyncHandler(async (req: Request, res: Response) =
         throw new NotFoundError('Vehicle');
     }
 
+    // Mapear veículo para incluir informações básicas de marca/modelo
+    const mappedVehicle = {
+        ...vehicle,
+        brand: {
+            id: vehicle.fipeBrandId?.toString() || 'unknown',
+            name: 'Marca FIPE' // TODO: Implementar lookup real da FIPE
+        },
+        model: {
+            id: vehicle.fipeModelId?.toString() || 'unknown',
+            name: 'Modelo FIPE', // TODO: Implementar lookup real da FIPE
+            brandId: vehicle.fipeBrandId?.toString() || 'unknown'
+        }
+    };
+
     const response: ApiResponse = {
         success: true,
         message: 'Vehicle found',
-        data: vehicle
+        data: mappedVehicle
     };
 
     res.json(response);

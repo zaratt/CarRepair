@@ -107,37 +107,9 @@ export const scheduleInspection = asyncHandler(async (req: Request, res: Respons
 export const getUserInspections = asyncHandler(async (req: Request, res: Response) => {
     const userId = req.params.userId || 'default_user'; // Para quando não há userId na rota
 
-    // Mock data
-    const inspections = [
-        {
-            id: 'insp_001',
-            vehicleId: 'vh_001',
-            vehicleName: 'Honda Civic 2020',
-            type: 'annual',
-            typeName: 'Vistoria Anual',
-            status: 'completed',
-            scheduledDate: '2025-08-15T09:00:00Z',
-            completedDate: '2025-08-15T09:45:00Z',
-            protocol: 'VIS123456',
-            result: 'approved',
-            inspector: 'João Silva',
-            location: 'Centro de Vistoria - Unidade Principal',
-            observations: 'Veículo em excelente estado de conservação.'
-        },
-        {
-            id: 'insp_002',
-            vehicleId: 'vh_002',
-            vehicleName: 'Toyota Corolla 2019',
-            type: 'transfer',
-            typeName: 'Vistoria de Transferência',
-            status: 'scheduled',
-            scheduledDate: '2025-09-05T14:30:00Z',
-            protocol: 'VIS234567',
-            inspector: 'Maria Santos',
-            location: 'Centro de Vistoria - Unidade Norte',
-            instructions: 'Trazer comprovante de venda original.'
-        }
-    ];
+    // Em um ambiente real, buscaríamos do banco de dados
+    // Por enquanto, retornamos lista vazia já que não há inspeções reais implementadas
+    const inspections: any[] = [];
 
     const response: ApiResponse = {
         success: true,
