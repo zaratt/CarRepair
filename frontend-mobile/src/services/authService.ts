@@ -144,15 +144,15 @@ export class AuthService {
     // ✅ LIMPAR STORAGE CORROMPIDO
     static async clearCorruptedStorage(): Promise<void> {
         try {
-            console.log('Limpando AsyncStorage corrompido...');
+            console.log('🧹 Limpando dados corrompidos do AsyncStorage...');
             await Promise.all([
                 AsyncStorage.removeItem(STORAGE_KEYS.TOKEN),
                 AsyncStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN),
                 AsyncStorage.removeItem(STORAGE_KEYS.USER),
             ]);
-            console.log('AsyncStorage limpo com sucesso');
+            console.log('✅ AsyncStorage limpo - faça login novamente');
         } catch (error) {
-            console.error('Erro ao limpar storage corrompido:', error);
+            console.error('❌ Erro ao limpar storage corrompido:', error);
         }
     }
 
@@ -183,6 +183,13 @@ export class AuthService {
             // ✅ Verificar se token não está corrompido
             if (token.length < 10 || !token.includes('.')) {
                 console.warn('Token corrompido detectado, limpando AsyncStorage...');
+                await this.clearCorruptedStorage();
+                return null;
+            }
+
+            // ✅ Verificar caracteres inválidos no token
+            if (token.includes('ÿ') || token.includes('\u0000')) {
+                console.warn('Token com caracteres inválidos detectado, limpando AsyncStorage...');
                 await this.clearCorruptedStorage();
                 return null;
             }
@@ -223,10 +230,20 @@ export class AuthService {
             const token = await this.getToken();
             if (!token) return false;
 
-            // Verificar se o token não está expirado
-            return !this.isTokenExpired(token);
+            // Verificar se o token não está expirado ou corrompido
+            const isExpiredOrCorrupted = this.isTokenExpired(token);
+
+            // ✅ Se token estiver corrompido, limpar storage automaticamente
+            if (isExpiredOrCorrupted) {
+                await this.clearCorruptedStorage();
+                return false;
+            }
+
+            return true;
         } catch (error) {
             console.error('Erro ao verificar login:', error);
+            // ✅ Em caso de erro, limpar storage para evitar loops
+            await this.clearCorruptedStorage();
             return false;
         }
     }
@@ -260,7 +277,8 @@ export class AuthService {
 
             // ✅ Validação adicional para caracteres especiais
             if (decoded.includes('ÿ') || decoded.includes('\u0000')) {
-                console.warn('Token contém caracteres inválidos');
+                console.warn('Token contém caracteres inválidos - será limpo na próxima verificação');
+                // ✅ Retornar como expirado para forçar nova autenticação
                 return true;
             }
 

@@ -34,31 +34,40 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const initializeAuth = async () => {
         try {
             setIsLoading(true);
+            console.log('🔄 Inicializando autenticação...');
 
             // ✅ LIMPEZA EMERGENCIAL PRIMEIRO
             const { emergencyStorageCleanup } = await import('../utils/emergencyCleanup');
             await emergencyStorageCleanup();
 
             const isLoggedIn = await AuthService.isLoggedIn();
+            console.log('🔐 Status de login:', isLoggedIn);
+
             if (isLoggedIn) {
                 // ✅ BUSCAR DADOS ATUALIZADOS DO BACKEND
                 try {
+                    console.log('📡 Buscando perfil atualizado do backend...');
                     const userData = await AuthService.getProfile();
                     setUser(userData);
+                    console.log('✅ Perfil carregado:', userData?.name || 'Nome não disponível');
                 } catch (profileError) {
-                    console.warn('Erro ao buscar perfil atualizado, usando dados locais:', profileError);
+                    console.warn('⚠️ Erro ao buscar perfil atualizado, usando dados locais:', profileError);
                     // Fallback para dados locais se o backend não responder
                     const localUserData = await AuthService.getUser();
                     setUser(localUserData);
+                    console.log('📱 Usando dados locais:', localUserData?.name || 'Nome não disponível');
                 }
+            } else {
+                console.log('🚫 Usuário não está logado');
             }
         } catch (error) {
-            console.error('Erro ao verificar estado de autenticação:', error);
+            console.error('❌ Erro ao verificar estado de autenticação:', error);
             // Se houver erro, limpar dados locais
             await AuthService.logout();
             setUser(null);
         } finally {
             setIsLoading(false);
+            console.log('✅ Inicialização de autenticação concluída');
         }
     };
 
