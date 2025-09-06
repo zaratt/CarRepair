@@ -1,4 +1,4 @@
-# CarRepair
+# CarRepair (App name - Automazo)
 
 Sistema completo para gestão de oficinas, manutenções e experiência do dono do carro.
 

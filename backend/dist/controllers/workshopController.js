@@ -1,15 +1,14 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getWorkshopStats = exports.searchWorkshops = exports.updateWorkshop = exports.getWorkshopById = exports.getWorkshops = exports.createWorkshop = void 0;
-const client_1 = require("@prisma/client");
+const prisma_1 = require("../config/prisma");
 const errorHandler_1 = require("../middleware/errorHandler");
 const documentValidation_1 = require("../utils/documentValidation");
-const prisma = new client_1.PrismaClient();
 // Criar nova oficina
 exports.createWorkshop = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     const workshopData = req.body;
     // Verificar se o usuário existe e é do tipo business
-    const user = await prisma.user.findUnique({
+    const user = await prisma_1.prisma.user.findUnique({
         where: { id: workshopData.userId },
         select: {
             id: true,
@@ -28,7 +27,7 @@ exports.createWorkshop = (0, errorHandler_1.asyncHandler)(async (req, res) => {
         throw new errorHandler_1.ValidationError('Workshop owner must have CNPJ (business document)');
     }
     // Verificar se já existe oficina para este usuário
-    const existingWorkshop = await prisma.workshop.findFirst({
+    const existingWorkshop = await prisma_1.prisma.workshop.findFirst({
         where: { userId: workshopData.userId }
     });
     if (existingWorkshop) {
@@ -36,7 +35,7 @@ exports.createWorkshop = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     }
     // Verificar se subdomain já existe (se fornecido)
     if (workshopData.subdomain) {
-        const existingSubdomain = await prisma.workshop.findUnique({
+        const existingSubdomain = await prisma_1.prisma.workshop.findUnique({
             where: { subdomain: workshopData.subdomain }
         });
         if (existingSubdomain) {
@@ -44,7 +43,7 @@ exports.createWorkshop = (0, errorHandler_1.asyncHandler)(async (req, res) => {
         }
     }
     // Criar oficina
-    const workshop = await prisma.workshop.create({
+    const workshop = await prisma_1.prisma.workshop.create({
         data: {
             name: workshopData.name.trim(),
             userId: workshopData.userId,
@@ -121,7 +120,7 @@ exports.getWorkshops = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     }
     // Buscar oficinas e total
     const [workshops, total] = await Promise.all([
-        prisma.workshop.findMany({
+        prisma_1.prisma.workshop.findMany({
             where,
             skip,
             take: limit,
@@ -147,10 +146,10 @@ exports.getWorkshops = (0, errorHandler_1.asyncHandler)(async (req, res) => {
                 { createdAt: 'desc' }
             ]
         }),
-        prisma.workshop.count({ where })
+        prisma_1.prisma.workshop.count({ where })
     ]);
     // Formatar oficinas
-    const formattedWorkshops = workshops.map(workshop => ({
+    const formattedWorkshops = workshops.map((workshop) => ({
         ...workshop,
         formatted: {
             phone: (0, documentValidation_1.formatPhone)(workshop.phone),
@@ -179,7 +178,7 @@ exports.getWorkshops = (0, errorHandler_1.asyncHandler)(async (req, res) => {
 // Buscar oficina por ID
 exports.getWorkshopById = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     const { id } = req.params;
-    const workshop = await prisma.workshop.findUnique({
+    const workshop = await prisma_1.prisma.workshop.findUnique({
         where: { id },
         include: {
             user: {
@@ -264,7 +263,7 @@ exports.updateWorkshop = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     const { id } = req.params;
     const updateData = req.body;
     // Verificar se a oficina existe
-    const existingWorkshop = await prisma.workshop.findUnique({
+    const existingWorkshop = await prisma_1.prisma.workshop.findUnique({
         where: { id }
     });
     if (!existingWorkshop) {
@@ -272,7 +271,7 @@ exports.updateWorkshop = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     }
     // Verificar subdomain se está sendo alterado
     if (updateData.subdomain && updateData.subdomain !== existingWorkshop.subdomain) {
-        const existingSubdomain = await prisma.workshop.findUnique({
+        const existingSubdomain = await prisma_1.prisma.workshop.findUnique({
             where: { subdomain: updateData.subdomain }
         });
         if (existingSubdomain) {
@@ -290,7 +289,7 @@ exports.updateWorkshop = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     if (updateData.subdomain !== undefined)
         dataToUpdate.subdomain = updateData.subdomain;
     // Atualizar oficina
-    const workshop = await prisma.workshop.update({
+    const workshop = await prisma_1.prisma.workshop.update({
         where: { id },
         data: dataToUpdate,
         include: {
@@ -333,7 +332,7 @@ exports.updateWorkshop = (0, errorHandler_1.asyncHandler)(async (req, res) => {
 exports.searchWorkshops = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     const { term } = req.params;
     const limit = parseInt(req.query.limit) || 20;
-    const workshops = await prisma.workshop.findMany({
+    const workshops = await prisma_1.prisma.workshop.findMany({
         where: {
             OR: [
                 { name: { contains: term, mode: 'insensitive' } },
@@ -368,7 +367,7 @@ exports.searchWorkshops = (0, errorHandler_1.asyncHandler)(async (req, res) => {
             { createdAt: 'desc' }
         ]
     });
-    const formattedWorkshops = workshops.map(workshop => ({
+    const formattedWorkshops = workshops.map((workshop) => ({
         ...workshop,
         formatted: {
             phone: (0, documentValidation_1.formatPhone)(workshop.phone),
@@ -396,7 +395,7 @@ exports.searchWorkshops = (0, errorHandler_1.asyncHandler)(async (req, res) => {
 // Estatísticas detalhadas da oficina
 exports.getWorkshopStats = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     const { id } = req.params;
-    const workshop = await prisma.workshop.findUnique({
+    const workshop = await prisma_1.prisma.workshop.findUnique({
         where: { id },
         select: { name: true }
     });
@@ -406,20 +405,20 @@ exports.getWorkshopStats = (0, errorHandler_1.asyncHandler)(async (req, res) => 
     // Buscar estatísticas detalhadas
     const [maintenancesStats, ratingsStats, monthlyStats] = await Promise.all([
         // Estatísticas de manutenções
-        prisma.maintenance.aggregate({
+        prisma_1.prisma.maintenance.aggregate({
             where: { workshopId: id },
             _count: { id: true },
             _avg: { value: true },
             _sum: { value: true }
         }),
         // Estatísticas de avaliações
-        prisma.rating.aggregate({
+        prisma_1.prisma.rating.aggregate({
             where: { workshopId: id },
             _count: { id: true },
             _avg: { value: true }
         }),
         // Manutenções por mês (últimos 6 meses)
-        prisma.maintenance.groupBy({
+        prisma_1.prisma.maintenance.groupBy({
             by: ['date'],
             where: {
                 workshopId: id,

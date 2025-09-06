@@ -1,24 +1,23 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.refreshToken = exports.changePassword = exports.updateProfile = exports.getProfile = exports.logout = exports.refreshTokenEndpoint = exports.login = exports.register = void 0;
-const client_1 = require("@prisma/client");
+const prisma_1 = require("../config/prisma");
 const auth_1 = require("../middleware/auth");
 const errorHandler_1 = require("../middleware/errorHandler");
 const auth_2 = require("../utils/auth");
 const documentValidation_1 = require("../utils/documentValidation");
-const prisma = new client_1.PrismaClient();
 // Registrar novo usuário com senha
 exports.register = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     const userData = req.body;
     // Verificar se email já existe
-    const existingEmailUser = await prisma.user.findUnique({
+    const existingEmailUser = await prisma_1.prisma.user.findUnique({
         where: { email: userData.email }
     });
     if (existingEmailUser) {
         throw new errorHandler_1.ConflictError('User with this email already exists');
     }
     // Verificar se documento já existe
-    const existingDocumentUser = await prisma.user.findUnique({
+    const existingDocumentUser = await prisma_1.prisma.user.findUnique({
         where: { cpfCnpj: userData.document }
     });
     if (existingDocumentUser) {
@@ -31,7 +30,7 @@ exports.register = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     const userType = 'user';
     const profile = documentType === 'individual' ? 'car_owner' : 'wshop_owner';
     // Criar usuário
-    const user = await prisma.user.create({
+    const user = await prisma_1.prisma.user.create({
         data: {
             name: userData.name.trim(),
             email: userData.email.toLowerCase(),
@@ -73,7 +72,7 @@ exports.login = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     const { email, password } = req.body;
     try {
         // Buscar usuário por email
-        const user = await prisma.user.findUnique({
+        const user = await prisma_1.prisma.user.findUnique({
             where: { email: email.toLowerCase() }
         });
         if (!user) {
@@ -128,7 +127,7 @@ exports.refreshTokenEndpoint = (0, errorHandler_1.asyncHandler)(async (req, res)
         const { config } = require('../config');
         const payload = jwt.verify(providedRefreshToken, config.jwtSecret);
         // Verificar se usuário ainda existe
-        const user = await prisma.user.findUnique({
+        const user = await prisma_1.prisma.user.findUnique({
             where: { id: payload.userId }
         });
         if (!user) {
@@ -175,7 +174,7 @@ exports.getProfile = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     if (!userId) {
         throw new errorHandler_1.ValidationError('User not authenticated');
     }
-    const user = await prisma.user.findUnique({
+    const user = await prisma_1.prisma.user.findUnique({
         where: { id: userId },
         include: {
             _count: {
@@ -226,7 +225,7 @@ exports.updateProfile = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     if (state !== undefined)
         dataToUpdate.state = state?.toUpperCase();
     // Atualizar usuário
-    const user = await prisma.user.update({
+    const user = await prisma_1.prisma.user.update({
         where: { id: userId },
         data: dataToUpdate
     });
@@ -245,7 +244,7 @@ exports.changePassword = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     }
     const { currentPassword, newPassword } = req.body;
     // Buscar usuário atual
-    const user = await prisma.user.findUnique({
+    const user = await prisma_1.prisma.user.findUnique({
         where: { id: userId }
     });
     if (!user) {
@@ -259,7 +258,7 @@ exports.changePassword = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     // Hash da nova senha
     const hashedNewPassword = await (0, auth_2.hashPassword)(newPassword);
     // Atualizar senha
-    await prisma.user.update({
+    await prisma_1.prisma.user.update({
         where: { id: userId },
         data: { password: hashedNewPassword }
     });

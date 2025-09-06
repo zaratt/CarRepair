@@ -7,6 +7,36 @@ const validation_1 = require("../middleware/validation");
 const router = (0, express_1.Router)();
 // GET /api/maintenances - Listar manutenções com paginação e filtros
 router.get('/', validation_1.validatePagination, (0, errorHandler_1.asyncHandler)(maintenanceController_1.getMaintenances));
+// GET /api/maintenances/stats - Estatísticas gerais de manutenções
+router.get('/stats', (0, errorHandler_1.asyncHandler)(async (req, res) => {
+    res.json({
+        success: true,
+        message: 'Maintenance statistics',
+        data: {
+            total: 0,
+            completed: 0,
+            pending: 0,
+            validated: 0
+        }
+    });
+}));
+// GET /api/maintenance-types - Tipos de manutenção
+router.get('/types', (0, errorHandler_1.asyncHandler)(async (req, res) => {
+    res.json({
+        success: true,
+        message: 'Maintenance types',
+        data: [
+            'Troca de óleo',
+            'Revisão geral',
+            'Freios',
+            'Suspensão',
+            'Motor',
+            'Elétrica',
+            'Ar condicionado',
+            'Outros'
+        ]
+    });
+}));
 // GET /api/maintenances/:id - Buscar manutenção por ID
 router.get('/:id', (0, validation_1.validateUUID)('id'), (0, errorHandler_1.asyncHandler)(maintenanceController_1.getMaintenanceById));
 // GET /api/maintenances/vehicle/:vehicleId - Buscar manutenções por veículo

@@ -4,25 +4,24 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getUserByDocument = exports.validateUser = exports.updateUser = exports.getUserById = exports.getUsers = exports.createUser = void 0;
-const client_1 = require("@prisma/client");
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
+const prisma_1 = require("../config/prisma");
 const errorHandler_1 = require("../middleware/errorHandler");
 const documentValidation_1 = require("../utils/documentValidation");
-const prisma = new client_1.PrismaClient();
 // Criar novo usuário
 exports.createUser = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     const userData = req.body;
     // ✅ SENHA PADRÃO (REMOVER userData.password)
     const defaultPassword = 'temp123456'; // Senha temporária sempre
     // Verificar se email já existe
-    const existingEmailUser = await prisma.user.findUnique({
+    const existingEmailUser = await prisma_1.prisma.user.findUnique({
         where: { email: userData.email }
     });
     if (existingEmailUser) {
         throw new errorHandler_1.ConflictError('User with this email already exists');
     }
     // Verificar se documento já existe
-    const existingDocumentUser = await prisma.user.findUnique({
+    const existingDocumentUser = await prisma_1.prisma.user.findUnique({
         where: { cpfCnpj: userData.document }
     });
     if (existingDocumentUser) {
@@ -35,7 +34,7 @@ exports.createUser = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     const userType = 'user';
     const profile = documentType === 'individual' ? 'car_owner' : 'wshop_owner';
     // ✅ CRIAR USUÁRIO (SIMPLES - SEM _count)
-    const user = await prisma.user.create({
+    const user = await prisma_1.prisma.user.create({
         data: {
             name: userData.name.trim(),
             email: userData.email.toLowerCase(),
@@ -49,10 +48,10 @@ exports.createUser = (0, errorHandler_1.asyncHandler)(async (req, res) => {
         }
     });
     // ✅ BUSCAR CONTADORES SEPARADAMENTE
-    const vehiclesCount = await prisma.vehicle.count({
+    const vehiclesCount = await prisma_1.prisma.vehicle.count({
         where: { ownerId: user.id }
     });
-    const workshopsCount = await prisma.workshop.count({
+    const workshopsCount = await prisma_1.prisma.workshop.count({
         where: { userId: user.id }
     });
     // Validar e formatar documento para resposta
@@ -113,7 +112,7 @@ exports.getUsers = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     }
     // ✅ BUSCAR USUÁRIOS SIMPLES (SEM _count)
     const [users, total] = await Promise.all([
-        prisma.user.findMany({
+        prisma_1.prisma.user.findMany({
             where,
             skip,
             take: limit,
@@ -133,22 +132,22 @@ exports.getUsers = (0, errorHandler_1.asyncHandler)(async (req, res) => {
             },
             orderBy: { createdAt: 'desc' }
         }),
-        prisma.user.count({ where })
+        prisma_1.prisma.user.count({ where })
     ]);
     // ✅ BUSCAR CONTADORES EM BATCH
-    const userIds = users.map(u => u.id);
-    const vehicleCounts = await prisma.vehicle.groupBy({
+    const userIds = users.map((u) => u.id);
+    const vehicleCounts = await prisma_1.prisma.vehicle.groupBy({
         by: ['ownerId'],
         where: { ownerId: { in: userIds } },
         _count: { id: true }
     });
-    const workshopCounts = await prisma.workshop.groupBy({
+    const workshopCounts = await prisma_1.prisma.workshop.groupBy({
         by: ['userId'],
         where: { userId: { in: userIds } },
         _count: { id: true }
     });
     // Formatar usuários
-    const formattedUsers = users.map(user => {
+    const formattedUsers = users.map((user) => {
         const documentValidation = (0, documentValidation_1.validateDocument)(user.cpfCnpj);
         const vehiclesCount = vehicleCounts.find(vc => vc.ownerId === user.id)?._count.id || 0;
         const workshopsCount = workshopCounts.find(wc => wc.userId === user.id)?._count.id || 0;
@@ -191,7 +190,7 @@ exports.getUsers = (0, errorHandler_1.asyncHandler)(async (req, res) => {
 exports.getUserById = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     const { id } = req.params;
     // ✅ BUSCAR USUÁRIO SIMPLES
-    const user = await prisma.user.findUnique({
+    const user = await prisma_1.prisma.user.findUnique({
         where: { id },
         select: {
             id: true,
@@ -213,7 +212,7 @@ exports.getUserById = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     }
     // ✅ BUSCAR RELACIONAMENTOS SEPARADAMENTE
     const [vehicles, workshops, vehiclesCount, workshopsCount] = await Promise.all([
-        prisma.vehicle.findMany({
+        prisma_1.prisma.vehicle.findMany({
             where: { ownerId: user.id },
             select: {
                 id: true,
@@ -222,7 +221,7 @@ exports.getUserById = (0, errorHandler_1.asyncHandler)(async (req, res) => {
                 yearManufacture: true
             }
         }),
-        prisma.workshop.findMany({
+        prisma_1.prisma.workshop.findMany({
             where: { userId: user.id },
             select: {
                 id: true,
@@ -231,8 +230,8 @@ exports.getUserById = (0, errorHandler_1.asyncHandler)(async (req, res) => {
                 address: true
             }
         }),
-        prisma.vehicle.count({ where: { ownerId: user.id } }),
-        prisma.workshop.count({ where: { userId: user.id } })
+        prisma_1.prisma.vehicle.count({ where: { ownerId: user.id } }),
+        prisma_1.prisma.workshop.count({ where: { userId: user.id } })
     ]);
     const documentValidation = (0, documentValidation_1.validateDocument)(user.cpfCnpj);
     const response = {
@@ -261,7 +260,7 @@ exports.getUserById = (0, errorHandler_1.asyncHandler)(async (req, res) => {
             stats: {
                 vehiclesCount: vehiclesCount,
                 workshopsCount: workshopsCount,
-                activeVehicles: vehicles.filter(v => v.active).length
+                activeVehicles: vehicles.filter((v) => v.active).length
             }
         }
     };
@@ -271,7 +270,7 @@ exports.getUserById = (0, errorHandler_1.asyncHandler)(async (req, res) => {
 exports.updateUser = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     const { id } = req.params;
     const updateData = req.body;
-    const existingUser = await prisma.user.findUnique({
+    const existingUser = await prisma_1.prisma.user.findUnique({
         where: { id },
         select: { id: true, email: true }
     });
@@ -279,7 +278,7 @@ exports.updateUser = (0, errorHandler_1.asyncHandler)(async (req, res) => {
         throw new errorHandler_1.NotFoundError('User');
     }
     if (updateData.email && updateData.email !== existingUser.email) {
-        const emailExists = await prisma.user.findUnique({
+        const emailExists = await prisma_1.prisma.user.findUnique({
             where: { email: updateData.email }
         });
         if (emailExists) {
@@ -298,7 +297,7 @@ exports.updateUser = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     if (updateData.state !== undefined)
         dataToUpdate.state = updateData.state?.toUpperCase();
     // ✅ ATUALIZAR USUÁRIO SIMPLES
-    const user = await prisma.user.update({
+    const user = await prisma_1.prisma.user.update({
         where: { id },
         data: dataToUpdate,
         select: {
@@ -318,8 +317,8 @@ exports.updateUser = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     });
     // ✅ BUSCAR CONTADORES SEPARADAMENTE  
     const [vehiclesCount, workshopsCount] = await Promise.all([
-        prisma.vehicle.count({ where: { ownerId: user.id } }),
-        prisma.workshop.count({ where: { userId: user.id } })
+        prisma_1.prisma.vehicle.count({ where: { ownerId: user.id } }),
+        prisma_1.prisma.workshop.count({ where: { userId: user.id } })
     ]);
     const documentValidation = (0, documentValidation_1.validateDocument)(user.cpfCnpj);
     const response = {
@@ -354,14 +353,14 @@ exports.updateUser = (0, errorHandler_1.asyncHandler)(async (req, res) => {
 exports.validateUser = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     const { id } = req.params;
     const { validated } = req.body;
-    const user = await prisma.user.findUnique({
+    const user = await prisma_1.prisma.user.findUnique({
         where: { id },
         select: { id: true, name: true, email: true }
     });
     if (!user) {
         throw new errorHandler_1.NotFoundError('User');
     }
-    const updatedUser = await prisma.user.update({
+    const updatedUser = await prisma_1.prisma.user.update({
         where: { id },
         data: { isValidated: validated === true },
         select: {
@@ -385,7 +384,7 @@ exports.getUserByDocument = (0, errorHandler_1.asyncHandler)(async (req, res) =>
         throw new errorHandler_1.ValidationError('Document parameter is required');
     }
     const cleanDocument = document.replace(/\D/g, '');
-    const user = await prisma.user.findUnique({
+    const user = await prisma_1.prisma.user.findUnique({
         where: { cpfCnpj: cleanDocument },
         select: {
             id: true,

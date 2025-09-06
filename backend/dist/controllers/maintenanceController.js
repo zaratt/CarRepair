@@ -1,15 +1,14 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getMaintenancesByVehicle = exports.deleteMaintenance = exports.updateMaintenance = exports.getMaintenanceById = exports.getMaintenances = exports.createMaintenance = void 0;
-const client_1 = require("@prisma/client");
+const prisma_1 = require("../config/prisma");
 const errorHandler_1 = require("../middleware/errorHandler");
 const parsing_1 = require("../utils/parsing");
-const prisma = new client_1.PrismaClient();
 // Criar nova manutenção
 exports.createMaintenance = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     const maintenanceData = req.body;
     // Verificar se o veículo existe
-    const vehicle = await prisma.vehicle.findUnique({
+    const vehicle = await prisma_1.prisma.vehicle.findUnique({
         where: { id: maintenanceData.vehicleId },
         select: { id: true, licensePlate: true, active: true, owner: { select: { name: true } } }
     });
@@ -21,7 +20,7 @@ exports.createMaintenance = (0, errorHandler_1.asyncHandler)(async (req, res) =>
     }
     // Verificar se a oficina existe (se fornecida)
     if (maintenanceData.workshopId) {
-        const workshop = await prisma.workshop.findUnique({
+        const workshop = await prisma_1.prisma.workshop.findUnique({
             where: { id: maintenanceData.workshopId },
             select: { id: true, name: true }
         });
@@ -30,7 +29,7 @@ exports.createMaintenance = (0, errorHandler_1.asyncHandler)(async (req, res) =>
         }
     }
     // Criar manutenção
-    const maintenance = await prisma.maintenance.create({
+    const maintenance = await prisma_1.prisma.maintenance.create({
         data: {
             vehicleId: maintenanceData.vehicleId,
             workshopId: maintenanceData.workshopId,
@@ -105,7 +104,7 @@ exports.getMaintenances = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     }
     // Buscar manutenções e total
     const [maintenances, total] = await Promise.all([
-        prisma.maintenance.findMany({
+        prisma_1.prisma.maintenance.findMany({
             where,
             skip,
             take: limit,
@@ -141,7 +140,7 @@ exports.getMaintenances = (0, errorHandler_1.asyncHandler)(async (req, res) => {
             },
             orderBy: { date: 'desc' }
         }),
-        prisma.maintenance.count({ where })
+        prisma_1.prisma.maintenance.count({ where })
     ]);
     // Adicionar valores formatados
     const formattedMaintenances = maintenances.map(maintenance => ({
@@ -166,7 +165,7 @@ exports.getMaintenances = (0, errorHandler_1.asyncHandler)(async (req, res) => {
 // Buscar manutenção por ID
 exports.getMaintenanceById = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     const { id } = req.params;
-    const maintenance = await prisma.maintenance.findUnique({
+    const maintenance = await prisma_1.prisma.maintenance.findUnique({
         where: { id },
         include: {
             vehicle: {
@@ -222,7 +221,7 @@ exports.updateMaintenance = (0, errorHandler_1.asyncHandler)(async (req, res) =>
     const { id } = req.params;
     const updateData = req.body;
     // Verificar se a manutenção existe
-    const existingMaintenance = await prisma.maintenance.findUnique({
+    const existingMaintenance = await prisma_1.prisma.maintenance.findUnique({
         where: { id },
         select: { id: true, vehicleId: true, validationStatus: true }
     });
@@ -235,7 +234,7 @@ exports.updateMaintenance = (0, errorHandler_1.asyncHandler)(async (req, res) =>
     }
     // Se está alterando o veículo, verificar se o novo veículo existe
     if (updateData.vehicleId && updateData.vehicleId !== existingMaintenance.vehicleId) {
-        const vehicle = await prisma.vehicle.findUnique({
+        const vehicle = await prisma_1.prisma.vehicle.findUnique({
             where: { id: updateData.vehicleId }
         });
         if (!vehicle) {
@@ -244,7 +243,7 @@ exports.updateMaintenance = (0, errorHandler_1.asyncHandler)(async (req, res) =>
     }
     // Se está alterando a oficina, verificar se a nova oficina existe
     if (updateData.workshopId) {
-        const workshop = await prisma.workshop.findUnique({
+        const workshop = await prisma_1.prisma.workshop.findUnique({
             where: { id: updateData.workshopId }
         });
         if (!workshop) {
@@ -252,7 +251,7 @@ exports.updateMaintenance = (0, errorHandler_1.asyncHandler)(async (req, res) =>
         }
     }
     // Atualizar manutenção
-    const maintenance = await prisma.maintenance.update({
+    const maintenance = await prisma_1.prisma.maintenance.update({
         where: { id },
         data: updateData,
         include: {
@@ -291,7 +290,7 @@ exports.deleteMaintenance = (0, errorHandler_1.asyncHandler)(async (req, res) =>
     const { id } = req.params;
     const force = req.query.force === 'true';
     // Verificar se a manutenção existe
-    const maintenance = await prisma.maintenance.findUnique({
+    const maintenance = await prisma_1.prisma.maintenance.findUnique({
         where: { id },
         include: {
             attachments: true,
@@ -308,11 +307,11 @@ exports.deleteMaintenance = (0, errorHandler_1.asyncHandler)(async (req, res) =>
         throw new errorHandler_1.ValidationError('Cannot delete validated maintenance without force flag');
     }
     // Excluir anexos primeiro, depois a manutenção
-    await prisma.$transaction([
-        prisma.maintenanceAttachment.deleteMany({
+    await prisma_1.prisma.$transaction([
+        prisma_1.prisma.maintenanceAttachment.deleteMany({
             where: { maintenanceId: id }
         }),
-        prisma.maintenance.delete({
+        prisma_1.prisma.maintenance.delete({
             where: { id }
         })
     ]);
@@ -334,14 +333,14 @@ exports.getMaintenancesByVehicle = (0, errorHandler_1.asyncHandler)(async (req, 
     const { vehicleId } = req.params;
     const limit = parseInt(req.query.limit) || 20;
     // Verificar se o veículo existe
-    const vehicle = await prisma.vehicle.findUnique({
+    const vehicle = await prisma_1.prisma.vehicle.findUnique({
         where: { id: vehicleId },
         select: { licensePlate: true, active: true }
     });
     if (!vehicle) {
         throw new errorHandler_1.NotFoundError('Vehicle');
     }
-    const maintenances = await prisma.maintenance.findMany({
+    const maintenances = await prisma_1.prisma.maintenance.findMany({
         where: { vehicleId },
         take: limit,
         include: {

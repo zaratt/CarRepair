@@ -8,7 +8,9 @@ const express_1 = __importDefault(require("express"));
 const config_1 = require("./config");
 const errorHandler_1 = require("./middleware/errorHandler");
 const authRoutes_1 = __importDefault(require("./routes/authRoutes"));
+const inspectionRoutes_1 = __importDefault(require("./routes/inspectionRoutes"));
 const maintenanceRoutes_1 = __importDefault(require("./routes/maintenanceRoutes"));
+const notificationRoutes_1 = __importDefault(require("./routes/notificationRoutes"));
 const systemRoutes_1 = __importDefault(require("./routes/systemRoutes"));
 const userRoutes_1 = __importDefault(require("./routes/userRoutes"));
 const vehicleRoutes_1 = __importDefault(require("./routes/vehicleRoutes"));
@@ -36,6 +38,25 @@ app.use('/api/vehicles', vehicleRoutes_1.default);
 app.use('/api/maintenances', maintenanceRoutes_1.default);
 app.use('/api/users', userRoutes_1.default);
 app.use('/api/workshops', workshopRoutes_1.default);
+app.use('/api/inspections', inspectionRoutes_1.default);
+app.use('/api/notifications', notificationRoutes_1.default);
+// Rota específica para tipos de manutenção (compatibilidade)
+app.get('/api/maintenance-types', (req, res) => {
+    res.json({
+        success: true,
+        message: 'Maintenance types',
+        data: [
+            'Troca de óleo',
+            'Revisão geral',
+            'Freios',
+            'Suspensão',
+            'Motor',
+            'Elétrica',
+            'Ar condicionado',
+            'Outros'
+        ]
+    });
+});
 // Health check endpoint com informações da configuração
 app.get('/health', (req, res) => {
     const response = {
@@ -63,6 +84,8 @@ app.get('/health', (req, res) => {
                 maintenances: '/api/maintenances',
                 users: '/api/users',
                 workshops: '/api/workshops',
+                inspections: '/api/inspections',
+                notifications: '/api/notifications',
                 health: '/health'
             }
         }

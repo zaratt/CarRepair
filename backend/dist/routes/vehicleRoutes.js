@@ -7,6 +7,19 @@ const validation_1 = require("../middleware/validation");
 const router = (0, express_1.Router)();
 // GET /api/vehicles - Listar veículos com paginação e filtros
 router.get('/', validation_1.validatePagination, (0, errorHandler_1.asyncHandler)(vehicleController_1.getVehicles));
+// GET /api/vehicles/stats - Estatísticas gerais de veículos
+router.get('/stats', (0, errorHandler_1.asyncHandler)(async (req, res) => {
+    res.json({
+        success: true,
+        message: 'Vehicle statistics',
+        data: {
+            total: 0,
+            active: 0,
+            brands: 0,
+            models: 0
+        }
+    });
+}));
 // GET /api/vehicles/search/:plate - Buscar veículos por placa (busca parcial)
 router.get('/search/:plate', (0, errorHandler_1.asyncHandler)(vehicleController_1.searchVehiclesByPlate));
 // GET /api/vehicles/:id - Buscar veículo por ID

@@ -4,37 +4,36 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getSystemEndpoints = exports.getSystemHealth = exports.getSystemStats = void 0;
-const client_1 = require("@prisma/client");
 const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
 const config_1 = require("../config");
+const prisma_1 = require("../config/prisma");
 const errorHandler_1 = require("../middleware/errorHandler");
-const prisma = new client_1.PrismaClient();
 /**
  * Estatísticas gerais do sistema
  */
 exports.getSystemStats = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     // Buscar estatísticas do banco de dados
     const [totalUsers, totalVehicles, totalWorkshops, totalMaintenances, recentUsers, recentVehicles, recentMaintenances] = await Promise.all([
-        prisma.user.count(),
-        prisma.vehicle.count(),
-        prisma.workshop.count(),
-        prisma.maintenance.count(),
-        prisma.user.count({
+        prisma_1.prisma.user.count(),
+        prisma_1.prisma.vehicle.count(),
+        prisma_1.prisma.workshop.count(),
+        prisma_1.prisma.maintenance.count(),
+        prisma_1.prisma.user.count({
             where: {
                 createdAt: {
                     gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // Últimos 7 dias
                 }
             }
         }),
-        prisma.vehicle.count({
+        prisma_1.prisma.vehicle.count({
             where: {
                 createdAt: {
                     gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
                 }
             }
         }),
-        prisma.maintenance.count({
+        prisma_1.prisma.maintenance.count({
             where: {
                 createdAt: {
                     gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
@@ -43,14 +42,14 @@ exports.getSystemStats = (0, errorHandler_1.asyncHandler)(async (req, res) => {
         })
     ]);
     // Estatísticas de manutenção por status de validação
-    const maintenancesByStatus = await prisma.maintenance.groupBy({
+    const maintenancesByStatus = await prisma_1.prisma.maintenance.groupBy({
         by: ['validationStatus'],
         _count: {
             id: true
         }
     });
     // Usuários por perfil
-    const usersByProfile = await prisma.user.groupBy({
+    const usersByProfile = await prisma_1.prisma.user.groupBy({
         by: ['profile'],
         _count: {
             id: true
@@ -117,7 +116,7 @@ exports.getSystemHealth = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     let dbLatency = 0;
     try {
         const startTime = Date.now();
-        await prisma.user.count();
+        await prisma_1.prisma.user.count();
         dbLatency = Date.now() - startTime;
     }
     catch (error) {
