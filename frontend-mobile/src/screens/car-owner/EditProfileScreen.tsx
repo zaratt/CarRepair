@@ -2,18 +2,22 @@ import React, { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { Avatar, Button, Card, Text, TextInput } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuthContext } from '../../contexts/AuthContext';
 import { AppColors } from '../../styles/colors';
 
 export default function EditProfileScreen() {
+    const { user } = useAuthContext();
+
+    // Inicializar com dados do usuário logado ou valores padrão
     const [userData, setUserData] = useState({
-        name: 'João Silva',
-        email: 'joao.silva@email.com',
-        phone: '(11) 99999-9999',
-        cpf: '123.456.789-00',
-        address: 'Rua das Flores, 123',
-        city: 'São Paulo',
-        state: 'SP',
-        zipCode: '01234-567',
+        name: user?.name || '',
+        email: user?.email || '',
+        phone: user?.phone || '',
+        cpfCnpj: user?.cpfCnpj || '',
+        address: '', // TODO: Adicionar campos de endereço ao schema de usuário
+        city: user?.city || '',
+        state: user?.state || '',
+        zipCode: '', // TODO: Adicionar CEP ao schema de usuário
     });
 
     const [isEditing, setIsEditing] = useState(false);
@@ -98,9 +102,9 @@ export default function EditProfileScreen() {
                         />
 
                         <TextInput
-                            label="CPF"
-                            value={userData.cpf}
-                            onChangeText={(text) => setUserData({ ...userData, cpf: text })}
+                            label="CPF/CNPJ"
+                            value={userData.cpfCnpj}
+                            onChangeText={(text) => setUserData({ ...userData, cpfCnpj: text })}
                             mode="outlined"
                             style={styles.input}
                             disabled={!isEditing}

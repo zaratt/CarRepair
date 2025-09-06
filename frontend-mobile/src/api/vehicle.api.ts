@@ -4,12 +4,20 @@ import { api } from './client';
 // 📝 Tipos para API de Veículos
 export interface CreateVehicleRequest {
     licensePlate: string;
-    brandId: string;
-    modelId: string;
+    // Campos FIPE para integração oficial
+    fipeTypeId?: number; // ID do tipo de veículo na FIPE (1=carros, 2=motos, 3=caminhões)
+    fipeBrandId?: number; // ID da marca na FIPE
+    fipeModelId?: number; // ID do modelo na FIPE
+    fipeYearCode?: string; // Código do ano/combustível na FIPE (ex: "2020-1")
+    // Campos legados (ainda aceitos para compatibilidade)
+    brandId?: string;
+    modelId?: string;
+    // Dados do veículo
     yearManufacture: number;
     modelYear: number;
     fuelType: string;
-    vin: string;
+    vin?: string;
+    ownerId?: string;
     color?: string;
     mileage?: number;
 }

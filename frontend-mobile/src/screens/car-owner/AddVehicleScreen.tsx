@@ -6,9 +6,9 @@ import { Dropdown } from 'react-native-element-dropdown';
 import { Button, Card, Text, TextInput } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { createVehicle } from '../../api/api';
 import VehiclePhotos from '../../components/vehicle/VehiclePhotos';
 import { useAuthContext } from '../../contexts/AuthContext';
+import { useVehicleContext } from '../../hooks/useVehicleContext';
 import { fipeApiService } from '../../services/fipeApi';
 import { AppColors } from '../../styles/colors';
 import { FipeBrand, FipeModel, FipeVehicleData, FipeYear } from '../../types/vehicle.types';
@@ -16,6 +16,7 @@ import { FipeBrand, FipeModel, FipeVehicleData, FipeYear } from '../../types/veh
 export default function AddVehicleScreen() {
     const navigation = useNavigation();
     const { user } = useAuthContext();
+    const { createVehicle, isCreating } = useVehicleContext();
 
     // Estados dos dropdowns FIPE
     const [brands, setBrands] = useState<FipeBrand[]>([]);
@@ -39,7 +40,6 @@ export default function AddVehicleScreen() {
     const [photos, setPhotos] = useState<string[]>([]);
 
     // Estados de controle
-    const [saving, setSaving] = useState(false);
     const [step, setStep] = useState<'fipe' | 'form'>('fipe');
 
     // Carregar marcas quando a tela abrir
@@ -178,17 +178,19 @@ export default function AddVehicleScreen() {
                 return;
             }
 
-            setSaving(true);
-
-            // Preparar dados para envio (formato correto para API)
+            // Preparar dados para envio (usando campos FIPE do schema atualizado)
             const vehicleData = {
                 licensePlate: plate.trim().toUpperCase(),
-                brandId: 'temp-brand-id', // TODO: Implementar mapeamento de marca FIPE -> brandId
-                modelId: 'temp-model-id', // TODO: Implementar mapeamento de modelo FIPE -> modelId
+                // Usar campos FIPE diretos em vez de brandId/modelId
+                fipeTypeId: 1, // 1 = carros (padrão)
+                fipeBrandId: parseInt(selectedBrand || '0'),
+                fipeModelId: parseInt(selectedModel || '0'),
+                fipeYearCode: selectedYear,
+                // Dados básicos do veículo
                 yearManufacture: parseInt(fipeData?.year?.toString() || '2000'),
                 modelYear: parseInt(fipeData?.year?.toString() || '2000'),
-                fuelType: 'GASOLINE' as const, // TODO: Implementar seleção de combustível
-                vin: '', // Campo obrigatório mas vazio por enquanto
+                fuelType: 'GASOLINE' as const, // TODO: Implementar seleção de combustível baseada no FIPE
+                vin: '', // Campo opcional
                 ownerId: user?.id,
             };
 
@@ -196,17 +198,15 @@ export default function AddVehicleScreen() {
             console.log('👤 Usuário:', user);
             console.log('🚗 Dados FIPE:', fipeData);
 
-            // Criar veículo primeiro sem fotos
-            const newVehicle = await createVehicle(vehicleData);
+            // Usar o createVehicle do contexto que tem React Query configurado
+            createVehicle(vehicleData);
 
-            console.log('✅ Veículo criado:', newVehicle);
+            console.log('✅ Veículo criado com sucesso!');
 
             // TODO: Implementar upload de fotos separadamente se necessário
             if (photos.length > 0) {
                 console.log('📸 Fotos serão implementadas posteriormente:', photos);
             }
-
-            console.log('✅ Veículo salvo com sucesso!', newVehicle);
 
             Alert.alert(
                 'Sucesso!',
@@ -214,7 +214,7 @@ export default function AddVehicleScreen() {
                 [
                     {
                         text: 'OK',
-                        onPress: () => navigation.goBack() // Volta para lista de veículos
+                        onPress: () => navigation.goBack() // Volta para lista de veículos (que será atualizada automaticamente)
                     }
                 ]
             );
@@ -222,8 +222,6 @@ export default function AddVehicleScreen() {
         } catch (error) {
             console.error('❌ Erro ao salvar veículo:', error);
             Alert.alert('Erro', 'Não foi possível salvar o veículo');
-        } finally {
-            setSaving(false);
         }
     };
 
@@ -439,7 +437,7 @@ export default function AddVehicleScreen() {
                     onPress={handleBackToFipe}
                     style={styles.backButton}
                     icon="arrow-left"
-                    disabled={saving}
+                    disabled={isCreating}
                 >
                     Voltar
                 </Button>
@@ -447,11 +445,11 @@ export default function AddVehicleScreen() {
                     mode="contained"
                     onPress={handleSave}
                     style={styles.saveButton}
-                    loading={saving}
-                    disabled={saving}
+                    loading={isCreating}
+                    disabled={isCreating}
                     icon="content-save"
                 >
-                    {saving ? 'Salvando...' : 'Salvar Veículo'}
+                    {isCreating ? 'Salvando...' : 'Salvar Veículo'}
                 </Button>
             </View>
         </View>
