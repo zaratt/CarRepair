@@ -185,8 +185,8 @@ export default function AddVehicleScreen() {
                 licensePlate: plate.trim().toUpperCase(),
                 brandId: 'temp-brand-id', // TODO: Implementar mapeamento de marca FIPE -> brandId
                 modelId: 'temp-model-id', // TODO: Implementar mapeamento de modelo FIPE -> modelId
-                yearManufacture: parseInt(fipeData.year.toString()),
-                modelYear: parseInt(fipeData.year.toString()),
+                yearManufacture: parseInt(fipeData?.year?.toString() || '2000'),
+                modelYear: parseInt(fipeData?.year?.toString() || '2000'),
                 fuelType: 'GASOLINE' as const, // TODO: Implementar seleção de combustível
                 vin: '', // Campo obrigatório mas vazio por enquanto
                 ownerId: user?.id,
@@ -194,6 +194,7 @@ export default function AddVehicleScreen() {
 
             console.log('💾 Salvando veículo...', vehicleData);
             console.log('👤 Usuário:', user);
+            console.log('🚗 Dados FIPE:', fipeData);
 
             // Criar veículo primeiro sem fotos
             const newVehicle = await createVehicle(vehicleData);

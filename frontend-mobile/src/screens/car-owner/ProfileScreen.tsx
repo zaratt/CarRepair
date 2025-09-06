@@ -1,18 +1,16 @@
 import { useNavigation } from '@react-navigation/native';
-import React, { useState } from 'react';
+import React from 'react';
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { Avatar, Button, Card, Divider, List, Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuthContext } from '../../contexts/AuthContext';
 import { AppColors } from '../../styles/colors';
 
 export default function ProfileScreen() {
     const navigation = useNavigation();
-    const [user] = useState({
-        name: 'João Silva',
-        email: 'joao.silva@email.com',
-        phone: '(11) 99999-9999',
-        avatar: null,
-    });
+    const { user, logout } = useAuthContext();
+
+    console.log('👤 ProfileScreen - Usuário do contexto:', user);
 
     const handleLogout = () => {
         Alert.alert(
@@ -23,14 +21,28 @@ export default function ProfileScreen() {
                 {
                     text: 'Sair',
                     style: 'destructive',
-                    onPress: () => {
-                        console.log('Logout executado'); // ✅ Log como solicitado
-                        // TODO: Implementar logout real em release futuro
+                    onPress: async () => {
+                        console.log('🚪 Executando logout...');
+                        await logout();
                     }
                 }
             ]
         );
     };
+
+    const handleEditProfile = () => {
+        (navigation as any).navigate('EditProfile');
+    };
+
+    if (!user) {
+        return (
+            <SafeAreaView style={styles.container}>
+                <View style={styles.loadingContainer}>
+                    <Text>Carregando perfil...</Text>
+                </View>
+            </SafeAreaView>
+        );
+    }
 
     return (
         <SafeAreaView style={styles.container}>
@@ -40,14 +52,15 @@ export default function ProfileScreen() {
                 <View style={styles.header}>
                     <Avatar.Text
                         size={80}
-                        label={user.name.split(' ').map(n => n[0]).join('')}
+                        label={user.name?.split(' ').map(n => n[0]).join('') || 'U'}
                         style={styles.avatar}
                         labelStyle={styles.avatarText}
                     />
                     <Text variant="headlineSmall" style={styles.userName}>
-                        {user.name}
+                        {user.name || 'Usuário'}
                     </Text>
                     <Text variant="bodyMedium" style={styles.userEmail}>
+                        {user.email || 'Email não disponível'}
                         {user.email}
                     </Text>
                 </View>
@@ -164,6 +177,12 @@ const styles = StyleSheet.create({
     userEmail: {
         color: AppColors.text,
         opacity: 0.8,
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 32,
     },
     section: {
         marginHorizontal: 16,
