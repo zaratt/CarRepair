@@ -41,6 +41,10 @@ export interface VehicleCreateData {
     fuelType: FuelType;
     vin?: string;
     ownerId?: string;
+    // ✅ Novos campos para informações do usuário
+    currentKm?: number;
+    color?: string;
+    fipeValue?: number;
 }
 
 export interface MaintenanceCreateData {

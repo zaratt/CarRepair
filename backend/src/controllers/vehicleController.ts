@@ -60,6 +60,11 @@ export const createVehicle = asyncHandler(async (req: Request, res: Response) =>
     if (vehicleData.fipeModelId) createData.fipeModelId = vehicleData.fipeModelId;
     if (vehicleData.fipeYearCode) createData.fipeYearCode = vehicleData.fipeYearCode;
 
+    // ✅ Novos campos para informações do usuário
+    if (vehicleData.currentKm !== undefined) createData.currentKm = vehicleData.currentKm;
+    if (vehicleData.color) createData.color = vehicleData.color;
+    if (vehicleData.fipeValue !== undefined) createData.fipeValue = vehicleData.fipeValue;
+
     const vehicle = await prisma.vehicle.create({
         data: createData,
         include: {
@@ -168,10 +173,11 @@ export const getVehicles = asyncHandler(async (req: Request, res: Response) => {
             brand, // Nome real da marca da FIPE
             model, // Nome real do modelo da FIPE
             year: vehicle.modelYear || vehicle.yearManufacture || 2000, // number
-            // Quilometragem estimada baseada na idade do veículo (temporário)
-            currentKm: calculateEstimatedKm(vehicle.modelYear || vehicle.yearManufacture || 2000),
-            fipeValue: 0, // TODO: Implementar valor FIPE salvo no schema
-            color: '', // TODO: Implementar campo cor no schema
+            // ✅ Usar quilometragem real do banco ou estimativa se não informada
+            currentKm: vehicle.currentKm ?? calculateEstimatedKm(vehicle.modelYear || vehicle.yearManufacture || 2000),
+            // ✅ Usar valores reais do banco
+            fipeValue: vehicle.fipeValue ?? 0,
+            color: vehicle.color ?? '',
             photos: vehicle.photos?.map(p => p.url) || [], // array de URLs
             userId: vehicle.ownerId, // userId em vez de ownerId
             createdAt: vehicle.createdAt.toISOString(),
