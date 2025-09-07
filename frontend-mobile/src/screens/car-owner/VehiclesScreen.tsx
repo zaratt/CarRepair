@@ -21,6 +21,10 @@ const VehiclesContent = () => {
         isUsingRealAPI
     } = useVehicleContext();
 
+    // 🔍 Debug logs
+    console.log('📱 VehiclesScreen - Loading:', isLoading, 'Error:', error, 'Vehicles:', vehicles);
+    console.log('📊 VehiclesScreen - Count:', vehicles?.length || 0);
+
     // Navegar para detalhes do veículo
     const handleVehiclePress = (vehicle: any) => { // Temporary any type to avoid conflicts
         console.log('🚗 Navegando para detalhes do veículo:', vehicle.id);

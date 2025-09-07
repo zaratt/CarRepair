@@ -11,12 +11,25 @@ import {
 export const useVehicles = (filters?: VehicleFilters) => {
     const queryClient = useQueryClient();
 
-    // 📋 Query para listar veículos
+    // 📋 Query dos veículos
     const vehiclesQuery = useQuery({
         queryKey: queryKeys.vehicles.list(JSON.stringify(filters || {})),
-        queryFn: () => VehicleAPI.getVehicles(filters),
-        staleTime: 2 * 60 * 1000, // 2 minutos
-        enabled: true,
+        queryFn: async () => {
+            console.log('🔍 [VEHICLES QUERY] Executando query de veículos...');
+            const result = await VehicleAPI.getVehicles();
+            console.log('🔍 [VEHICLES QUERY] Resposta da API:', result);
+            console.log('🔍 [VEHICLES QUERY] Estrutura da resposta:', {
+                hasVehicles: !!result?.vehicles,
+                vehiclesIsArray: Array.isArray(result?.vehicles),
+                vehiclesLength: result?.vehicles?.length || 0,
+                hasTotal: !!result?.total,
+                totalValue: result?.total,
+                fullObject: Object.keys(result || {})
+            });
+            return result;
+        },
+        staleTime: 1000 * 60 * 5, // 5 minutos
+        gcTime: 1000 * 60 * 10, // 10 minutos
     });
 
     // 📊 Query para estatísticas
@@ -30,25 +43,37 @@ export const useVehicles = (filters?: VehicleFilters) => {
     const createMutation = useMutation({
         mutationFn: (vehicleData: CreateVehicleRequest) => VehicleAPI.createVehicle(vehicleData),
         onSuccess: (newVehicle) => {
-            // Invalidar lista de veículos
-            reactQueryUtils.invalidateVehicles();
+            console.log('✅ Veículo criado, invalidando cache...', newVehicle);
 
-            // Atualizar cache da lista atual se possível
-            queryClient.setQueryData(
-                queryKeys.vehicles.list(JSON.stringify(filters || {})),
-                (oldData: any) => {
-                    if (oldData) {
-                        return {
-                            ...oldData,
-                            vehicles: [newVehicle, ...oldData.vehicles],
-                            total: oldData.total + 1
-                        };
+            try {
+                // Invalidar lista de veículos
+                reactQueryUtils.invalidateVehicles();
+
+                // Atualizar cache da lista atual se possível
+                queryClient.setQueryData(
+                    queryKeys.vehicles.list(JSON.stringify(filters || {})),
+                    (oldData: any) => {
+                        console.log('🔄 Atualizando cache com novo veículo. Dados antigos:', oldData);
+                        if (oldData && oldData.data) {
+                            const updated = {
+                                ...oldData,
+                                data: [newVehicle, ...oldData.data],
+                                pagination: {
+                                    ...oldData.pagination,
+                                    total: (oldData.pagination?.total || 0) + 1
+                                }
+                            };
+                            console.log('🆕 Cache atualizado:', updated);
+                            return updated;
+                        }
+                        return oldData;
                     }
-                    return oldData;
-                }
-            );
+                );
 
-            console.log('✅ Veículo criado com sucesso:', newVehicle.licensePlate);
+                console.log('✅ Veículo criado com sucesso:', newVehicle?.licensePlate);
+            } catch (err) {
+                console.error('❌ Erro no onSuccess:', err);
+            }
         },
         onError: (error) => {
             console.error('❌ Erro ao criar veículo:', error);

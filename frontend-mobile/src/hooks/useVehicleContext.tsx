@@ -83,6 +83,11 @@ export const VehicleProvider: React.FC<VehicleProviderProps> = ({ children, filt
     // 🎯 Seleção do sistema ativo - usando sempre a API por enquanto
     const contextValue: VehicleContextData = useMemo(() => {
         if (USE_REAL_API) {
+            // 🔍 Debug logs
+            console.log('🚗 Veículos recebidos:', apiHooks.vehicles);
+            console.log('📊 Loading state:', apiHooks.isLoading);
+            console.log('❌ Error state:', apiHooks.error);
+
             return {
                 vehicles: apiHooks.vehicles,
                 vehiclesCount: apiHooks.vehiclesCount,
