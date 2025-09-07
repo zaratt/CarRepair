@@ -78,6 +78,11 @@ model Vehicle {
   modelYear       Int // Ano modelo
   fuelType        FuelType
   vin             String?
+  
+  // Informações do usuário
+  currentKm       Int?     // Quilometragem atual informada pelo usuário
+  color           String?  // Cor do veículo
+  fipeValue       Float?   // Valor FIPE salvo (para histórico)
 
   // Relacionamentos
   ownerId      String?

@@ -16,14 +16,15 @@ export const useVehicles = (filters?: VehicleFilters) => {
         queryKey: queryKeys.vehicles.list(JSON.stringify(filters || {})),
         queryFn: async () => {
             console.log('🔍 [VEHICLES QUERY] Executando query de veículos...');
+            console.log('🔍 [VEHICLES QUERY] Query key filters:', JSON.stringify(filters || {}));
             const result = await VehicleAPI.getVehicles();
             console.log('🔍 [VEHICLES QUERY] Resposta da API:', result);
             console.log('🔍 [VEHICLES QUERY] Estrutura da resposta:', {
-                hasVehicles: !!result?.vehicles,
-                vehiclesIsArray: Array.isArray(result?.vehicles),
-                vehiclesLength: result?.vehicles?.length || 0,
-                hasTotal: !!result?.total,
-                totalValue: result?.total,
+                hasVehicles: !!result?.data,
+                vehiclesIsArray: Array.isArray(result?.data),
+                vehiclesLength: result?.data?.length || 0,
+                hasTotal: !!result?.pagination?.total,
+                totalValue: result?.pagination?.total,
                 fullObject: Object.keys(result || {})
             });
             return result;
@@ -46,31 +47,13 @@ export const useVehicles = (filters?: VehicleFilters) => {
             console.log('✅ Veículo criado, invalidando cache...', newVehicle);
 
             try {
-                // Invalidar lista de veículos
-                reactQueryUtils.invalidateVehicles();
+                // 🔄 Invalidar TODAS as queries de veículos para garantir sincronização
+                console.log('🔄 Invalidando todas as queries de veículos...');
+                queryClient.invalidateQueries({
+                    queryKey: ['vehicles']  // Invalida todas as queries que começam com 'vehicles'
+                });
 
-                // Atualizar cache da lista atual se possível
-                queryClient.setQueryData(
-                    queryKeys.vehicles.list(JSON.stringify(filters || {})),
-                    (oldData: any) => {
-                        console.log('🔄 Atualizando cache com novo veículo. Dados antigos:', oldData);
-                        if (oldData && oldData.data) {
-                            const updated = {
-                                ...oldData,
-                                data: [newVehicle, ...oldData.data],
-                                pagination: {
-                                    ...oldData.pagination,
-                                    total: (oldData.pagination?.total || 0) + 1
-                                }
-                            };
-                            console.log('🆕 Cache atualizado:', updated);
-                            return updated;
-                        }
-                        return oldData;
-                    }
-                );
-
-                console.log('✅ Veículo criado com sucesso:', newVehicle?.licensePlate);
+                console.log('✅ Cache invalidado com sucesso');
             } catch (err) {
                 console.error('❌ Erro no onSuccess:', err);
             }
@@ -194,8 +177,8 @@ export const useVehicles = (filters?: VehicleFilters) => {
 
     return {
         // 📊 Dados
-        vehicles: vehiclesQuery.data?.vehicles || [],
-        vehiclesCount: vehiclesQuery.data?.total || 0,
+        vehicles: vehiclesQuery.data?.data || [], // ✅ CORREÇÃO: usar .data em vez de .vehicles
+        vehiclesCount: vehiclesQuery.data?.pagination?.total || 0, // ✅ CORREÇÃO: usar .pagination.total
         stats: statsQuery.data,
 
         // 🔄 Estados de loading

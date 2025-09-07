@@ -17,8 +17,6 @@ import ProfileScreen from '../screens/ProfileScreen';
 import RegisterScreen from '../screens/RegisterScreen';
 import UserFormScreen from '../screens/UserFormScreen';
 import UserListScreen from '../screens/UserListScreen';
-import VehicleFormScreen from '../screens/VehicleFormScreen';
-import VehicleListScreen from '../screens/VehicleListScreen';
 import WorkshopDetailScreen from '../screens/WorkshopDetailScreen';
 import WorkshopFormScreen from '../screens/WorkshopFormScreen';
 import WorkshopListScreen from '../screens/WorkshopListScreen';
@@ -29,14 +27,11 @@ export type RootStackParamList = {
     Login: undefined;
     Register: undefined;
     MainApp: undefined;
-    VehicleForm: { vehicle?: any } | undefined;
-    VehicleDetail: { vehicleId: string };
     UserForm: { user?: any } | undefined;
     WorkshopForm: { workshop?: any } | undefined;
     MaintenanceForm: { maintenance?: any } | undefined;
     InspectionForm: { inspection?: any } | undefined;
     UserList: undefined;
-    VehicleList: undefined;
     WorkshopList: undefined;
     MaintenanceList: undefined;
     InspectionList: undefined;
@@ -72,16 +67,13 @@ const AppStack = () => (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="MainApp" component={RootStackNavigator} />
         <Stack.Screen name="UserList" component={UserListScreen} />
-        <Stack.Screen name="VehicleList" component={VehicleListScreen} />
         <Stack.Screen name="WorkshopList" component={WorkshopListScreen} />
         <Stack.Screen name="MaintenanceList" component={MaintenanceListScreen} />
         <Stack.Screen name="InspectionList" component={InspectionListScreen} />
-        <Stack.Screen name="VehicleForm" component={VehicleFormScreen as React.ComponentType<any>} />
         <Stack.Screen name="UserForm" component={UserFormScreen as React.ComponentType<any>} />
         <Stack.Screen name="WorkshopForm" component={WorkshopFormScreen as React.ComponentType<any>} />
         <Stack.Screen name="MaintenanceForm" component={MaintenanceFormScreen as React.ComponentType<any>} />
         <Stack.Screen name="InspectionForm" component={InspectionFormScreen as React.ComponentType<any>} />
-        <Stack.Screen name="VehicleDetail" component={require('../screens/VehicleDetailScreen').default} options={{ title: 'Detalhes do Veículo' }} />
         <Stack.Screen name="MaintenanceDetail" component={MaintenanceDetailScreen as React.ComponentType<any>} options={{ title: 'Detalhes da Manutenção' }} />
         <Stack.Screen name="WorkshopDetail" component={WorkshopDetailScreen as React.ComponentType<any>} options={{ title: 'Detalhes da Oficina' }} />
         <Stack.Screen name="InspectionDetail" component={InspectionDetailScreen as React.ComponentType<any>} options={{ title: 'Detalhes da Inspeção' }} />

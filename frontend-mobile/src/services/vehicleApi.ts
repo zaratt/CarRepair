@@ -128,7 +128,10 @@ class VehicleApiService {
      * Formatar KM para exibição
      * 85240 -> "85.240 km"
      */
-    formatKm(km: number): string {
+    formatKm(km: number | undefined): string {
+        if (km === undefined || km === null) {
+            return '0 km';
+        }
         return `${km.toLocaleString('pt-BR')} km`;
     }
 }

@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Vehicle, VehiclePhoto } from '../types';
 import { api } from './client';
 
@@ -27,10 +28,13 @@ export interface UpdateVehicleRequest extends Partial<CreateVehicleRequest> {
 }
 
 export interface VehicleListResponse {
-    vehicles: Vehicle[];
-    total: number;
-    page: number;
-    limit: number;
+    data: Vehicle[];
+    pagination: {
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+    };
 }
 
 export interface VehicleFilters {
@@ -52,7 +56,19 @@ export class VehicleAPI {
     // 📋 Listar veículos do usuário
     static async getVehicles(filters?: VehicleFilters): Promise<VehicleListResponse> {
         try {
+            // ✅ CORREÇÃO CRÍTICA: Sempre incluir ownerId do usuário logado
+            const userData = await AsyncStorage.getItem('user_data');
+            const user = userData ? JSON.parse(userData) : null;
+            const ownerId = user?.id;
+
+            if (!ownerId) {
+                throw new Error('Usuário não autenticado');
+            }
+
             const params = new URLSearchParams();
+
+            // ✅ Garantir que ownerId sempre seja incluído
+            params.append('ownerId', ownerId);
 
             if (filters) {
                 Object.entries(filters).forEach(([key, value]) => {
@@ -63,9 +79,11 @@ export class VehicleAPI {
             }
 
             const queryString = params.toString();
-            const url = queryString ? `/vehicles?${queryString}` : '/vehicles';
+            const url = `/vehicles?${queryString}`;
 
+            console.log('🔍 [VEHICLE API] Buscando veículos para ownerId:', ownerId);
             const response = await api.get<VehicleListResponse>(url);
+            console.log('🔍 [VEHICLE API] Resposta:', response.data);
             return response.data;
         } catch (error: any) {
             console.error('❌ Erro ao buscar veículos:', error);
@@ -83,8 +101,8 @@ export class VehicleAPI {
     // 🔍 Obter detalhes de um veículo
     static async getVehicleById(vehicleId: string): Promise<Vehicle> {
         try {
-            const response = await api.get<{ vehicle: Vehicle }>(`/vehicles/${vehicleId}`);
-            return response.data.vehicle;
+            const response = await api.get<{ success: boolean; data: Vehicle }>(`/vehicles/${vehicleId}`);
+            return response.data.data;
         } catch (error: any) {
             console.error('❌ Erro ao buscar veículo:', error);
 
@@ -101,8 +119,9 @@ export class VehicleAPI {
     // ➕ Criar novo veículo
     static async createVehicle(vehicleData: CreateVehicleRequest): Promise<Vehicle> {
         try {
-            const response = await api.post<{ vehicle: Vehicle }>('/vehicles', vehicleData);
-            return response.data.vehicle;
+            const response = await api.post<{ success: boolean; message: string; data: Vehicle }>('/vehicles', vehicleData);
+            console.log('🔍 [API] Response structure:', response.data);
+            return response.data.data; // ✅ Corrigido: acessar data.data em vez de data.vehicle
         } catch (error: any) {
             console.error('❌ Erro ao criar veículo:', error);
 
@@ -122,8 +141,8 @@ export class VehicleAPI {
     // ✏️ Atualizar veículo
     static async updateVehicle(vehicleId: string, updateData: UpdateVehicleRequest): Promise<Vehicle> {
         try {
-            const response = await api.put<{ vehicle: Vehicle }>(`/vehicles/${vehicleId}`, updateData);
-            return response.data.vehicle;
+            const response = await api.put<{ success: boolean; data: Vehicle }>(`/vehicles/${vehicleId}`, updateData);
+            return response.data.data;
         } catch (error: any) {
             console.error('❌ Erro ao atualizar veículo:', error);
 
@@ -209,10 +228,10 @@ export class VehicleAPI {
     // 🏷️ Definir foto principal
     static async setPrimaryPhoto(vehicleId: string, photoId: string): Promise<Vehicle> {
         try {
-            const response = await api.patch<{ vehicle: Vehicle }>(
+            const response = await api.patch<{ success: boolean; data: Vehicle }>(
                 `/vehicles/${vehicleId}/photos/${photoId}/primary`
             );
-            return response.data.vehicle;
+            return response.data.data;
         } catch (error: any) {
             console.error('❌ Erro ao definir foto principal:', error);
 
@@ -244,11 +263,11 @@ export class VehicleAPI {
     // 🔄 Ativar/Desativar veículo
     static async toggleVehicleStatus(vehicleId: string, active: boolean): Promise<Vehicle> {
         try {
-            const response = await api.patch<{ vehicle: Vehicle }>(
+            const response = await api.patch<{ success: boolean; data: Vehicle }>(
                 `/vehicles/${vehicleId}/status`,
                 { active }
             );
-            return response.data.vehicle;
+            return response.data.data;
         } catch (error: any) {
             console.error('❌ Erro ao alterar status do veículo:', error);
 

@@ -77,6 +77,10 @@ interface VehicleProviderProps {
 }
 
 export const VehicleProvider: React.FC<VehicleProviderProps> = ({ children, filters }) => {
+    // 🔍 Debug da query key
+    console.log('🔑 [VEHICLE PROVIDER] Filters recebidos:', filters);
+    console.log('🔑 [VEHICLE PROVIDER] Query key será:', JSON.stringify(filters || {}));
+
     // 🎯 Hooks do sistema real (API)
     const apiHooks = useVehiclesApi(filters);
 
