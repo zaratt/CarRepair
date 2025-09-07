@@ -123,15 +123,20 @@ model Maintenance {
   vehicle          Vehicle                 @relation(fields: [vehicleId], references: [id])
   workshop         Workshop?               @relation(fields: [workshopId], references: [id])
   date             DateTime
-  description      String
-  products         String
+  description      String?
+  services         String[] // ✅ NOVO: Array de serviços realizados
+  products         String? // ✅ ALTERADO: Agora opcional
+  workshopName     String? // ✅ NOVO: Nome da oficina (se não estiver cadastrada)
+  workshopCnpj     String? // ✅ NOVO: CNPJ da oficina
+  workshopAddress  String? // ✅ NOVO: Endereço da oficina
   mileage          Int
-  value            Float? // ✅ CORRIGIDO: Agora é opcional (nullable)
+  value            Float? // ✅ Já estava opcional
   blockchainHash   String?                 @unique
   serviceStatus    String                  @default("concluido") // Status do serviço (sempre "concluído")
   validationStatus String                  @default("registrado") // Status de validação (registrado, pendente, validado)
   validationCode   String?                 @unique // Código único para validação
   createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt // ✅ NOVO: Para rastrear edições
   attachments      MaintenanceAttachment[]
 }
 
@@ -181,10 +186,13 @@ model Rating {
 model MaintenanceAttachment {
   id            String      @id @default(uuid())
   maintenanceId String
-  maintenance   Maintenance @relation(fields: [maintenanceId], references: [id])
+  maintenance   Maintenance @relation(fields: [maintenanceId], references: [id], onDelete: Cascade)
   url           String
-  type          String // 'photo' ou 'pdf'
+  type          String // 'image' ou 'pdf'
+  category      String // ✅ NOVO: 'nota_fiscal', 'orcamento', 'garantia', 'outros'
   name          String?
+  size          Int? // ✅ NOVO: Tamanho do arquivo em bytes
+  mimeType      String? // ✅ NOVO: MIME type do arquivo
   createdAt     DateTime    @default(now())
 }
 

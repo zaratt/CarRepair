@@ -262,18 +262,29 @@ export const getVehicleById = asyncHandler(async (req: Request, res: Response) =
         throw new NotFoundError('Vehicle');
     }
 
-    // Mapear veículo para incluir informações básicas de marca/modelo
+    // Mapear veículo para incluir informações reais de marca/modelo da FIPE
+    const { brand, model, fipeValue } = await fipeService.getBrandModelAndPrice(
+        vehicle.fipeBrandId || 0,
+        vehicle.fipeModelId || 0,
+        vehicle.fipeYearCode || ''
+    );
+
     const mappedVehicle = {
         ...vehicle,
-        brand: {
-            id: vehicle.fipeBrandId?.toString() || 'unknown',
-            name: 'Marca FIPE' // TODO: Implementar lookup real da FIPE
-        },
-        model: {
-            id: vehicle.fipeModelId?.toString() || 'unknown',
-            name: 'Modelo FIPE', // TODO: Implementar lookup real da FIPE
-            brandId: vehicle.fipeBrandId?.toString() || 'unknown'
-        }
+        // ✅ Mapear para coincidir com interface Vehicle do frontend
+        plate: vehicle.licensePlate, // plate em vez de licensePlate
+        brand, // Nome real da marca da FIPE (string)
+        model, // Nome real do modelo da FIPE (string)
+        year: vehicle.modelYear || vehicle.yearManufacture || 2000, // number
+        // ✅ Usar quilometragem real do banco ou estimativa se não informada
+        currentKm: vehicle.currentKm ?? calculateEstimatedKm(vehicle.modelYear || vehicle.yearManufacture || 2000),
+        // ✅ Usar valor FIPE real da API ou valor salvo no banco
+        fipeValue: fipeValue || vehicle.fipeValue || 0,
+        color: vehicle.color ?? '',
+        photos: vehicle.photos?.map(p => p.url) || [], // array de URLs
+        userId: vehicle.ownerId, // userId em vez de ownerId
+        createdAt: vehicle.createdAt.toISOString(),
+        updatedAt: vehicle.createdAt.toISOString(), // Usar createdAt como fallback
     };
 
     const response: ApiResponse = {

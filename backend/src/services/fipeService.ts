@@ -125,6 +125,43 @@ class FipeService {
             };
         }
     }
+
+    /**
+     * Buscar marca, modelo e valor FIPE (método completo)
+     */
+    async getBrandModelAndPrice(brandId: number, modelId: number, yearCode: string): Promise<{ brand: string; model: string; fipeValue: number }> {
+        try {
+            // Buscar informações completas incluindo preço
+            const [brandModelInfo, vehicleInfo] = await Promise.all([
+                this.getBrandAndModel(brandId, modelId),
+                this.getVehicleInfo(brandId, modelId, yearCode)
+            ]);
+
+            // Converter preço de string para número
+            let fipeValue = 0;
+            if (vehicleInfo.price) {
+                // Remove R$, espaços e pontos, substitui vírgula por ponto
+                const cleanPrice = vehicleInfo.price
+                    .replace(/R\$\s?/g, '')
+                    .replace(/\./g, '')
+                    .replace(',', '.');
+
+                fipeValue = parseFloat(cleanPrice) || 0;
+            }
+
+            return {
+                ...brandModelInfo,
+                fipeValue
+            };
+        } catch (error) {
+            console.error('❌ Erro ao buscar dados completos da FIPE:', error);
+            const fallbackBrandModel = await this.getBrandAndModel(brandId, modelId);
+            return {
+                ...fallbackBrandModel,
+                fipeValue: 0
+            };
+        }
+    }
 }
 
 export const fipeService = new FipeService();

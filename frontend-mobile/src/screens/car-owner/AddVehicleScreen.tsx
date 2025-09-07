@@ -342,6 +342,7 @@ export default function AddVehicleScreen() {
                     style={styles.continueButton}
                     disabled={!fipeData}
                     icon="arrow-right"
+                    textColor={AppColors.text}
                 >
                     Continuar
                 </Button>
@@ -448,6 +449,7 @@ export default function AddVehicleScreen() {
                     loading={isCreating}
                     disabled={isCreating}
                     icon="content-save"
+                    textColor={AppColors.text}
                 >
                     {isCreating ? 'Salvando...' : 'Salvar Veículo'}
                 </Button>

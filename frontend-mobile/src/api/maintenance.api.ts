@@ -16,9 +16,24 @@ export interface CreateMaintenanceRequest {
     scheduledDate: string;
     currentKm: number;
     description?: string;
+    services?: string[]; // ✅ NOVO: Array de serviços realizados
+    workshopName?: string; // ✅ NOVO: Nome da oficina
+    workshopCnpj?: string; // ✅ NOVO: CNPJ da oficina
+    workshopAddress?: string; // ✅ NOVO: Endereço da oficina
     estimatedCost?: number;
     priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
     workshopId?: string;
+    attachments?: MaintenanceAttachmentData[]; // ✅ NOVO: Anexos
+}
+
+// ✅ NOVO: Interface para anexos
+export interface MaintenanceAttachmentData {
+    url: string;
+    type: 'image' | 'pdf';
+    category: 'nota_fiscal' | 'orcamento' | 'garantia' | 'outros';
+    name?: string;
+    size?: number;
+    mimeType?: string;
 }
 
 export interface UpdateMaintenanceRequest {

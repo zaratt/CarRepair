@@ -51,10 +51,24 @@ export interface MaintenanceCreateData {
     vehicleId: string;
     workshopId?: string;
     date: Date;
-    description: string;
-    products: string;
+    description?: string;
+    services?: string[]; // ✅ NOVO: Array de serviços realizados
+    products?: string;  // ✅ ALTERADO: Agora opcional
+    workshopName?: string; // ✅ NOVO: Nome da oficina
+    workshopCnpj?: string; // ✅ NOVO: CNPJ da oficina  
+    workshopAddress?: string; // ✅ NOVO: Endereço da oficina
     mileage: number;
     value?: number;
+}
+
+// ✅ NOVO: Interface para anexos de manutenção
+export interface MaintenanceAttachmentData {
+    url: string;
+    type: 'image' | 'pdf';
+    category: 'nota_fiscal' | 'orcamento' | 'garantia' | 'outros';
+    name?: string;
+    size?: number;
+    mimeType?: string;
 }
 
 export interface ParsedMonetaryValue {

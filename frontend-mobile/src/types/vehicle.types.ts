@@ -10,6 +10,7 @@ export interface Vehicle {
     fipeValue: number;    // Valor FIPE (imutável - salvo na data do cadastro)
     fipeCode?: string;    // Código FIPE para referência
     color?: string;       // Cor (editável pelo usuário)
+    vin?: string;         // RENAVAM/VIN (editável pelo usuário)
     photos?: string[];    // URLs das fotos do veículo (máximo 4)
     userId: string;       // ID do proprietário
     createdAt: string;    // Data de cadastro

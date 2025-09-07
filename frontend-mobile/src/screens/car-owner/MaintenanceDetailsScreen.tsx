@@ -29,6 +29,24 @@ export default function MaintenanceDetailsScreen({ route, navigation }: Maintena
     const maintenance = getMaintenanceById(maintenanceId);
 
     useEffect(() => {
+        // Configurar header com botão de edição
+        navigation.setOptions({
+            headerRight: () => (
+                <TouchableOpacity
+                    style={styles.headerButton}
+                    onPress={handleEditMaintenance}
+                >
+                    <MaterialCommunityIcons
+                        name="pencil"
+                        size={24}
+                        color={AppColors.primary}
+                    />
+                </TouchableOpacity>
+            ),
+        });
+    }, [navigation]);
+
+    useEffect(() => {
         const loadVehicle = async () => {
             if (maintenance) {
                 try {
@@ -74,6 +92,11 @@ export default function MaintenanceDetailsScreen({ route, navigation }: Maintena
             </View>
         );
     }
+
+    // Funções de ação
+    const handleEditMaintenance = () => {
+        navigation.navigate('EditMaintenance', { maintenanceId: maintenance.id });
+    };
 
     // Formatações
     const formatDate = (dateString: string) => {
@@ -128,13 +151,51 @@ export default function MaintenanceDetailsScreen({ route, navigation }: Maintena
     };
 
     // Compartilhar código
+    const handleViewDocument = (documentUrl: string, index: number) => {
+        Alert.alert(
+            'Visualizar Documento',
+            `Documento ${index + 1}`,
+            [
+                { text: 'Cancelar', style: 'cancel' },
+                {
+                    text: 'Abrir',
+                    onPress: () => {
+                        // Aqui futuramente implementar abertura do documento
+                        console.log('Abrir documento:', documentUrl);
+                    }
+                }
+            ]
+        );
+    };
+
+    const getStatusText = (status: string) => {
+        switch (status) {
+            case 'pending':
+                return 'Pendente';
+            case 'validated':
+                return 'Validada';
+            case 'rejected':
+                return 'Rejeitada';
+            default:
+                return 'Desconhecido';
+        }
+    };
+
     const shareValidationCode = async () => {
         try {
-            const message = `🔧 Código de Validação da Manutenção\n\n` +
-                `Veículo: ${vehicle.brand} ${vehicle.model} (${vehicle.plate})\n` +
-                `Data: ${formatDate(maintenance.date)}\n` +
-                `Código: ${maintenance.validationCode}\n\n` +
-                `Este código comprova a realização da manutenção registrada no CarRepair.`;
+            const servicesText = maintenance.services.length > 0
+                ? maintenance.services.join(', ')
+                : 'Não informado';
+
+            const message = `🔧 Comprovante de Manutenção - CarRepair\n\n` +
+                `📋 Código de Validação: ${maintenance.validationCode}\n\n` +
+                `🚗 Veículo: ${vehicle.brand} ${vehicle.model} (${vehicle.plate})\n` +
+                `📅 Data: ${formatDate(maintenance.date)}\n` +
+                `🔧 Serviços: ${servicesText}\n` +
+                `🏪 Oficina: ${maintenance.workshop.name}\n` +
+                `💰 Valor: ${formatCurrency(maintenance.value)}\n` +
+                `📊 Status: ${getStatusText(maintenance.status)}\n\n` +
+                `Este código comprova a realização da manutenção registrada no sistema CarRepair.`;
 
             await Sharing.shareAsync(message);
         } catch (error) {
@@ -341,7 +402,11 @@ export default function MaintenanceDetailsScreen({ route, navigation }: Maintena
 
                     <View style={styles.documentsContainer}>
                         {maintenance.documents.map((doc, index) => (
-                            <TouchableOpacity key={index} style={styles.documentItem}>
+                            <TouchableOpacity
+                                key={index}
+                                style={styles.documentItem}
+                                onPress={() => handleViewDocument(doc, index)}
+                            >
                                 <MaterialCommunityIcons
                                     name={doc.includes('pdf') ? "file-pdf-box" : "image"}
                                     size={24}
@@ -592,5 +657,10 @@ const styles = StyleSheet.create({
     documentSize: {
         color: AppColors.text,
         opacity: 0.6,
+    },
+    // Header styles
+    headerButton: {
+        marginRight: 16,
+        padding: 8,
     },
 });

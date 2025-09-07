@@ -5,6 +5,7 @@ import { Alert, FlatList, Modal, Platform, ScrollView, StyleSheet, TouchableOpac
 import { Button, Card, Chip, Text, TextInput } from 'react-native-paper';
 
 import { CreateMaintenanceRequest } from '../../api/maintenance.api';
+import DocumentUploader, { DocumentFile } from '../../components/maintenance/DocumentUploader';
 import { useMaintenanceContext } from '../../hooks/useMaintenanceContext';
 import { useVehicleContext } from '../../hooks/useVehicleContext';
 import { AppColors } from '../../styles/colors';
@@ -37,22 +38,45 @@ export default function AddMaintenanceScreen({ navigation }: AddMaintenanceScree
     const [workshopAddress, setWorkshopAddress] = useState('');
     const [value, setValue] = useState('');
     const [description, setDescription] = useState('');
+    const [documents, setDocuments] = useState<DocumentFile[]>([]); // ✅ Estado para documentos
 
     // Validações
     const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
-    // Serviços comuns (mock temporário)
+    // ✅ Serviços expandidos com categorias
     const COMMON_SERVICES = [
+        // Motor e mecânica
         'Troca de óleo',
         'Troca de filtro',
-        'Revisão',
-        'Alinhamento e balanceamento',
-        'Freios',
-        'Suspensão',
+        'Revisão geral',
+        'Motor',
+        'Câmbio',
         'Embreagem',
-        'Ar condicionado',
+        'Suspensão',
+
+        // Sistemas
+        'Freios',
         'Sistema elétrico',
+        'Ar condicionado',
+        'Alinhamento e balanceamento',
+
+        // Vidros e carroceria
+        'Vidro',
+        'Funilaria',
+        'Pintura',
+
+        // Interior e conforto
+        'Som',
+        'Estofamento',
+        'Acessórios',
+
+        // Pneus e rodas
         'Pneus',
+        'Rodas',
+
+        // Outros
+        'Limpeza detalhada',
+        'Inspeção',
     ];
 
     // Formatação de data para pt-br
@@ -64,11 +88,47 @@ export default function AddMaintenanceScreen({ navigation }: AddMaintenanceScree
         });
     };
 
+    // ✅ Validação de data - máximo 60 dias atrás
+    const getMinimumDate = () => {
+        const today = new Date();
+        const sixtyDaysAgo = new Date(today.getTime() - (60 * 24 * 60 * 60 * 1000));
+        return sixtyDaysAgo;
+    };
+
+    const getMaximumDate = () => {
+        return new Date(); // Data de hoje
+    };
+
     // Handler para mudança de data
     const onDateChange = (event: any, selectedDate?: Date) => {
         setShowDatePicker(Platform.OS === 'ios');
         if (selectedDate) {
+            const minDate = getMinimumDate();
+            const maxDate = getMaximumDate();
+
+            if (selectedDate < minDate) {
+                Alert.alert(
+                    'Data Inválida',
+                    'A data da manutenção não pode ser anterior a 60 dias atrás.',
+                    [{ text: 'OK' }]
+                );
+                return;
+            }
+
+            if (selectedDate > maxDate) {
+                Alert.alert(
+                    'Data Inválida',
+                    'A data da manutenção não pode ser posterior à data de hoje.',
+                    [{ text: 'OK' }]
+                );
+                return;
+            }
+
             setDate(selectedDate);
+            // Limpar erro de data se houver
+            if (errors.date) {
+                setErrors(prev => ({ ...prev, date: '' }));
+            }
         }
     };
 
@@ -115,6 +175,12 @@ export default function AddMaintenanceScreen({ navigation }: AddMaintenanceScree
             newErrors.value = 'Valor deve ser um número válido';
         }
 
+        // ✅ Validação de documentos obrigatórios
+        const notasFiscais = documents.filter(doc => doc.category === 'nota_fiscal');
+        if (notasFiscais.length === 0) {
+            newErrors.documents = 'É obrigatório adicionar pelo menos uma Nota Fiscal';
+        }
+
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -131,10 +197,24 @@ export default function AddMaintenanceScreen({ navigation }: AddMaintenanceScree
                 typeId: 'type1', // Valor padrão - será substituído por seleção real
                 scheduledDate: date.toISOString(),
                 currentKm: parseInt(currentKm),
-                description: description || selectedServices.join(', '),
+                // ✅ Novos campos
+                services: selectedServices, // Array de serviços selecionados
+                workshopName: workshopName.trim(),
+                workshopCnpj: workshopCnpj.trim(),
+                workshopAddress: workshopAddress.trim(),
+                description: description?.trim() || '',
                 estimatedCost: parseFloat(value.replace(',', '.')),
                 priority: 'MEDIUM',
                 workshopId: 'workshop1', // Mock
+                // ✅ Documentos (temporariamente como mock - será implementado upload real)
+                attachments: documents.map(doc => ({
+                    url: doc.uri, // Temporário - será substituído por URL real após upload
+                    type: doc.type,
+                    category: doc.category,
+                    name: doc.name,
+                    size: doc.size,
+                    mimeType: doc.mimeType,
+                })),
             };
 
             console.log('📝 Criando manutenção:', maintenanceData);
@@ -334,7 +414,8 @@ export default function AddMaintenanceScreen({ navigation }: AddMaintenanceScree
                                 mode="date"
                                 display="default"
                                 onChange={onDateChange}
-                                minimumDate={new Date()}
+                                minimumDate={getMinimumDate()}
+                                maximumDate={getMaximumDate()}
                             />
                         )}
                     </View>
@@ -442,6 +523,13 @@ export default function AddMaintenanceScreen({ navigation }: AddMaintenanceScree
                         )}
                     </View>
 
+                    {/* Documentação */}
+                    <DocumentUploader
+                        documents={documents}
+                        onDocumentsChange={setDocuments}
+                        maxDocuments={10}
+                    />
+
                     {/* Botões */}
                     <View style={styles.buttonContainer}>
                         <Button
@@ -459,6 +547,7 @@ export default function AddMaintenanceScreen({ navigation }: AddMaintenanceScree
                             style={styles.saveButton}
                             loading={isCreating}
                             disabled={isCreating}
+                            textColor={AppColors.text}
                         >
                             {isCreating ? 'Salvando...' : 'Registrar'}
                         </Button>

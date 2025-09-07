@@ -4,6 +4,7 @@ import { AppColors } from '../styles/colors';
 
 // Maintenance screens
 import AddMaintenanceScreen from '../screens/car-owner/AddMaintenanceScreen';
+import EditMaintenanceScreen from '../screens/car-owner/EditMaintenanceScreen';
 import MaintenanceDetailsScreen from '../screens/car-owner/MaintenanceDetailsScreen';
 import MaintenanceScreen from '../screens/car-owner/MaintenanceScreen';
 
@@ -11,6 +12,7 @@ export type MaintenanceStackParamList = {
     MaintenanceList: undefined;
     AddMaintenance: undefined;
     MaintenanceDetails: { maintenanceId: string };
+    EditMaintenance: { maintenanceId: string };
 };
 
 const MaintenanceStack = createNativeStackNavigator<MaintenanceStackParamList>();
@@ -54,6 +56,16 @@ export default function MaintenanceStackNavigator() {
                 options={{
                     title: 'Detalhes da Manutenção',
                     headerBackTitle: 'Voltar',
+                }}
+            />
+
+            <MaintenanceStack.Screen
+                name="EditMaintenance"
+                component={EditMaintenanceScreen}
+                options={{
+                    title: 'Editar Manutenção',
+                    headerBackTitle: 'Detalhes',
+                    presentation: 'modal',
                 }}
             />
         </MaintenanceStack.Navigator>
