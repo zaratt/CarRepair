@@ -296,6 +296,16 @@ export default function EditMaintenanceScreen({ route, navigation }: EditMainten
         if (!maintenance) return;
 
         try {
+            // ✅ Verificar se todos os documentos foram enviados ao servidor
+            const pendingUploads = documents.filter(doc => doc.isUploading);
+            if (pendingUploads.length > 0) {
+                Alert.alert(
+                    'Upload em Andamento',
+                    'Aguarde todos os documentos serem enviados antes de salvar as alterações.'
+                );
+                return;
+            }
+
             const updateData: Partial<Maintenance> = {
                 vehicleId: selectedVehicle,
                 services: selectedServices,
@@ -307,7 +317,7 @@ export default function EditMaintenanceScreen({ route, navigation }: EditMainten
                     address: workshopAddress,
                 },
                 value: Number(value),
-                documents: documents.map(doc => doc.uri),
+                documents: documents.map(doc => doc.uploadedUrl || doc.uri), // ✅ Usar URL do servidor
                 updatedAt: new Date().toISOString(),
             };
 

@@ -3,7 +3,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
-import { Button, Card, Chip, Text } from 'react-native-paper';
+import { Button, Card, Chip, ProgressBar, Text } from 'react-native-paper';
 
 import { AppColors } from '../../styles/colors';
 
@@ -15,6 +15,8 @@ export interface DocumentFile {
     category: 'nota_fiscal' | 'orcamento' | 'garantia' | 'outros';
     size?: number;
     mimeType?: string;
+    isUploading?: boolean;
+    uploadedUrl?: string; // URL retornada pelo servidor após upload
 }
 
 interface DocumentUploaderProps {
@@ -36,6 +38,98 @@ export default function DocumentUploader({
     maxDocuments = 10
 }: DocumentUploaderProps) {
     const [selectedCategory, setSelectedCategory] = useState<string>('nota_fiscal');
+    const [uploading, setUploading] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(0);
+
+    // ✅ Função para fazer upload real do arquivo
+    const uploadFileToServer = async (uri: string, fileName: string, mimeType: string): Promise<string> => {
+        const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://automazo-production.up.railway.app/api';
+
+        try {
+            setUploading(true);
+
+            const formData = new FormData();
+            formData.append('document', {
+                uri,
+                name: fileName,
+                type: mimeType,
+            } as any);
+
+            const response = await fetch(`${API_BASE_URL}/upload/single`, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.message || 'Erro no upload');
+            }
+
+            if (result.success && result.data) {
+                return result.data.url; // Retorna a URL do arquivo no servidor
+            } else {
+                throw new Error('Resposta inválida do servidor');
+            }
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    // ✅ Função para adicionar documento com upload automático
+    const addDocumentWithUpload = async (newDocument: DocumentFile) => {
+        try {
+            if (documents.length >= maxDocuments) {
+                Alert.alert('Limite atingido', `Máximo de ${maxDocuments} documentos permitidos.`);
+                return;
+            }
+
+            // Adicionar documento temporariamente com status de upload
+            const tempDocument = { ...newDocument, isUploading: true };
+            const updatedDocuments = [...documents, tempDocument];
+            onDocumentsChange(updatedDocuments);
+
+            // Fazer upload para servidor
+            const uploadedUrl = await uploadFileToServer(
+                newDocument.uri,
+                newDocument.name,
+                newDocument.mimeType || 'application/octet-stream'
+            );
+
+            // Atualizar documento com URL do servidor
+            const finalDocument = {
+                ...newDocument,
+                isUploading: false,
+                uploadedUrl: uploadedUrl,
+                uri: uploadedUrl // Atualizar URI para a URL do servidor
+            };
+
+            const finalDocuments = updatedDocuments.map(doc =>
+                doc.id === newDocument.id ? finalDocument : doc
+            );
+            onDocumentsChange(finalDocuments);
+
+        } catch (error) {
+            console.error('Erro no upload:', error);
+            Alert.alert('Erro no Upload', 'Não foi possível enviar o arquivo. Tente novamente.');
+
+            // Remover documento com erro
+            const documentsWithoutError = documents.filter(doc => doc.id !== newDocument.id);
+            onDocumentsChange(documentsWithoutError);
+        }
+    };
+
+    // Função original para adicionar sem upload (compatibilidade)
+    const addDocument = (newDocument: DocumentFile) => {
+        if (documents.length >= maxDocuments) {
+            Alert.alert('Limite atingido', `Máximo de ${maxDocuments} documentos permitidos.`);
+            return;
+        }
+        onDocumentsChange([...documents, newDocument]);
+    };
 
     // Solicitar permissões
     const requestPermissions = async () => {
@@ -67,7 +161,7 @@ export default function DocumentUploader({
 
             if (!result.canceled && result.assets[0]) {
                 const asset = result.assets[0];
-                addDocument({
+                await addDocumentWithUpload({
                     id: Date.now().toString(),
                     uri: asset.uri,
                     name: `Foto_${Date.now()}.jpg`,
@@ -98,7 +192,7 @@ export default function DocumentUploader({
 
             if (!result.canceled && result.assets[0]) {
                 const asset = result.assets[0];
-                addDocument({
+                await addDocumentWithUpload({
                     id: Date.now().toString(),
                     uri: asset.uri,
                     name: asset.fileName || `Imagem_${Date.now()}.jpg`,
@@ -126,7 +220,7 @@ export default function DocumentUploader({
                 const asset = result.assets[0];
                 const isPDF = asset.mimeType === 'application/pdf';
 
-                addDocument({
+                await addDocumentWithUpload({
                     id: Date.now().toString(),
                     uri: asset.uri,
                     name: asset.name,
@@ -140,16 +234,6 @@ export default function DocumentUploader({
             console.error('Erro ao selecionar documento:', error);
             Alert.alert('Erro', 'Não foi possível selecionar o documento.');
         }
-    };
-
-    // Adicionar documento
-    const addDocument = (newDocument: DocumentFile) => {
-        if (documents.length >= maxDocuments) {
-            Alert.alert('Limite atingido', `Máximo de ${maxDocuments} documentos permitidos.`);
-            return;
-        }
-
-        onDocumentsChange([...documents, newDocument]);
     };
 
     // Remover documento
@@ -244,7 +328,7 @@ export default function DocumentUploader({
                                 <MaterialCommunityIcons
                                     name={doc.type === 'pdf' ? 'file-pdf-box' : 'image'}
                                     size={24}
-                                    color={AppColors.primary}
+                                    color={doc.isUploading ? AppColors.text : AppColors.primary}
                                 />
                                 <View style={styles.documentDetails}>
                                     <Text variant="bodyMedium" style={styles.documentName} numberOfLines={1}>
@@ -253,15 +337,32 @@ export default function DocumentUploader({
                                     <Text variant="bodySmall" style={styles.documentSize}>
                                         {doc.type.toUpperCase()} • {formatFileSize(doc.size)}
                                     </Text>
+                                    {doc.isUploading && (
+                                        <Text variant="bodySmall" style={styles.uploadingText}>
+                                            Enviando...
+                                        </Text>
+                                    )}
+                                    {doc.uploadedUrl && (
+                                        <Text variant="bodySmall" style={styles.uploadedText}>
+                                            ✓ Enviado
+                                        </Text>
+                                    )}
                                 </View>
                             </View>
-                            <TouchableOpacity
-                                onPress={() => removeDocument(doc.id)}
-                                style={styles.removeButton}
-                            >
-                                <MaterialCommunityIcons name="close" size={20} color={AppColors.danger} />
-                            </TouchableOpacity>
+                            {!doc.isUploading && (
+                                <TouchableOpacity
+                                    onPress={() => removeDocument(doc.id)}
+                                    style={styles.removeButton}
+                                >
+                                    <MaterialCommunityIcons name="close" size={20} color={AppColors.danger} />
+                                </TouchableOpacity>
+                            )}
                         </Card.Content>
+                        {doc.isUploading && (
+                            <View style={styles.progressContainer}>
+                                <ProgressBar progress={0.5} color={AppColors.primary} />
+                            </View>
+                        )}
                     </Card>
                 ))}
 
@@ -398,5 +499,17 @@ const styles = StyleSheet.create({
     },
     requiredMissing: {
         color: AppColors.danger,
+    },
+    uploadingText: {
+        color: AppColors.primary,
+        fontStyle: 'italic',
+    },
+    uploadedText: {
+        color: '#28a745', // Verde para sucesso
+        fontWeight: '500',
+    },
+    progressContainer: {
+        paddingHorizontal: 16,
+        paddingBottom: 12,
     },
 });

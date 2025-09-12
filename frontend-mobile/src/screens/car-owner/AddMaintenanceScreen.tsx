@@ -192,6 +192,16 @@ export default function AddMaintenanceScreen({ navigation }: AddMaintenanceScree
         }
 
         try {
+            // ✅ Verificar se todos os documentos foram enviados ao servidor
+            const pendingUploads = documents.filter(doc => doc.isUploading);
+            if (pendingUploads.length > 0) {
+                Alert.alert(
+                    'Upload em Andamento',
+                    'Aguarde todos os documentos serem enviados antes de salvar a manutenção.'
+                );
+                return;
+            }
+
             const maintenanceData: CreateMaintenanceRequest = {
                 vehicleId: selectedVehicle,
                 typeId: 'type1', // Valor padrão - será substituído por seleção real
@@ -206,9 +216,9 @@ export default function AddMaintenanceScreen({ navigation }: AddMaintenanceScree
                 estimatedCost: parseFloat(value.replace(',', '.')),
                 priority: 'MEDIUM',
                 workshopId: 'workshop1', // Mock
-                // ✅ Documentos (temporariamente como mock - será implementado upload real)
+                // ✅ Documentos com URLs reais do servidor
                 attachments: documents.map(doc => ({
-                    url: doc.uri, // Temporário - será substituído por URL real após upload
+                    url: doc.uploadedUrl || doc.uri, // Usar URL do servidor se disponível
                     type: doc.type,
                     category: doc.category,
                     name: doc.name,

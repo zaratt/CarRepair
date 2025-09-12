@@ -4,6 +4,18 @@ import { asyncHandler, NotFoundError, ValidationError } from '../middleware/erro
 import { ApiResponse, MaintenanceAttachmentData, MaintenanceCreateData, PaginationResponse } from '../types';
 import { formatCurrency, formatKilometers } from '../utils/parsing';
 
+// ✅ Função para criar dados de attachment a partir de URLs de upload
+export const createAttachmentFromUpload = (uploadedFile: any, category: string): MaintenanceAttachmentData => {
+    return {
+        url: uploadedFile.url,
+        type: uploadedFile.mimeType.startsWith('image/') ? 'image' : 'pdf',
+        category: category as 'nota_fiscal' | 'orcamento' | 'garantia' | 'outros',
+        name: uploadedFile.originalName || uploadedFile.fileName,
+        size: uploadedFile.size,
+        mimeType: uploadedFile.mimeType,
+    };
+};
+
 // ✅ Validar se documentos obrigatórios estão presentes
 const validateRequiredDocuments = (attachments: MaintenanceAttachmentData[]) => {
     const notasFiscais = attachments.filter(att => att.category === 'nota_fiscal');

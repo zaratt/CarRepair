@@ -7,6 +7,7 @@ import inspectionRoutes from './routes/inspectionRoutes';
 import maintenanceRoutes from './routes/maintenanceRoutes';
 import notificationRoutes from './routes/notificationRoutes';
 import systemRoutes from './routes/systemRoutes';
+import uploadRoutes from './routes/upload.routes';
 import userRoutes from './routes/userRoutes';
 import vehicleRoutes from './routes/vehicleRoutes';
 import workshopRoutes from './routes/workshopRoutes';
@@ -31,7 +32,12 @@ if (config.isDevelopment) {
         });
         next();
     });
-}// Rotas da API
+}
+
+// ✅ Middleware para servir arquivos estáticos (uploads)
+app.use('/uploads', express.static('uploads'));
+
+// Rotas da API
 app.use('/api/auth', authRoutes);
 app.use('/api/system', systemRoutes);
 app.use('/api/vehicles', vehicleRoutes);
@@ -40,6 +46,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/workshops', workshopRoutes);
 app.use('/api/inspections', inspectionRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/upload', uploadRoutes);
 
 // Rota específica para tipos de manutenção (compatibilidade)
 app.get('/api/maintenance-types', (req, res) => {
