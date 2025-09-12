@@ -1,7 +1,16 @@
 import cors from 'cors';
 import express from 'express';
+import path from 'path';
 import { config, validateConfig } from './config';
 import { errorHandler } from './middleware/errorHandler';
+import { initializeLogger, requestLogger, suspiciousActivityDetector } from './middleware/securityLogger';
+import {
+    apiRateLimit,
+    authRateLimit,
+    securityMiddleware,
+    uploadRateLimit
+} from './middleware/securityMiddleware';
+import { cleanupOldFiles } from './middleware/uploadSecurity';
 import authRoutes from './routes/authRoutes';
 import inspectionRoutes from './routes/inspectionRoutes';
 import maintenanceRoutes from './routes/maintenanceRoutes';
@@ -16,14 +25,44 @@ import { ApiResponse } from './types';
 // Validar configurações na inicialização
 validateConfig();
 
+// Inicializar sistema de logging de segurança
+initializeLogger();
+
 const app = express();
 
-// Middleware básico
-app.use(cors());
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// ✅ SEGURANÇA LAYER 1: Trust proxy para aplicações atrás de proxy/load balancer
+app.set('trust proxy', 1);
 
-// Request logging (simples para desenvolvimento)
+// ✅ SEGURANÇA LAYER 2: Middlewares de segurança principais
+app.use(securityMiddleware);
+
+// ✅ SEGURANÇA LAYER 3: Logging de segurança
+app.use(requestLogger);
+app.use(suspiciousActivityDetector);
+
+// ✅ SEGURANÇA LAYER 4: CORS configurado
+app.use(cors({
+    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+// ✅ SEGURANÇA LAYER 5: Body parsing com limites seguros
+app.use(express.json({
+    limit: '1mb',
+    type: ['application/json', 'text/plain']
+}));
+app.use(express.urlencoded({
+    extended: true,
+    limit: '1mb',
+    parameterLimit: 20
+}));
+
+// ✅ SEGURANÇA LAYER 6: Limpeza automática de arquivos antigos
+app.use(cleanupOldFiles(path.join(process.cwd(), 'uploads', 'temp'), 2)); // 2 horas
+
+// Request logging para desenvolvimento
 if (config.isDevelopment) {
     app.use((req, res, next) => {
         console.log(`📡 ${req.method} ${req.path}`, {
@@ -34,19 +73,27 @@ if (config.isDevelopment) {
     });
 }
 
-// ✅ Middleware para servir arquivos estáticos (uploads)
-app.use('/uploads', express.static('uploads'));
+// ✅ Middleware para servir arquivos estáticos com segurança
+app.use('/uploads', express.static('uploads', {
+    maxAge: '1h',
+    setHeaders: (res, path) => {
+        // Prevenir execução de scripts em uploads
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+        res.setHeader('X-Frame-Options', 'DENY');
+        res.setHeader('Content-Security-Policy', 'default-src \'none\'');
+    }
+}));
 
-// Rotas da API
-app.use('/api/auth', authRoutes);
-app.use('/api/system', systemRoutes);
-app.use('/api/vehicles', vehicleRoutes);
-app.use('/api/maintenances', maintenanceRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/workshops', workshopRoutes);
-app.use('/api/inspections', inspectionRoutes);
-app.use('/api/notifications', notificationRoutes);
-app.use('/api/upload', uploadRoutes);
+// ✅ ROTAS COM RATE LIMITING ESPECÍFICO
+app.use('/api/auth', authRateLimit, authRoutes);
+app.use('/api/upload', uploadRateLimit, uploadRoutes);
+app.use('/api/system', apiRateLimit, systemRoutes);
+app.use('/api/vehicles', apiRateLimit, vehicleRoutes);
+app.use('/api/maintenances', apiRateLimit, maintenanceRoutes);
+app.use('/api/users', apiRateLimit, userRoutes);
+app.use('/api/workshops', apiRateLimit, workshopRoutes);
+app.use('/api/inspections', apiRateLimit, inspectionRoutes);
+app.use('/api/notifications', apiRateLimit, notificationRoutes);
 
 // Rota específica para tipos de manutenção (compatibilidade)
 app.get('/api/maintenance-types', (req, res) => {
@@ -66,16 +113,23 @@ app.get('/api/maintenance-types', (req, res) => {
     });
 });
 
-// Health check endpoint com informações da configuração
+// Health check endpoint com informações da configuração (sem rate limit)
 app.get('/health', (req, res) => {
     const response: ApiResponse = {
         success: true,
-        message: 'CarRepair API is running',
+        message: 'CarRepair API is running - SECURE MODE',
         data: {
             version: '2.0.0',
             environment: config.nodeEnv,
             port: config.port,
             timestamp: new Date().toISOString(),
+            security: {
+                headers: 'enabled',
+                rateLimit: 'enabled',
+                inputSanitization: 'enabled',
+                fileUploadSecurity: 'enabled',
+                logging: 'enabled'
+            },
             fipe: {
                 baseUrl: config.fipe.baseUrl,
                 cacheTtl: config.fipe.cacheTtl

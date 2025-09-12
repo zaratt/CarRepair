@@ -29,15 +29,30 @@ export interface VehicleCreateData {
     fuelType: FuelType;
     vin?: string;
     ownerId?: string;
+    currentKm?: number;
+    color?: string;
+    fipeValue?: number;
 }
 export interface MaintenanceCreateData {
     vehicleId: string;
     workshopId?: string;
     date: Date;
-    description: string;
-    products: string;
+    description?: string;
+    services?: string[];
+    products?: string;
+    workshopName?: string;
+    workshopCnpj?: string;
+    workshopAddress?: string;
     mileage: number;
     value?: number;
+}
+export interface MaintenanceAttachmentData {
+    url: string;
+    type: 'image' | 'pdf';
+    category: 'nota_fiscal' | 'orcamento' | 'garantia' | 'outros';
+    name?: string;
+    size?: number;
+    mimeType?: string;
 }
 export interface ParsedMonetaryValue {
     success: boolean;

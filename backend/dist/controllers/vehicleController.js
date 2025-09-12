@@ -3,6 +3,19 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.searchVehiclesByPlate = exports.deleteVehicle = exports.updateVehicle = exports.getVehicleById = exports.getVehicles = exports.createVehicle = void 0;
 const prisma_1 = require("../config/prisma");
 const errorHandler_1 = require("../middleware/errorHandler");
+const fipeService_1 = require("../services/fipeService");
+// Função para calcular quilometragem estimada baseada na idade do veículo
+function calculateEstimatedKm(manufacturingYear) {
+    const currentYear = new Date().getFullYear();
+    const vehicleAge = currentYear - manufacturingYear;
+    // Estimativa: 15.000 km por ano (média brasileira)
+    const averageKmPerYear = 15000;
+    const estimatedKm = vehicleAge * averageKmPerYear;
+    // Adicionar variação aleatória de ±20% para mais realismo
+    const variation = 0.2;
+    const randomFactor = 1 + (Math.random() - 0.5) * 2 * variation;
+    return Math.max(0, Math.round(estimatedKm * randomFactor));
+}
 // Criar novo veículo
 exports.createVehicle = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     const vehicleData = req.body;
@@ -42,6 +55,13 @@ exports.createVehicle = (0, errorHandler_1.asyncHandler)(async (req, res) => {
         createData.fipeModelId = vehicleData.fipeModelId;
     if (vehicleData.fipeYearCode)
         createData.fipeYearCode = vehicleData.fipeYearCode;
+    // ✅ Novos campos para informações do usuário
+    if (vehicleData.currentKm !== undefined)
+        createData.currentKm = vehicleData.currentKm;
+    if (vehicleData.color)
+        createData.color = vehicleData.color;
+    if (vehicleData.fipeValue !== undefined)
+        createData.fipeValue = vehicleData.fipeValue;
     const vehicle = await prisma_1.prisma.vehicle.create({
         data: createData,
         include: {
@@ -70,8 +90,12 @@ exports.getVehicles = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const ownerId = req.query.ownerId;
-    const active = req.query.active === 'true';
+    // ✅ CORREÇÃO: Só filtrar por active se explicitamente fornecido
+    const active = req.query.active !== undefined ? req.query.active === 'true' : undefined;
     const licensePlate = req.query.licensePlate;
+    console.log('🔍 [BACKEND] getVehicles - Query params:', {
+        page, limit, ownerId, active, licensePlate
+    });
     const skip = (page - 1) * limit;
     // Construir filtros
     const where = {};
@@ -85,6 +109,12 @@ exports.getVehicles = (0, errorHandler_1.asyncHandler)(async (req, res) => {
             mode: 'insensitive'
         };
     }
+    console.log('🔍 [BACKEND] Filtros construídos:', where);
+    // Verificar se há veículos no banco para esse ownerId
+    const totalVehiclesForOwner = await prisma_1.prisma.vehicle.count({
+        where: { ownerId }
+    });
+    console.log('🔍 [BACKEND] Total de veículos no banco para esse owner:', totalVehiclesForOwner);
     // Buscar veículos e total
     const [vehicles, total] = await Promise.all([
         prisma_1.prisma.vehicle.findMany({
@@ -100,8 +130,7 @@ exports.getVehicles = (0, errorHandler_1.asyncHandler)(async (req, res) => {
                         phone: true,
                     }
                 },
-                brand: true,
-                model: true,
+                // Removido brand e model includes pois estamos usando dados FIPE
                 photos: {
                     take: 1, // Apenas a primeira foto para listagem
                     orderBy: { createdAt: 'desc' }
@@ -117,8 +146,33 @@ exports.getVehicles = (0, errorHandler_1.asyncHandler)(async (req, res) => {
         }),
         prisma_1.prisma.vehicle.count({ where })
     ]);
+    // Mapear veículos para incluir informações reais de marca/modelo da FIPE
+    const mappedVehicles = await Promise.all(vehicles.map(async (vehicle) => {
+        // Buscar dados reais da FIPE
+        const { brand, model } = await fipeService_1.fipeService.getBrandAndModel(vehicle.fipeBrandId || 0, vehicle.fipeModelId || 0);
+        return {
+            ...vehicle,
+            // ✅ Mapear para coincidir com interface Vehicle do frontend
+            plate: vehicle.licensePlate, // plate em vez de licensePlate
+            brand, // Nome real da marca da FIPE
+            model, // Nome real do modelo da FIPE
+            year: vehicle.modelYear || vehicle.yearManufacture || 2000, // number
+            // ✅ Usar quilometragem real do banco ou estimativa se não informada
+            currentKm: vehicle.currentKm ?? calculateEstimatedKm(vehicle.modelYear || vehicle.yearManufacture || 2000),
+            // ✅ Usar valores reais do banco
+            fipeValue: vehicle.fipeValue ?? 0,
+            color: vehicle.color ?? '',
+            photos: vehicle.photos?.map(p => p.url) || [], // array de URLs
+            userId: vehicle.ownerId, // userId em vez de ownerId
+            createdAt: vehicle.createdAt.toISOString(),
+            updatedAt: vehicle.createdAt.toISOString(), // Usar createdAt como fallback
+        };
+    }));
+    console.log('🔍 [BACKEND] Veículos encontrados:', vehicles.length);
+    console.log('🔍 [BACKEND] Total count:', total);
+    console.log('🔍 [BACKEND] Primeiro veículo (se existir):', vehicles[0]?.id || 'Nenhum');
     const response = {
-        data: vehicles,
+        data: mappedVehicles,
         pagination: {
             page,
             limit,
@@ -126,6 +180,10 @@ exports.getVehicles = (0, errorHandler_1.asyncHandler)(async (req, res) => {
             totalPages: Math.ceil(total / limit)
         }
     };
+    console.log('🔍 [BACKEND] Resposta final:', {
+        dataLength: response.data.length,
+        total: response.pagination.total
+    });
     res.json(response);
 });
 // Buscar veículo por ID
@@ -144,8 +202,7 @@ exports.getVehicleById = (0, errorHandler_1.asyncHandler)(async (req, res) => {
                     state: true,
                 }
             },
-            brand: true,
-            model: true,
+            // Removido brand e model includes pois estamos usando dados FIPE
             photos: {
                 orderBy: { createdAt: 'desc' }
             },
@@ -181,10 +238,29 @@ exports.getVehicleById = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     if (!vehicle) {
         throw new errorHandler_1.NotFoundError('Vehicle');
     }
+    // Mapear veículo para incluir informações reais de marca/modelo da FIPE
+    const { brand, model, fipeValue } = await fipeService_1.fipeService.getBrandModelAndPrice(vehicle.fipeBrandId || 0, vehicle.fipeModelId || 0, vehicle.fipeYearCode || '');
+    const mappedVehicle = {
+        ...vehicle,
+        // ✅ Mapear para coincidir com interface Vehicle do frontend
+        plate: vehicle.licensePlate, // plate em vez de licensePlate
+        brand, // Nome real da marca da FIPE (string)
+        model, // Nome real do modelo da FIPE (string)
+        year: vehicle.modelYear || vehicle.yearManufacture || 2000, // number
+        // ✅ Usar quilometragem real do banco ou estimativa se não informada
+        currentKm: vehicle.currentKm ?? calculateEstimatedKm(vehicle.modelYear || vehicle.yearManufacture || 2000),
+        // ✅ Usar valor FIPE real da API ou valor salvo no banco
+        fipeValue: fipeValue || vehicle.fipeValue || 0,
+        color: vehicle.color ?? '',
+        photos: vehicle.photos?.map(p => p.url) || [], // array de URLs
+        userId: vehicle.ownerId, // userId em vez de ownerId
+        createdAt: vehicle.createdAt.toISOString(),
+        updatedAt: vehicle.createdAt.toISOString(), // Usar createdAt como fallback
+    };
     const response = {
         success: true,
         message: 'Vehicle found',
-        data: vehicle
+        data: mappedVehicle
     };
     res.json(response);
 });

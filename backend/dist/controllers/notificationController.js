@@ -68,87 +68,25 @@ exports.updateNotificationPreferences = (0, errorHandler_1.asyncHandler)(async (
 exports.getUserNotifications = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     const userId = req.params.userId || 'default_user'; // Para quando não há userId na rota
     const { page = 1, limit = 20, unreadOnly = false } = req.query;
-    // Mock data
-    const notifications = [
-        {
-            id: 'notif_001',
-            userId,
-            type: 'maintenance_reminder',
-            title: 'Lembrete de Manutenção',
-            message: 'Seu Honda Civic está próximo da revisão dos 10.000 km',
-            isRead: false,
-            priority: 'medium',
-            actionUrl: '/maintenances/schedule',
-            actionText: 'Agendar Revisão',
-            createdAt: '2025-09-01T10:00:00Z',
-            vehicleInfo: {
-                id: 'vh_001',
-                model: 'Honda Civic 2020',
-                plate: 'ABC1234'
-            }
-        },
-        {
-            id: 'notif_002',
-            userId,
-            type: 'inspection_reminder',
-            title: 'Vistoria Agendada',
-            message: 'Sua vistoria está agendada para amanhã às 14:30',
-            isRead: true,
-            priority: 'high',
-            actionUrl: '/inspections/details/insp_002',
-            actionText: 'Ver Detalhes',
-            createdAt: '2025-08-31T15:30:00Z',
-            vehicleInfo: {
-                id: 'vh_002',
-                model: 'Toyota Corolla 2019',
-                plate: 'DEF5678'
-            }
-        },
-        {
-            id: 'notif_003',
-            userId,
-            type: 'payment_reminder',
-            title: 'Pagamento Pendente',
-            message: 'Você tem um pagamento de R$ 350,00 vencendo em 2 dias',
-            isRead: false,
-            priority: 'high',
-            actionUrl: '/payments/pending',
-            actionText: 'Pagar Agora',
-            createdAt: '2025-08-30T09:15:00Z'
-        },
-        {
-            id: 'notif_004',
-            userId,
-            type: 'system_update',
-            title: 'Nova Funcionalidade',
-            message: 'Agora você pode agendar vistorias diretamente pelo app!',
-            isRead: true,
-            priority: 'low',
-            actionUrl: '/inspections/schedule',
-            actionText: 'Experimentar',
-            createdAt: '2025-08-28T12:00:00Z'
-        }
-    ];
-    // Filtrar apenas não lidas se solicitado
-    const filteredNotifications = unreadOnly === 'true'
-        ? notifications.filter(n => !n.isRead)
-        : notifications;
-    // Simular paginação
-    const startIndex = (Number(page) - 1) * Number(limit);
-    const endIndex = startIndex + Number(limit);
-    const paginatedNotifications = filteredNotifications.slice(startIndex, endIndex);
+    // Em um ambiente real, buscaríamos do banco de dados
+    // Por enquanto, retornamos lista vazia já que não há notificações reais implementadas
+    const notifications = [];
     const response = {
         success: true,
-        message: 'Notifications retrieved successfully',
+        message: 'User notifications retrieved successfully',
         data: {
-            notifications: paginatedNotifications,
+            notifications,
             pagination: {
                 page: Number(page),
                 limit: Number(limit),
-                total: filteredNotifications.length,
-                totalPages: Math.ceil(filteredNotifications.length / Number(limit))
+                total: 0,
+                totalPages: 0
             },
-            unreadCount: notifications.filter(n => !n.isRead).length
+            stats: {
+                total: 0,
+                unread: 0,
+                read: 0
+            }
         }
     };
     res.json(response);

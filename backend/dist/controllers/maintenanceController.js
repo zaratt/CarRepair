@@ -1,12 +1,48 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getMaintenancesByVehicle = exports.deleteMaintenance = exports.updateMaintenance = exports.getMaintenanceById = exports.getMaintenances = exports.createMaintenance = void 0;
+exports.getMaintenancesByVehicle = exports.deleteMaintenance = exports.updateMaintenance = exports.getMaintenanceById = exports.getMaintenances = exports.createMaintenance = exports.createAttachmentFromUpload = void 0;
 const prisma_1 = require("../config/prisma");
 const errorHandler_1 = require("../middleware/errorHandler");
 const parsing_1 = require("../utils/parsing");
+// ✅ Função para criar dados de attachment a partir de URLs de upload
+const createAttachmentFromUpload = (uploadedFile, category) => {
+    return {
+        url: uploadedFile.url,
+        type: uploadedFile.mimeType.startsWith('image/') ? 'image' : 'pdf',
+        category: category,
+        name: uploadedFile.originalName || uploadedFile.fileName,
+        size: uploadedFile.size,
+        mimeType: uploadedFile.mimeType,
+    };
+};
+exports.createAttachmentFromUpload = createAttachmentFromUpload;
+// ✅ Validar se documentos obrigatórios estão presentes
+const validateRequiredDocuments = (attachments) => {
+    const notasFiscais = attachments.filter(att => att.category === 'nota_fiscal');
+    if (notasFiscais.length === 0) {
+        throw new errorHandler_1.ValidationError('Pelo menos uma Nota Fiscal é obrigatória');
+    }
+};
+// ✅ Validar data de manutenção (máximo 60 dias atrás)
+const validateMaintenanceDate = (date) => {
+    const today = new Date();
+    const sixtyDaysAgo = new Date(today.getTime() - (60 * 24 * 60 * 60 * 1000));
+    if (date < sixtyDaysAgo) {
+        throw new errorHandler_1.ValidationError('A data da manutenção não pode ser anterior a 60 dias atrás');
+    }
+    if (date > today) {
+        throw new errorHandler_1.ValidationError('A data da manutenção não pode ser posterior à data de hoje');
+    }
+};
 // Criar nova manutenção
 exports.createMaintenance = (0, errorHandler_1.asyncHandler)(async (req, res) => {
-    const maintenanceData = req.body;
+    const { attachments, ...maintenanceData } = req.body;
+    // ✅ Validar data da manutenção
+    validateMaintenanceDate(new Date(maintenanceData.date));
+    // ✅ Validar documentos obrigatórios
+    if (attachments && attachments.length > 0) {
+        validateRequiredDocuments(attachments);
+    }
     // Verificar se o veículo existe
     const vehicle = await prisma_1.prisma.vehicle.findUnique({
         where: { id: maintenanceData.vehicleId },
@@ -35,7 +71,11 @@ exports.createMaintenance = (0, errorHandler_1.asyncHandler)(async (req, res) =>
             workshopId: maintenanceData.workshopId,
             date: maintenanceData.date,
             description: maintenanceData.description,
+            services: maintenanceData.services || [], // ✅ NOVO: Array de serviços
             products: maintenanceData.products,
+            workshopName: maintenanceData.workshopName, // ✅ NOVO
+            workshopCnpj: maintenanceData.workshopCnpj, // ✅ NOVO  
+            workshopAddress: maintenanceData.workshopAddress, // ✅ NOVO
             mileage: maintenanceData.mileage,
             value: maintenanceData.value,
         },
@@ -61,6 +101,48 @@ exports.createMaintenance = (0, errorHandler_1.asyncHandler)(async (req, res) =>
             attachments: true,
         }
     });
+    // ✅ Criar anexos se fornecidos
+    if (attachments && attachments.length > 0) {
+        await Promise.all(attachments.map(attachment => prisma_1.prisma.maintenanceAttachment.create({
+            data: {
+                maintenanceId: maintenance.id,
+                url: attachment.url,
+                type: attachment.type,
+                category: attachment.category,
+                name: attachment.name,
+                size: attachment.size,
+                mimeType: attachment.mimeType,
+            }
+        })));
+        // Buscar manutenção com anexos criados
+        const maintenanceWithAttachments = await prisma_1.prisma.maintenance.findUnique({
+            where: { id: maintenance.id },
+            include: {
+                vehicle: {
+                    select: {
+                        id: true,
+                        licensePlate: true,
+                        yearManufacture: true,
+                        modelYear: true,
+                        owner: {
+                            select: { name: true, phone: true }
+                        }
+                    }
+                },
+                workshop: {
+                    select: {
+                        id: true,
+                        name: true,
+                        phone: true,
+                    }
+                },
+                attachments: true,
+            }
+        });
+        if (maintenanceWithAttachments) {
+            maintenance.attachments = maintenanceWithAttachments.attachments;
+        }
+    }
     const response = {
         success: true,
         message: 'Maintenance created successfully',

@@ -1,31 +1,32 @@
-import { Request, Response } from 'express';
-import fs from 'fs';
-import multer from 'multer';
-import path from 'path';
-
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.FileUploadController = exports.uploadMiddleware = void 0;
+const fs_1 = __importDefault(require("fs"));
+const multer_1 = __importDefault(require("multer"));
+const path_1 = __importDefault(require("path"));
 // ✅ Configuração do multer para armazenamento de arquivos
-const storage = multer.diskStorage({
+const storage = multer_1.default.diskStorage({
     destination: (req, file, cb) => {
-        const uploadDir = path.join(__dirname, '../../uploads/maintenance_docs');
-
+        const uploadDir = path_1.default.join(__dirname, '../../uploads/maintenance_docs');
         // Criar diretório se não existir
-        if (!fs.existsSync(uploadDir)) {
-            fs.mkdirSync(uploadDir, { recursive: true });
+        if (!fs_1.default.existsSync(uploadDir)) {
+            fs_1.default.mkdirSync(uploadDir, { recursive: true });
         }
-
         cb(null, uploadDir);
     },
     filename: (req, file, cb) => {
         // Gerar nome único: timestamp + random + extensão original
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        const fileExtension = path.extname(file.originalname);
+        const fileExtension = path_1.default.extname(file.originalname);
         const fileName = `maintenance_${uniqueSuffix}${fileExtension}`;
         cb(null, fileName);
     }
 });
-
 // ✅ Filtro de arquivos permitidos
-const fileFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+const fileFilter = (req, file, cb) => {
     const allowedTypes = [
         'image/jpeg',
         'image/jpg',
@@ -33,16 +34,15 @@ const fileFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilt
         'image/webp',
         'application/pdf'
     ];
-
     if (allowedTypes.includes(file.mimetype)) {
         cb(null, true);
-    } else {
+    }
+    else {
         cb(new Error(`Tipo de arquivo não permitido: ${file.mimetype}. Tipos aceitos: JPEG, PNG, WebP, PDF`));
     }
 };
-
 // ✅ Configuração do middleware multer
-export const uploadMiddleware = multer({
+exports.uploadMiddleware = (0, multer_1.default)({
     storage: storage,
     fileFilter: fileFilter,
     limits: {
@@ -50,15 +50,13 @@ export const uploadMiddleware = multer({
         files: 10 // Máximo 10 arquivos por vez
     }
 });
-
 // ✅ Controller para upload de arquivos
-export class FileUploadController {
-
+class FileUploadController {
     /**
      * Upload de múltiplos arquivos de manutenção
      * POST /api/upload/maintenance-documents
      */
-    static async uploadMaintenanceDocuments(req: Request, res: Response) {
+    static async uploadMaintenanceDocuments(req, res) {
         try {
             if (!req.files || !Array.isArray(req.files) || req.files.length === 0) {
                 return res.status(400).json({
@@ -66,15 +64,12 @@ export class FileUploadController {
                     message: 'Nenhum arquivo foi enviado'
                 });
             }
-
-            const files = req.files as Express.Multer.File[];
+            const files = req.files;
             const uploadedFiles = [];
-
             // Processar cada arquivo enviado
             for (const file of files) {
                 // Gerar URL pública do arquivo
                 const fileUrl = `/uploads/maintenance_docs/${file.filename}`;
-
                 const fileInfo = {
                     id: `file_${Date.now()}_${Math.random().toString(36).substring(7)}`,
                     originalName: file.originalname,
@@ -84,10 +79,8 @@ export class FileUploadController {
                     size: file.size,
                     uploadedAt: new Date().toISOString()
                 };
-
                 uploadedFiles.push(fileInfo);
             }
-
             return res.status(200).json({
                 success: true,
                 message: `${uploadedFiles.length} arquivo(s) enviado(s) com sucesso`,
@@ -97,10 +90,9 @@ export class FileUploadController {
                     totalSize: uploadedFiles.reduce((sum, file) => sum + file.size, 0)
                 }
             });
-
-        } catch (error) {
+        }
+        catch (error) {
             console.error('Erro no upload de arquivos:', error);
-
             return res.status(500).json({
                 success: false,
                 message: 'Erro interno do servidor durante o upload',
@@ -108,12 +100,11 @@ export class FileUploadController {
             });
         }
     }
-
     /**
      * Upload de arquivo único
      * POST /api/upload/single
      */
-    static async uploadSingleFile(req: Request, res: Response) {
+    static async uploadSingleFile(req, res) {
         try {
             if (!req.file) {
                 return res.status(400).json({
@@ -121,10 +112,8 @@ export class FileUploadController {
                     message: 'Nenhum arquivo foi enviado'
                 });
             }
-
             const file = req.file;
             const fileUrl = `/uploads/maintenance_docs/${file.filename}`;
-
             const fileInfo = {
                 id: `file_${Date.now()}_${Math.random().toString(36).substring(7)}`,
                 originalName: file.originalname,
@@ -134,16 +123,14 @@ export class FileUploadController {
                 size: file.size,
                 uploadedAt: new Date().toISOString()
             };
-
             return res.status(200).json({
                 success: true,
                 message: 'Arquivo enviado com sucesso',
                 data: fileInfo
             });
-
-        } catch (error) {
+        }
+        catch (error) {
             console.error('Erro no upload de arquivo:', error);
-
             return res.status(500).json({
                 success: false,
                 message: 'Erro interno do servidor durante o upload',
@@ -151,44 +138,37 @@ export class FileUploadController {
             });
         }
     }
-
     /**
      * Deletar arquivo
      * DELETE /api/upload/file/:filename
      */
-    static async deleteFile(req: Request, res: Response) {
+    static async deleteFile(req, res) {
         try {
             const { filename } = req.params;
-
             if (!filename) {
                 return res.status(400).json({
                     success: false,
                     message: 'Nome do arquivo é obrigatório'
                 });
             }
-
-            const filePath = path.join(__dirname, '../../uploads/maintenance_docs', filename);
-
+            const filePath = path_1.default.join(__dirname, '../../uploads/maintenance_docs', filename);
             // Verificar se arquivo existe
-            if (!fs.existsSync(filePath)) {
+            if (!fs_1.default.existsSync(filePath)) {
                 return res.status(404).json({
                     success: false,
                     message: 'Arquivo não encontrado'
                 });
             }
-
             // Deletar arquivo
-            fs.unlinkSync(filePath);
-
+            fs_1.default.unlinkSync(filePath);
             return res.status(200).json({
                 success: true,
                 message: 'Arquivo deletado com sucesso',
                 data: { filename }
             });
-
-        } catch (error) {
+        }
+        catch (error) {
             console.error('Erro ao deletar arquivo:', error);
-
             return res.status(500).json({
                 success: false,
                 message: 'Erro interno do servidor ao deletar arquivo',
@@ -196,12 +176,11 @@ export class FileUploadController {
             });
         }
     }
-
     /**
      * Upload de imagem de veículo
      * POST /api/upload/vehicle-image
      */
-    static async uploadVehicleImage(req: Request, res: Response) {
+    static async uploadVehicleImage(req, res) {
         try {
             if (!req.file) {
                 return res.status(400).json({
@@ -209,12 +188,10 @@ export class FileUploadController {
                     message: 'Nenhuma imagem foi enviada'
                 });
             }
-
             const file = req.file;
-
             // Criar objeto de arquivo de resposta
-            const uploadedFile: UploadedFile = {
-                id: path.parse(file.filename).name,
+            const uploadedFile = {
+                id: path_1.default.parse(file.filename).name,
                 originalName: file.originalname,
                 fileName: file.filename,
                 url: `/uploads/vehicle_images/${file.filename}`,
@@ -222,21 +199,18 @@ export class FileUploadController {
                 size: file.size,
                 uploadedAt: new Date().toISOString()
             };
-
             return res.status(200).json({
                 success: true,
                 message: 'Imagem do veículo enviada com sucesso',
                 data: uploadedFile
             });
-
-        } catch (error) {
+        }
+        catch (error) {
             console.error('Erro no upload da imagem do veículo:', error);
-
             // Remover arquivo em caso de erro
-            if (req.file?.path && fs.existsSync(req.file.path)) {
-                fs.unlinkSync(req.file.path);
+            if (req.file?.path && fs_1.default.existsSync(req.file.path)) {
+                fs_1.default.unlinkSync(req.file.path);
             }
-
             return res.status(500).json({
                 success: false,
                 message: 'Erro interno do servidor durante o upload',
@@ -244,16 +218,14 @@ export class FileUploadController {
             });
         }
     }
-
     /**
      * Listar arquivos disponíveis
      * GET /api/upload/files
      */
-    static async listFiles(req: Request, res: Response) {
+    static async listFiles(req, res) {
         try {
-            const uploadDir = path.join(__dirname, '../../uploads/maintenance_docs');
-
-            if (!fs.existsSync(uploadDir)) {
+            const uploadDir = path_1.default.join(__dirname, '../../uploads/maintenance_docs');
+            if (!fs_1.default.existsSync(uploadDir)) {
                 return res.status(200).json({
                     success: true,
                     data: {
@@ -262,12 +234,10 @@ export class FileUploadController {
                     }
                 });
             }
-
-            const files = fs.readdirSync(uploadDir);
+            const files = fs_1.default.readdirSync(uploadDir);
             const fileList = files.map(filename => {
-                const filePath = path.join(uploadDir, filename);
-                const stats = fs.statSync(filePath);
-
+                const filePath = path_1.default.join(uploadDir, filename);
+                const stats = fs_1.default.statSync(filePath);
                 return {
                     filename,
                     url: `/uploads/maintenance_docs/${filename}`,
@@ -276,7 +246,6 @@ export class FileUploadController {
                     modifiedAt: stats.mtime.toISOString()
                 };
             });
-
             return res.status(200).json({
                 success: true,
                 data: {
@@ -284,10 +253,9 @@ export class FileUploadController {
                     totalFiles: fileList.length
                 }
             });
-
-        } catch (error) {
+        }
+        catch (error) {
             console.error('Erro ao listar arquivos:', error);
-
             return res.status(500).json({
                 success: false,
                 message: 'Erro interno do servidor ao listar arquivos',
@@ -296,25 +264,5 @@ export class FileUploadController {
         }
     }
 }
-
-// ✅ Tipos para TypeScript
-export interface UploadedFile {
-    id: string;
-    originalName: string;
-    fileName: string;
-    url: string;
-    mimeType: string;
-    size: number;
-    uploadedAt: string;
-}
-
-export interface FileUploadResponse {
-    success: boolean;
-    message: string;
-    data?: {
-        files?: UploadedFile[];
-        totalFiles?: number;
-        totalSize?: number;
-    } | UploadedFile;
-    error?: string;
-}
+exports.FileUploadController = FileUploadController;
+//# sourceMappingURL=fileUploadController.js.map
