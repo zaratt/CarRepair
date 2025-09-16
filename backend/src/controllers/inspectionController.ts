@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import { Request, Response } from 'express';
 import { asyncHandler } from '../middleware/errorHandler';
 import { logSecurityEvent, SecurityEventType } from '../middleware/securityLogger';
+import { notifyInspectionApproved, notifyInspectionCreated, notifyInspectionRejected } from '../services/notificationService';
 import { ApiResponse } from '../types';
 
 const prisma = new PrismaClient();
@@ -86,6 +87,13 @@ export const createInspection = asyncHandler(async (req: Request, res: Response)
         message: 'Nova inspeção criada',
         risk_level: 'LOW'
     });
+
+    // ✅ GERAR NOTIFICAÇÃO AUTOMÁTICA
+    await notifyInspectionCreated(
+        inspection.id,
+        userId!,
+        inspection.vehicle?.licensePlate || 'N/A'
+    );
 
     const response: ApiResponse = {
         success: true,
@@ -265,6 +273,20 @@ export const updateInspection = asyncHandler(async (req: Request, res: Response)
             attachments: true
         }
     });
+
+    // ✅ GERAR NOTIFICAÇÃO BASEADA NA MUDANÇA DE STATUS
+    if (status && status !== existingInspection.status) {
+        const vehiclePlate = inspection.vehicle?.licensePlate || 'N/A';
+
+        switch (status) {
+            case 'Aprovado':
+                await notifyInspectionApproved(inspection.id, userId!, vehiclePlate);
+                break;
+            case 'Não conforme':
+                await notifyInspectionRejected(inspection.id, userId!, vehiclePlate);
+                break;
+        }
+    }
 
     logSecurityEvent({
         type: SecurityEventType.DATA_MODIFICATION,

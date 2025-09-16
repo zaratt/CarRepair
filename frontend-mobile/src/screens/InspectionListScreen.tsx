@@ -73,56 +73,58 @@ const InspectionListScreen: React.FC<Props> = ({ navigation }) => {
                     data={inspections}
                     keyExtractor={(item) => item.id}
                     renderItem={({ item }) => (
-                        <Card style={styles.card} elevation={3} mode="elevated">
-                            <Card.Content>
-                                <Text style={styles.title}>{item.vehicle?.brand?.name || '-'} {item.vehicle?.model?.name || '-'}</Text>
-                                <Text style={styles.label}>Placa: <Text style={styles.value}>{item.vehicle?.licensePlate || '-'}</Text></Text>
-                                <Text style={styles.label}>Data da Inspeção: <Text style={styles.value}>{new Date(item.createdAt ?? Date.now()).toLocaleDateString()}</Text></Text>
-                                <Text style={[styles.label, { marginTop: 6, fontWeight: 'bold', fontSize: 15 }]}>Empresa: <Text style={styles.value}>{item.company || '-'}</Text></Text>
-                                <View style={{ marginTop: 2, marginBottom: 8 }}>
-                                    <Badge style={{ backgroundColor: statusColors[item.status as keyof typeof statusColors] || '#888', alignSelf: 'flex-start', paddingHorizontal: 15, paddingVertical: 1, fontSize: 13 }}>
-                                        {item.status}
-                                    </Badge>
-                                </View>
-                                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6, flexWrap: 'wrap' }}>
-                                    {(Array.isArray(item.attachments) && item.attachments.length > 0) ? (
-                                        item.attachments.map((anexo: any) => (
-                                            <TouchableOpacity key={anexo.id || anexo.url} onPress={() => Linking.openURL(anexo.url)} style={{ marginRight: 8, marginBottom: 4 }}>
-                                                {anexo.type && anexo.type.startsWith('image') ? (
-                                                    <Image source={{ uri: anexo.url }} style={{ width: 44, height: 44, borderRadius: 6 }} />
-                                                ) : (
-                                                    <IconButton icon="file-pdf-box" size={36} iconColor="#d32f2f" />
-                                                )}
-                                            </TouchableOpacity>
-                                        ))
-                                    ) : (
-                                        <Text style={{ color: '#888', fontSize: 12 }}>Sem anexos</Text>
-                                    )}
-                                </View>
-                                <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 10 }}>
-                                    <Button
-                                        mode="outlined"
-                                        onPress={() => navigation.navigate('InspectionForm', { inspection: item })}
-                                        style={styles.editButton}
-                                        icon={({ size, color }) => <IconButton icon="pencil" size={18} iconColor="#1976d2" style={{ margin: 0, padding: 0 }} />}
-                                        contentStyle={styles.buttonContentRowFix}
-                                        labelStyle={[styles.editButtonText, { marginLeft: 10 }]}
-                                    >
-                                        Editar
-                                    </Button>
-                                    <Button
-                                        mode="outlined"
-                                        onPress={() => handleDelete(item.id)}
-                                        style={[styles.deleteButton, { borderColor: '#d32f2f' }]}
-                                        icon={({ size, color }) => <IconButton icon="delete" size={18} iconColor="#fff" style={{ margin: 0, padding: 0 }} />}
-                                        contentStyle={styles.buttonContentRowFix}
-                                        labelStyle={[styles.deleteButtonText, { marginLeft: 10 }]}
-                                    >
-                                        Excluir
-                                    </Button>
-                                </View>
-                            </Card.Content>
-                        </Card>
+                        <TouchableOpacity onPress={() => navigation.navigate('InspectionDetail', { inspectionId: item.id })}>
+                            <Card style={styles.card} elevation={3} mode="elevated">
+                                <Card.Content>
+                                    <Text style={styles.title}>Inspeção #{item.id.slice(-8)}</Text>
+                                    <Text style={styles.label}>Placa: <Text style={styles.value}>{item.vehicle?.licensePlate || '-'}</Text></Text>
+                                    <Text style={styles.label}>Data da Inspeção: <Text style={styles.value}>{item.date ? new Date(item.date).toLocaleDateString() : '-'}</Text></Text>
+                                    <Text style={[styles.label, { marginTop: 6, fontWeight: 'bold', fontSize: 15 }]}>Empresa: <Text style={styles.value}>{item.company || '-'}</Text></Text>
+                                    <View style={{ marginTop: 2, marginBottom: 8 }}>
+                                        <Badge style={{ backgroundColor: statusColors[item.status as keyof typeof statusColors] || '#888', alignSelf: 'flex-start', paddingHorizontal: 15, paddingVertical: 1, fontSize: 13 }}>
+                                            {item.status || 'Pendente'}
+                                        </Badge>
+                                    </View>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6, flexWrap: 'wrap' }}>
+                                        {(Array.isArray(item.attachments) && item.attachments.length > 0) ? (
+                                            item.attachments.map((anexo: any) => (
+                                                <TouchableOpacity key={anexo.id || anexo.url} onPress={() => Linking.openURL(anexo.url)} style={{ marginRight: 8, marginBottom: 4 }}>
+                                                    {anexo.type && anexo.type.startsWith('image') ? (
+                                                        <Image source={{ uri: anexo.url }} style={{ width: 44, height: 44, borderRadius: 6 }} />
+                                                    ) : (
+                                                        <IconButton icon="file-pdf-box" size={36} iconColor="#d32f2f" />
+                                                    )}
+                                                </TouchableOpacity>
+                                            ))
+                                        ) : (
+                                            <Text style={{ color: '#888', fontSize: 12 }}>Sem anexos</Text>
+                                        )}
+                                    </View>
+                                    <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 10 }}>
+                                        <Button
+                                            mode="outlined"
+                                            onPress={() => navigation.navigate('InspectionForm', { inspection: item })}
+                                            style={styles.editButton}
+                                            icon={({ size, color }) => <IconButton icon="pencil" size={18} iconColor="#1976d2" style={{ margin: 0, padding: 0 }} />}
+                                            contentStyle={styles.buttonContentRowFix}
+                                            labelStyle={[styles.editButtonText, { marginLeft: 10 }]}
+                                        >
+                                            Editar
+                                        </Button>
+                                        <Button
+                                            mode="outlined"
+                                            onPress={() => handleDelete(item.id)}
+                                            style={[styles.deleteButton, { borderColor: '#d32f2f' }]}
+                                            icon={({ size, color }) => <IconButton icon="delete" size={18} iconColor="#fff" style={{ margin: 0, padding: 0 }} />}
+                                            contentStyle={styles.buttonContentRowFix}
+                                            labelStyle={[styles.deleteButtonText, { marginLeft: 10 }]}
+                                        >
+                                            Excluir
+                                        </Button>
+                                    </View>
+                                </Card.Content>
+                            </Card>
+                        </TouchableOpacity>
                     )}
                     ListEmptyComponent={<Text style={{ textAlign: 'center', marginTop: 32, color: '#888' }}>Nenhuma inspeção encontrada.</Text>}
                 />

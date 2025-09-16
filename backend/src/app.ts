@@ -20,6 +20,7 @@ import uploadRoutes from './routes/upload.routes';
 import userRoutes from './routes/userRoutes';
 import vehicleRoutes from './routes/vehicleRoutes';
 import workshopRoutes from './routes/workshopRoutes';
+import { initializeCronJobs } from './services/cronJobs';
 import { ApiResponse } from './types';
 
 // Validar configurações na inicialização
@@ -27,6 +28,9 @@ validateConfig();
 
 // Inicializar sistema de logging de segurança
 initializeLogger();
+
+// ✅ INICIALIZAR TAREFAS AUTOMÁTICAS
+initializeCronJobs();
 
 const app = express();
 

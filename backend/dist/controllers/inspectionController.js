@@ -4,6 +4,7 @@ exports.getUserInspections = exports.scheduleInspection = exports.getInspectionT
 const client_1 = require("@prisma/client");
 const errorHandler_1 = require("../middleware/errorHandler");
 const securityLogger_1 = require("../middleware/securityLogger");
+const notificationService_1 = require("../services/notificationService");
 const prisma = new client_1.PrismaClient();
 // ✅ CRUD COMPLETO DE INSPEÇÕES
 // Criar nova inspeção
@@ -78,6 +79,8 @@ exports.createInspection = (0, errorHandler_1.asyncHandler)(async (req, res) => 
         message: 'Nova inspeção criada',
         risk_level: 'LOW'
     });
+    // ✅ GERAR NOTIFICAÇÃO AUTOMÁTICA
+    await (0, notificationService_1.notifyInspectionCreated)(inspection.id, userId, inspection.vehicle?.licensePlate || 'N/A');
     const response = {
         success: true,
         message: 'Inspeção criada com sucesso',
@@ -237,6 +240,18 @@ exports.updateInspection = (0, errorHandler_1.asyncHandler)(async (req, res) => 
             attachments: true
         }
     });
+    // ✅ GERAR NOTIFICAÇÃO BASEADA NA MUDANÇA DE STATUS
+    if (status && status !== existingInspection.status) {
+        const vehiclePlate = inspection.vehicle?.licensePlate || 'N/A';
+        switch (status) {
+            case 'Aprovado':
+                await (0, notificationService_1.notifyInspectionApproved)(inspection.id, userId, vehiclePlate);
+                break;
+            case 'Não conforme':
+                await (0, notificationService_1.notifyInspectionRejected)(inspection.id, userId, vehiclePlate);
+                break;
+        }
+    }
     (0, securityLogger_1.logSecurityEvent)({
         type: securityLogger_1.SecurityEventType.DATA_MODIFICATION,
         ip: req.ip || 'unknown',

@@ -1,9 +1,9 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
-import { Badge, Button, Card, Divider, Text, TextInput } from 'react-native-paper';
+import { Badge, Button, Card, Divider, Switch, Text, TextInput } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { deleteUserFull, updateUserProfile } from '../api/api';
+import { deleteUserFull, updateUserProfile, useNotificationPreferencesQuery, useUpdateNotificationPreferencesMutation } from '../api/api';
 import FloatingBottomTabs from '../components/FloatingBottomTabs';
 import { useAuthContext } from '../contexts/AuthContext';
 
@@ -15,6 +15,10 @@ const ProfileScreen: React.FC = ({ navigation }: any) => {
     const [loading, setLoading] = useState(false);
     const [editing, setEditing] = useState(false);
     const [form, setForm] = useState({ name: '', phone: '', city: '', state: '' });
+
+    // ✅ NOTIFICAÇÕES
+    const { data: notificationPrefs, isLoading: prefsLoading } = useNotificationPreferencesQuery();
+    const updatePrefsMutation = useUpdateNotificationPreferencesMutation();
 
     useEffect(() => {
         if (user) {
@@ -82,18 +86,25 @@ const ProfileScreen: React.FC = ({ navigation }: any) => {
 
     const handleCancelEdit = () => {
         setEditing(false);
-        // Restaurar dados originais
-        if (user) {
-            setForm({
-                name: user.name || '',
-                phone: user.phone || '',
-                city: user.city || '',
-                state: user.state || '',
-            });
-        }
+        setForm({
+            name: user?.name || '',
+            phone: user?.phone || '',
+            city: user?.city || '',
+            state: user?.state || '',
+        });
     };
 
-    return (
+    // ✅ FUNÇÃO PARA ATUALIZAR PREFERÊNCIAS DE NOTIFICAÇÃO
+    const handleNotificationToggle = async (key: string, value: boolean) => {
+        try {
+            await updatePrefsMutation.mutateAsync({
+                [key]: value
+            });
+        } catch (error) {
+            console.error('❌ Erro ao atualizar preferências:', error);
+            Alert.alert('Erro', 'Não foi possível atualizar as preferências de notificação');
+        }
+    }; return (
         <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }} edges={["top", "left", "right"]}>
             <ScrollView contentContainerStyle={{ flexGrow: 1, paddingBottom: 80 }} keyboardShouldPersistTaps="handled">
                 <View style={styles.headerRow}>
@@ -171,6 +182,85 @@ const ProfileScreen: React.FC = ({ navigation }: any) => {
                             )}
                         </Card.Content>
                     </Card>
+
+                    {/* ✅ SEÇÃO DE NOTIFICAÇÕES */}
+                    <Divider style={{ marginVertical: 16 }} />
+                    <Text variant="titleMedium" style={{ fontWeight: 'bold', marginBottom: 12, color: PROFILE_COLOR }}>
+                        🔔 Configurações de Notificação
+                    </Text>
+
+                    <Card style={[styles.infoCard, { backgroundColor: '#f3e5f5' }]}>
+                        <Card.Title
+                            title="Push Notifications"
+                            subtitle="Receber notificações no dispositivo"
+                            left={() => <MaterialIcons name="notifications" size={28} color="#7b1fa2" />}
+                        />
+                        <Card.Content>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <Text>Ativar notificações push</Text>
+                                <Switch
+                                    value={notificationPrefs?.enablePush ?? true}
+                                    onValueChange={(value) => handleNotificationToggle('enablePush', value)}
+                                    disabled={prefsLoading || updatePrefsMutation.isPending}
+                                />
+                            </View>
+                        </Card.Content>
+                    </Card>
+
+                    <Card style={[styles.infoCard, { backgroundColor: '#e8f5e9' }]}>
+                        <Card.Title
+                            title="Lembretes de Manutenção"
+                            subtitle="Alertas sobre manutenções preventivas"
+                            left={() => <MaterialIcons name="build" size={28} color="#388e3c" />}
+                        />
+                        <Card.Content>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <Text>Lembrete de manutenção</Text>
+                                <Switch
+                                    value={notificationPrefs?.maintenanceReminders ?? true}
+                                    onValueChange={(value) => handleNotificationToggle('maintenanceReminders', value)}
+                                    disabled={prefsLoading || updatePrefsMutation.isPending}
+                                />
+                            </View>
+                        </Card.Content>
+                    </Card>
+
+                    <Card style={[styles.infoCard, { backgroundColor: '#e3f2fd' }]}>
+                        <Card.Title
+                            title="Lembretes de Inspeção"
+                            subtitle="Alertas sobre inspeções obrigatórias"
+                            left={() => <MaterialIcons name="assignment" size={28} color="#1976d2" />}
+                        />
+                        <Card.Content>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <Text>Lembrete de inspeção</Text>
+                                <Switch
+                                    value={notificationPrefs?.inspectionReminders ?? true}
+                                    onValueChange={(value) => handleNotificationToggle('inspectionReminders', value)}
+                                    disabled={prefsLoading || updatePrefsMutation.isPending}
+                                />
+                            </View>
+                        </Card.Content>
+                    </Card>
+
+                    <Card style={[styles.infoCard, { backgroundColor: '#fce4ec' }]}>
+                        <Card.Title
+                            title="Promoções e Ofertas"
+                            subtitle="Receber ofertas especiais de oficinas"
+                            left={() => <MaterialIcons name="local-offer" size={28} color="#c2185b" />}
+                        />
+                        <Card.Content>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <Text>Ofertas promocionais</Text>
+                                <Switch
+                                    value={notificationPrefs?.promotions ?? false}
+                                    onValueChange={(value) => handleNotificationToggle('promotions', value)}
+                                    disabled={prefsLoading || updatePrefsMutation.isPending}
+                                />
+                            </View>
+                        </Card.Content>
+                    </Card>
+
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 24, marginBottom: 32 }}>
                         {editing ? (
                             <>

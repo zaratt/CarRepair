@@ -20,10 +20,13 @@ const upload_routes_1 = __importDefault(require("./routes/upload.routes"));
 const userRoutes_1 = __importDefault(require("./routes/userRoutes"));
 const vehicleRoutes_1 = __importDefault(require("./routes/vehicleRoutes"));
 const workshopRoutes_1 = __importDefault(require("./routes/workshopRoutes"));
+const cronJobs_1 = require("./services/cronJobs");
 // Validar configurações na inicialização
 (0, config_1.validateConfig)();
 // Inicializar sistema de logging de segurança
 (0, securityLogger_1.initializeLogger)();
+// ✅ INICIALIZAR TAREFAS AUTOMÁTICAS
+(0, cronJobs_1.initializeCronJobs)();
 const app = (0, express_1.default)();
 // ✅ SEGURANÇA LAYER 1: Trust proxy para aplicações atrás de proxy/load balancer
 app.set('trust proxy', 1);

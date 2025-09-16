@@ -469,3 +469,105 @@ export const getUserMaintenanceHistory = async (userId: string): Promise<{
         };
     }
 };
+
+// ✅ NOTIFICAÇÕES - APIs Frontend
+export const getNotifications = async (page = 1, limit = 20, unreadOnly = false) => {
+    const response = await api.get('/notifications', {
+        params: { page, limit, unreadOnly }
+    });
+    return response.data.data ? response.data.data : response.data;
+};
+
+export const getNotificationStats = async () => {
+    const response = await api.get('/notifications/stats');
+    return response.data.data ? response.data.data : response.data;
+};
+
+export const markNotificationAsRead = async (notificationId: string) => {
+    const response = await api.patch(`/notifications/${notificationId}/read`);
+    return response.data;
+};
+
+export const markAllNotificationsAsRead = async () => {
+    const response = await api.patch('/notifications/mark-all-read');
+    return response.data;
+};
+
+export const deleteNotification = async (notificationId: string) => {
+    await api.delete(`/notifications/${notificationId}`);
+};
+
+export const getNotificationPreferences = async () => {
+    const response = await api.get('/notifications/preferences');
+    return response.data.data ? response.data.data : response.data;
+};
+
+export const updateNotificationPreferences = async (preferences: any) => {
+    const response = await api.put('/notifications/preferences/current', preferences);
+    return response.data.data ? response.data.data : response.data;
+};
+
+// ✅ REACT QUERY HOOKS PARA NOTIFICAÇÕES
+export function useNotificationsQuery(page = 1, limit = 20, unreadOnly = false) {
+    return useQuery({
+        queryKey: ['notifications', page, limit, unreadOnly],
+        queryFn: () => getNotifications(page, limit, unreadOnly),
+    });
+}
+
+export function useNotificationStatsQuery() {
+    return useQuery({
+        queryKey: ['notification-stats'],
+        queryFn: getNotificationStats,
+    });
+}
+
+export function useNotificationPreferencesQuery() {
+    return useQuery({
+        queryKey: ['notification-preferences'],
+        queryFn: getNotificationPreferences,
+    });
+}
+
+export function useUpdateNotificationPreferencesMutation() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: updateNotificationPreferences,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['notification-preferences'] });
+        },
+    });
+}
+
+export function useMarkNotificationAsReadMutation() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: markNotificationAsRead,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['notifications'] });
+            queryClient.invalidateQueries({ queryKey: ['notification-stats'] });
+        },
+    });
+}
+
+export function useMarkAllNotificationsAsReadMutation() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: markAllNotificationsAsRead,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['notifications'] });
+            queryClient.invalidateQueries({ queryKey: ['notification-stats'] });
+        },
+    });
+}
+
+export function useDeleteNotificationMutation() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: deleteNotification,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['notifications'] });
+            queryClient.invalidateQueries({ queryKey: ['notification-stats'] });
+        },
+    });
+}

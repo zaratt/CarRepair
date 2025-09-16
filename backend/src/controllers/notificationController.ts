@@ -1,84 +1,33 @@
+import { PrismaClient } from '@prisma/client';
 import { Request, Response } from 'express';
 import { asyncHandler } from '../middleware/errorHandler';
 import { ApiResponse } from '../types';
 
-// Obter preferências de notificação do usuário
-export const getNotificationPreferences = asyncHandler(async (req: Request, res: Response) => {
-    // Mock data para desenvolvimento
-    const preferences = {
-        userId: req.params.userId || 'current_user',
-        emailNotifications: {
-            maintenanceReminders: true,
-            inspectionReminders: true,
-            paymentDue: true,
-            promotions: false,
-            systemUpdates: true
-        },
-        pushNotifications: {
-            maintenanceReminders: true,
-            inspectionReminders: true,
-            paymentDue: true,
-            promotions: false,
-            systemUpdates: false,
-            emergencyAlerts: true
-        },
-        smsNotifications: {
-            maintenanceReminders: false,
-            inspectionReminders: true,
-            paymentDue: true,
-            promotions: false,
-            emergencyAlerts: true
-        },
-        frequency: {
-            maintenanceReminders: 7, // dias antes
-            inspectionReminders: 15, // dias antes
-            paymentReminders: 3 // dias antes
-        },
-        quietHours: {
-            enabled: true,
-            startTime: '22:00',
-            endTime: '08:00'
-        }
-    };
+const prisma = new PrismaClient();
 
-    const response: ApiResponse = {
-        success: true,
-        message: 'Notification preferences retrieved successfully',
-        data: preferences
-    };
-
-    res.json(response);
-});
-
-// Atualizar preferências de notificação
-export const updateNotificationPreferences = asyncHandler(async (req: Request, res: Response) => {
-    const userId = req.params.userId;
-    const preferences = req.body;
-
-    // Mock response - em produção, salvaria no banco
-    const updatedPreferences = {
-        userId,
-        ...preferences,
-        updatedAt: new Date().toISOString()
-    };
-
-    const response: ApiResponse = {
-        success: true,
-        message: 'Notification preferences updated successfully',
-        data: updatedPreferences
-    };
-
-    res.json(response);
-});
-
-// Obter notificações do usuário
+// ✅ CRUD REAL - Obter notificações do usuário
 export const getUserNotifications = asyncHandler(async (req: Request, res: Response) => {
-    const userId = req.params.userId || 'default_user'; // Para quando não há userId na rota
+    const { userId } = req.user as any; // Do middleware de autenticação
     const { page = 1, limit = 20, unreadOnly = false } = req.query;
 
-    // Em um ambiente real, buscaríamos do banco de dados
-    // Por enquanto, retornamos lista vazia já que não há notificações reais implementadas
-    const notifications: any[] = [];
+    const where = {
+        userId,
+        ...(unreadOnly === 'true' && { isRead: false })
+    };
+
+    const [notifications, total] = await Promise.all([
+        prisma.notification.findMany({
+            where,
+            orderBy: { createdAt: 'desc' },
+            skip: (Number(page) - 1) * Number(limit),
+            take: Number(limit),
+        }),
+        prisma.notification.count({ where })
+    ]);
+
+    const unreadCount = await prisma.notification.count({
+        where: { userId, isRead: false }
+    });
 
     const response: ApiResponse = {
         success: true,
@@ -88,13 +37,13 @@ export const getUserNotifications = asyncHandler(async (req: Request, res: Respo
             pagination: {
                 page: Number(page),
                 limit: Number(limit),
-                total: 0,
-                totalPages: 0
+                total,
+                totalPages: Math.ceil(total / Number(limit))
             },
             stats: {
-                total: 0,
-                unread: 0,
-                read: 0
+                total,
+                unread: unreadCount,
+                read: total - unreadCount
             }
         }
     };
@@ -102,35 +51,59 @@ export const getUserNotifications = asyncHandler(async (req: Request, res: Respo
     res.json(response);
 });
 
-// Marcar notificação como lida
+// ✅ CRUD REAL - Marcar notificação como lida
 export const markNotificationAsRead = asyncHandler(async (req: Request, res: Response) => {
-    const notificationId = req.params.notificationId;
+    const { userId } = req.user as any;
+    const { notificationId } = req.params;
 
-    // Mock response
+    const notification = await prisma.notification.findFirst({
+        where: { id: notificationId, userId }
+    });
+
+    if (!notification) {
+        const errorResponse: ApiResponse = {
+            success: false,
+            message: 'Notification not found'
+        };
+        res.status(404).json(errorResponse);
+        return;
+    }
+
+    const updatedNotification = await prisma.notification.update({
+        where: { id: notificationId },
+        data: {
+            isRead: true,
+            readAt: new Date()
+        }
+    });
+
     const response: ApiResponse = {
         success: true,
         message: 'Notification marked as read',
-        data: {
-            notificationId,
-            isRead: true,
-            readAt: new Date().toISOString()
-        }
+        data: updatedNotification
     };
 
     res.json(response);
 });
 
-// Marcar todas as notificações como lidas
+// ✅ CRUD REAL - Marcar todas as notificações como lidas
 export const markAllNotificationsAsRead = asyncHandler(async (req: Request, res: Response) => {
-    const userId = req.params.userId || req.body.userId || 'default_user'; // Aceitar userId do body ou params
+    const { userId } = req.user as any;
 
-    // Mock response
+    const result = await prisma.notification.updateMany({
+        where: { userId, isRead: false },
+        data: {
+            isRead: true,
+            readAt: new Date()
+        }
+    });
+
     const response: ApiResponse = {
         success: true,
         message: 'All notifications marked as read',
         data: {
             userId,
-            markedCount: 5,
+            markedCount: result.count,
             readAt: new Date().toISOString()
         }
     };
@@ -138,11 +111,28 @@ export const markAllNotificationsAsRead = asyncHandler(async (req: Request, res:
     res.json(response);
 });
 
-// Deletar notificação
+// ✅ CRUD REAL - Deletar notificação
 export const deleteNotification = asyncHandler(async (req: Request, res: Response) => {
-    const notificationId = req.params.notificationId;
+    const { userId } = req.user as any;
+    const { notificationId } = req.params;
 
-    // Mock response
+    const notification = await prisma.notification.findFirst({
+        where: { id: notificationId, userId }
+    });
+
+    if (!notification) {
+        const errorResponse: ApiResponse = {
+            success: false,
+            message: 'Notification not found'
+        };
+        res.status(404).json(errorResponse);
+        return;
+    }
+
+    await prisma.notification.delete({
+        where: { id: notificationId }
+    });
+
     const response: ApiResponse = {
         success: true,
         message: 'Notification deleted successfully',
@@ -155,37 +145,111 @@ export const deleteNotification = asyncHandler(async (req: Request, res: Respons
     res.json(response);
 });
 
-// Obter estatísticas de notificações
+// ✅ CRUD REAL - Obter estatísticas de notificações
 export const getNotificationStats = asyncHandler(async (req: Request, res: Response) => {
-    const userId = req.params.userId || 'default_user'; // Para quando não há userId na rota
+    const { userId } = req.user as any;
 
-    // Mock data
+    const [total, unread, byType, byPriority, thisWeek, thisMonth] = await Promise.all([
+        prisma.notification.count({ where: { userId } }),
+        prisma.notification.count({ where: { userId, isRead: false } }),
+        prisma.notification.groupBy({
+            by: ['type'],
+            where: { userId },
+            _count: { type: true }
+        }),
+        prisma.notification.groupBy({
+            by: ['priority'],
+            where: { userId },
+            _count: { priority: true }
+        }),
+        prisma.notification.count({
+            where: {
+                userId,
+                createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) }
+            }
+        }),
+        prisma.notification.count({
+            where: {
+                userId,
+                createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }
+            }
+        })
+    ]);
+
+    const lastNotification = await prisma.notification.findFirst({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        select: { createdAt: true }
+    });
+
     const stats = {
         userId,
-        total: 24,
-        unread: 3,
-        byType: {
-            maintenance_reminder: 8,
-            inspection_reminder: 6,
-            payment_reminder: 4,
-            system_update: 3,
-            promotional: 2,
-            emergency: 1
-        },
-        byPriority: {
-            high: 5,
-            medium: 12,
-            low: 7
-        },
-        thisWeek: 8,
-        thisMonth: 15,
-        lastActivity: '2025-09-01T10:00:00Z'
+        total,
+        unread,
+        byType: byType.reduce((acc, item) => ({
+            ...acc,
+            [item.type]: item._count.type
+        }), {}),
+        byPriority: byPriority.reduce((acc, item) => ({
+            ...acc,
+            [item.priority]: item._count.priority
+        }), {}),
+        thisWeek,
+        thisMonth,
+        lastActivity: lastNotification?.createdAt
     };
 
     const response: ApiResponse = {
         success: true,
         message: 'Notification statistics retrieved successfully',
         data: stats
+    };
+
+    res.json(response);
+});
+
+// ✅ CRUD REAL - Obter preferências de notificação do usuário
+export const getNotificationPreferences = asyncHandler(async (req: Request, res: Response) => {
+    const { userId } = req.user as any;
+
+    let preferences = await prisma.notificationPreference.findUnique({
+        where: { userId }
+    });
+
+    // Se não existir, criar com valores padrão
+    if (!preferences) {
+        preferences = await prisma.notificationPreference.create({
+            data: { userId }
+        });
+    }
+
+    const response: ApiResponse = {
+        success: true,
+        message: 'Notification preferences retrieved successfully',
+        data: preferences
+    };
+
+    res.json(response);
+});
+
+// ✅ CRUD REAL - Atualizar preferências de notificação
+export const updateNotificationPreferences = asyncHandler(async (req: Request, res: Response) => {
+    const { userId } = req.user as any;
+    const preferences = req.body;
+
+    const updatedPreferences = await prisma.notificationPreference.upsert({
+        where: { userId },
+        update: preferences,
+        create: {
+            userId,
+            ...preferences
+        }
+    });
+
+    const response: ApiResponse = {
+        success: true,
+        message: 'Notification preferences updated successfully',
+        data: updatedPreferences
     };
 
     res.json(response);

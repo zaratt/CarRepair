@@ -14,23 +14,25 @@ datasource db {
 }
 
 model User {
-  id                String             @id @default(uuid())
-  name              String
-  email             String             @unique
-  password          String // ✅ NOVO: Campo para senha hash
-  cpfCnpj           String             @unique
-  type              String // 'user' ou 'workshop'
-  profile           String // 'car_owner' ou 'wshop_owner'
-  phone             String?
-  city              String?
-  state             String?
-  isValidated       Boolean            @default(false)
-  createdAt         DateTime           @default(now())
-  vehicles          Vehicle[]          @relation("UserVehicles") // Relacionamento com Vehicle
-  workshops         Workshop[] // Relacionamento com oficinas
-  inspections       Inspection[] // Relação com inspeções
-  ratings           Rating[] // Relacionamento com avaliações
-  workshopFavorites WorkshopFavorite[]
+  id                     String                  @id @default(uuid())
+  name                   String
+  email                  String                  @unique
+  password               String // ✅ NOVO: Campo para senha hash
+  cpfCnpj                String                  @unique
+  type                   String // 'user' ou 'workshop'
+  profile                String // 'car_owner' ou 'wshop_owner'
+  phone                  String?
+  city                   String?
+  state                  String?
+  isValidated            Boolean                 @default(false)
+  createdAt              DateTime                @default(now())
+  vehicles               Vehicle[]               @relation("UserVehicles") // Relacionamento com Vehicle
+  workshops              Workshop[] // Relacionamento com oficinas
+  inspections            Inspection[] // Relação com inspeções
+  ratings                Rating[] // Relacionamento com avaliações
+  workshopFavorites      WorkshopFavorite[]
+  notifications          Notification[] // ✅ NOVO: Relação com notificações
+  notificationPreference NotificationPreference? // ✅ NOVO: Preferências de notificação
 }
 
 model Brand {
@@ -205,4 +207,42 @@ model WorkshopFavorite {
   createdAt  DateTime @default(now())
 
   @@unique([userId, workshopId])
+}
+
+// ✅ NOVO: Modelo de Notificações
+model Notification {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String // 'maintenance_reminder', 'inspection_reminder', 'payment_due', 'system_update', 'promotional'
+  title     String
+  message   String
+  priority  String    @default("medium") // 'high', 'medium', 'low'
+  isRead    Boolean   @default(false)
+  readAt    DateTime?
+  data      Json? // Dados extras (IDs relacionados, URLs, etc)
+  actionUrl String? // URL para navegação quando tocada
+  expiresAt DateTime? // Data de expiração da notificação
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+// ✅ NOVO: Preferências de Notificação do Usuário
+model NotificationPreference {
+  id                   String   @id @default(uuid())
+  userId               String   @unique
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  enablePush           Boolean  @default(true)
+  enableEmail          Boolean  @default(true)
+  enableSms            Boolean  @default(false)
+  maintenanceReminders Boolean  @default(true)
+  inspectionReminders  Boolean  @default(true)
+  paymentReminders     Boolean  @default(true)
+  promotions           Boolean  @default(false)
+  systemUpdates        Boolean  @default(true)
+  emergencyAlerts      Boolean  @default(true)
+  quietHoursStart      String?  @default("22:00")
+  quietHoursEnd        String?  @default("08:00")
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 }

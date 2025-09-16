@@ -127,3 +127,49 @@ export interface Inspection {
     updatedAt?: string;
     attachments?: InspectionAttachment[];
 }
+
+// ✅ TIPOS PARA NOTIFICAÇÕES
+export interface Notification {
+    id: string;
+    userId: string;
+    type: string; // 'maintenance_reminder', 'inspection_reminder', 'payment_reminder', etc
+    title: string;
+    message: string;
+    priority: 'high' | 'medium' | 'low';
+    isRead: boolean;
+    readAt?: string;
+    data?: any; // Dados extras (IDs relacionados, URLs, etc)
+    actionUrl?: string; // URL para navegação quando tocada
+    expiresAt?: string;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface NotificationPreference {
+    id: string;
+    userId: string;
+    enablePush: boolean;
+    enableEmail: boolean;
+    enableSms: boolean;
+    maintenanceReminders: boolean;
+    inspectionReminders: boolean;
+    paymentReminders: boolean;
+    promotions: boolean;
+    systemUpdates: boolean;
+    emergencyAlerts: boolean;
+    quietHoursStart?: string;
+    quietHoursEnd?: string;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface NotificationStats {
+    userId: string;
+    total: number;
+    unread: number;
+    byType: { [key: string]: number };
+    byPriority: { [key: string]: number };
+    thisWeek: number;
+    thisMonth: number;
+    lastActivity?: string;
+}
