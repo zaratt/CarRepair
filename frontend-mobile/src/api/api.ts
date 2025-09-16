@@ -194,17 +194,17 @@ export const getMaintenance = async (id: string): Promise<Maintenance> => {
 // Inspeções
 export const getInspections = async (userId?: string): Promise<Inspection[]> => {
     const response = await api.get('/inspections', { params: userId ? { userId } : {} });
-    return response.data;
+    return response.data.data ? response.data.data.inspections : response.data;
 };
 
 export const createInspection = async (data: Omit<Inspection, 'id' | 'createdAt'>): Promise<Inspection> => {
     const response = await api.post('/inspections', data);
-    return response.data;
+    return response.data.data ? response.data.data : response.data;
 };
 
-export const updateInspection = async (id: string, data: Omit<Inspection, 'id' | 'createdAt'>): Promise<Inspection> => {
+export const updateInspection = async (id: string, data: Partial<Omit<Inspection, 'id' | 'createdAt'>>): Promise<Inspection> => {
     const response = await api.put(`/inspections/${id}`, data);
-    return response.data;
+    return response.data.data ? response.data.data : response.data;
 };
 
 export const deleteInspection = async (id: string): Promise<void> => {
@@ -213,7 +213,7 @@ export const deleteInspection = async (id: string): Promise<void> => {
 
 export const getInspection = async (id: string): Promise<Inspection> => {
     const response = await api.get(`/inspections/${id}`);
-    return response.data;
+    return response.data.data ? response.data.data : response.data;
 };
 
 // Avaliação de oficinas
