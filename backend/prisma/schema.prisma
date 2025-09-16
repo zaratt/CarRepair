@@ -33,6 +33,7 @@ model User {
   workshopFavorites      WorkshopFavorite[]
   notifications          Notification[] // ✅ NOVO: Relação com notificações
   notificationPreference NotificationPreference? // ✅ NOVO: Preferências de notificação
+  pushTokens             PushToken[] // ✅ NOVO: Relação com push tokens
 }
 
 model Brand {
@@ -245,4 +246,23 @@ model NotificationPreference {
   quietHoursEnd        String?  @default("08:00")
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
+}
+
+// ✅ NOVO: Modelo para Push Tokens
+model PushToken {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token      String   @unique
+  platform   String // 'ios', 'android', 'web'
+  deviceName String?
+  osVersion  String?
+  modelName  String?
+  isActive   Boolean  @default(true)
+  lastUsed   DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([userId])
+  @@index([token])
 }

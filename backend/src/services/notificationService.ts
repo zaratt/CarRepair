@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { pushNotificationService } from './pushNotificationService';
 
 const prisma = new PrismaClient();
 
@@ -40,6 +41,34 @@ export const createNotification = async (notificationData: NotificationData) => 
         });
 
         console.log(`✅ Notificação criada: ${notification.type} para usuário ${notification.userId}`);
+
+        // ✅ NOVO: Enviar push notification em paralelo (não bloquear a criação)
+        setImmediate(async () => {
+            try {
+                await pushNotificationService.sendToUser(
+                    {
+                        userId: notificationData.userId,
+                        notificationType: notificationData.type
+                    },
+                    {
+                        title: notificationData.title,
+                        body: notificationData.message,
+                        data: {
+                            notificationId: notification.id,
+                            actionUrl: notificationData.actionUrl,
+                            type: notificationData.type,
+                            ...notificationData.data
+                        },
+                        priority: notificationData.priority === 'high' ? 'high' : 'normal',
+                        badge: 1
+                    }
+                );
+                console.log(`📱 Push notification enviado para usuário ${notificationData.userId}`);
+            } catch (error) {
+                console.error('❌ Erro ao enviar push notification:', error);
+            }
+        });
+
         return notification;
     } catch (error) {
         console.error('❌ Erro ao criar notificação:', error);

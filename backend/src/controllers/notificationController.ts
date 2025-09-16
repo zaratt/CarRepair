@@ -254,3 +254,153 @@ export const updateNotificationPreferences = asyncHandler(async (req: Request, r
 
     res.json(response);
 });
+
+// ✅ NOVO: Registrar Push Token
+export const registerPushToken = asyncHandler(async (req: Request, res: Response) => {
+    const { userId } = req.user as any;
+    const { pushToken, deviceInfo } = req.body;
+
+    if (!pushToken) {
+        res.status(400).json({
+            success: false,
+            message: 'Push token is required'
+        });
+        return;
+    }
+
+    try {
+        // Desativar tokens antigos deste usuário no mesmo dispositivo
+        await prisma.pushToken.updateMany({
+            where: {
+                userId,
+                platform: deviceInfo?.platform || 'unknown'
+            },
+            data: {
+                isActive: false
+            }
+        });
+
+        // Criar ou atualizar o token
+        const token = await prisma.pushToken.upsert({
+            where: {
+                token: pushToken
+            },
+            update: {
+                isActive: true,
+                lastUsed: new Date(),
+                deviceName: deviceInfo?.deviceName,
+                osVersion: deviceInfo?.osVersion,
+                modelName: deviceInfo?.modelName,
+                platform: deviceInfo?.platform || 'unknown'
+            },
+            create: {
+                userId,
+                token: pushToken,
+                platform: deviceInfo?.platform || 'unknown',
+                deviceName: deviceInfo?.deviceName,
+                osVersion: deviceInfo?.osVersion,
+                modelName: deviceInfo?.modelName,
+                isActive: true
+            }
+        });
+
+        const response: ApiResponse<any> = {
+            success: true,
+            message: 'Push token registered successfully',
+            data: { tokenId: token.id }
+        };
+
+        res.json(response);
+    } catch (error) {
+        console.error('Error registering push token:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to register push token'
+        });
+    }
+});
+
+// ✅ NOVO: Listar Push Tokens do Usuário
+export const getUserPushTokens = asyncHandler(async (req: Request, res: Response) => {
+    const { userId } = req.user as any;
+
+    const tokens = await prisma.pushToken.findMany({
+        where: {
+            userId,
+            isActive: true
+        },
+        select: {
+            id: true,
+            platform: true,
+            deviceName: true,
+            osVersion: true,
+            modelName: true,
+            lastUsed: true,
+            createdAt: true
+        },
+        orderBy: {
+            lastUsed: 'desc'
+        }
+    });
+
+    const response: ApiResponse<any> = {
+        success: true,
+        message: 'Push tokens retrieved successfully',
+        data: tokens
+    };
+
+    res.json(response);
+});
+
+// ✅ NOVO: Remover Push Token
+export const removePushToken = asyncHandler(async (req: Request, res: Response) => {
+    const { userId } = req.user as any;
+    const { tokenId } = req.params;
+
+    const token = await prisma.pushToken.findFirst({
+        where: {
+            id: tokenId,
+            userId
+        }
+    });
+
+    if (!token) {
+        res.status(404).json({
+            success: false,
+            message: 'Push token not found'
+        });
+        return;
+    }
+
+    await prisma.pushToken.update({
+        where: {
+            id: tokenId
+        },
+        data: {
+            isActive: false
+        }
+    });
+
+    const response: ApiResponse<any> = {
+        success: true,
+        message: 'Push token removed successfully'
+    };
+
+    res.json(response);
+});
+
+// ✅ NOVO: Atualizar timestamp do token (usado quando enviamos push)
+export const updateTokenUsage = async (tokenId: string): Promise<void> => {
+    try {
+        await prisma.pushToken.update({
+            where: {
+                id: tokenId
+            },
+            data: {
+                lastUsed: new Date()
+            }
+        });
+    } catch (error) {
+        console.error('Error updating token usage:', error);
+    }
+};

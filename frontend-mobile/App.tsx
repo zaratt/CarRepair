@@ -5,6 +5,7 @@ import { PaperProvider } from 'react-native-paper';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import SplashScreen from './src/components/SplashScreen';
 import { AuthProvider } from './src/contexts/AuthContext';
+import { NotificationProvider } from './src/contexts/NotificationContext';
 import AppNavigator from './src/navigation/AppNavigator';
 import { customTheme } from './src/styles/theme';
 
@@ -22,8 +23,10 @@ export default function App() {
       <AuthProvider>
         <QueryClientProvider client={queryClient}>
           <PaperProvider theme={customTheme}>
-            <AppNavigator />
-            {showSplash && <SplashScreen onFinish={handleSplashFinish} />}
+            <NotificationProvider>
+              <AppNavigator />
+              {showSplash && <SplashScreen onFinish={handleSplashFinish} />}
+            </NotificationProvider>
           </PaperProvider>
         </QueryClientProvider>
       </AuthProvider>

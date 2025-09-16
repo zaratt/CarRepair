@@ -4,8 +4,11 @@ import {
     getNotificationPreferences,
     getNotificationStats,
     getUserNotifications,
+    getUserPushTokens,
     markAllNotificationsAsRead,
     markNotificationAsRead,
+    registerPushToken,
+    removePushToken,
     updateNotificationPreferences
 } from '../controllers/notificationController';
 
@@ -52,5 +55,45 @@ router.delete('/:notificationId', deleteNotification);
 
 // Estatísticas de notificações
 router.get('/stats/:userId', getNotificationStats);
+
+// ✅ NOVO: Rotas para Push Tokens
+router.post('/register-token', registerPushToken);
+router.get('/tokens', getUserPushTokens);
+router.delete('/tokens/:tokenId', removePushToken);
+
+// ✅ TESTE: Endpoint para testar push notifications
+router.post('/test-push', async (req, res) => {
+    try {
+        const { userId } = req.user as any;
+        const { pushNotificationService } = require('../services/pushNotificationService');
+
+        const success = await pushNotificationService.sendToUser(
+            { userId, notificationType: 'system_update' },
+            {
+                title: '🧪 Teste de Push Notification',
+                body: 'Sistema de notificações funcionando perfeitamente!',
+                data: {
+                    test: true,
+                    timestamp: new Date().toISOString(),
+                    actionUrl: '/notifications'
+                },
+                priority: 'high'
+            }
+        );
+
+        res.json({
+            success,
+            message: success
+                ? 'Push notification de teste enviado com sucesso!'
+                : 'Falha ao enviar push notification de teste'
+        });
+    } catch (error) {
+        console.error('Erro no teste de push:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Erro interno no teste de push notification'
+        });
+    }
+});
 
 export default router;
