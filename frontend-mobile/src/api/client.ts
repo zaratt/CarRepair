@@ -27,7 +27,7 @@ interface AuthTokens {
 
 // 🔑 Gerenciamento de tokens
 class TokenManager {
-    private static ACCESS_TOKEN_KEY = 'access_token';
+    private static ACCESS_TOKEN_KEY = 'auth_token'; // ✅ Corrigido para coincidir com AuthService
     private static REFRESH_TOKEN_KEY = 'refresh_token';
 
     static async getAccessToken(): Promise<string | null> {

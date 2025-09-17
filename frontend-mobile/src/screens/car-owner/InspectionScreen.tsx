@@ -42,7 +42,7 @@ function InspectionScreenContent() {
 
     // Função de filtro
     const filterInspections = useCallback(() => {
-        let filtered = inspections || [];
+        let filtered = Array.isArray(inspections) ? inspections : []; // ✅ Proteção contra undefined
 
         // Filtrar por busca de texto
         if (searchQuery.trim()) {
@@ -67,7 +67,7 @@ function InspectionScreenContent() {
             });
         }
 
-        // Ordenar por data (mais recente primeiro)
+        // Ordenar por data (mais recente primeiro) - ✅ Agora filtered é sempre um array
         filtered.sort((a, b) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime());
 
         setFilteredInspections(filtered);

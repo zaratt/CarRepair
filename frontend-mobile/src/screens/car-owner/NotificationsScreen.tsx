@@ -311,7 +311,7 @@ const NotificationsScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
                 }
                 ListEmptyComponent={
                     <View style={styles.emptyContainer}>
-                        <IconButton icon="notifications-none" size={64} iconColor="#ccc" />
+                        <IconButton icon="bell-off" size={64} iconColor="#ccc" />
                         <Text style={{ textAlign: 'center', marginTop: 16, color: '#888' }}>
                             {showUnreadOnly ? 'Nenhuma notificação não lida' : 'Nenhuma notificação encontrada'}
                         </Text>

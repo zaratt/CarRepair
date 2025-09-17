@@ -1,5 +1,4 @@
 import { NextFunction, Request, Response } from 'express';
-import mongoSanitize from 'express-mongo-sanitize';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import hpp from 'hpp';
@@ -118,9 +117,8 @@ export const apiRateLimit = createRateLimit(
 
 // ✅ Middleware de sanitização de dados
 export const sanitizeInput = (req: Request, res: Response, next: NextFunction) => {
-    // Sanitizar dados MongoDB
-    mongoSanitize()(req, res, () => {
-        // Sanitização adicional para XSS
+    try {
+        // Sanitização XSS personalizada
         const sanitizeObject = (obj: any): any => {
             if (typeof obj === 'string') {
                 // Remove scripts e tags perigosas
@@ -139,7 +137,9 @@ export const sanitizeInput = (req: Request, res: Response, next: NextFunction) =
             if (typeof obj === 'object' && obj !== null) {
                 const sanitized: any = {};
                 for (const key in obj) {
-                    sanitized[key] = sanitizeObject(obj[key]);
+                    if (Object.prototype.hasOwnProperty.call(obj, key)) {
+                        sanitized[key] = sanitizeObject(obj[key]);
+                    }
                 }
                 return sanitized;
             }
@@ -147,26 +147,41 @@ export const sanitizeInput = (req: Request, res: Response, next: NextFunction) =
             return obj;
         };
 
-        // Sanitizar query parameters
-        if (req.query) {
-            req.query = sanitizeObject(req.query);
+        // Sanitizar body, query e params de forma segura
+        if (req.body && typeof req.body === 'object') {
+            try {
+                req.body = sanitizeObject(req.body);
+            } catch (e) {
+                console.warn('Erro ao sanitizar body:', e);
+            }
         }
 
-        // Sanitizar body
-        if (req.body) {
-            req.body = sanitizeObject(req.body);
+        if (req.query && typeof req.query === 'object') {
+            try {
+                // Criar uma nova query object em vez de modificar diretamente
+                const sanitizedQuery = sanitizeObject(req.query);
+                // Substituir completamente a query
+                Object.keys(req.query).forEach(key => delete req.query[key]);
+                Object.assign(req.query, sanitizedQuery);
+            } catch (e) {
+                console.warn('Erro ao sanitizar query:', e);
+            }
         }
 
-        // Sanitizar params
-        if (req.params) {
-            req.params = sanitizeObject(req.params);
+        if (req.params && typeof req.params === 'object') {
+            try {
+                req.params = sanitizeObject(req.params);
+            } catch (e) {
+                console.warn('Erro ao sanitizar params:', e);
+            }
         }
 
         next();
-    });
-};
-
-// ✅ Middleware para proteção HPP (HTTP Parameter Pollution)
+    } catch (error) {
+        console.error('Erro geral na sanitização:', error);
+        next(); // Continuar mesmo se houver erro na sanitização
+    }
+};// ✅ Middleware para proteção HPP (HTTP Parameter Pollution)
 export const hppProtection = hpp({
     whitelist: ['tags', 'services'] // Permitir arrays para estes campos
 });

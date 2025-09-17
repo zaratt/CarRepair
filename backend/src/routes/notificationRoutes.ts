@@ -11,8 +11,12 @@ import {
     removePushToken,
     updateNotificationPreferences
 } from '../controllers/notificationController';
+import { authenticateToken } from '../middleware/auth';
 
 const router = Router();
+
+// ✅ Aplicar middleware de autenticação para todas as rotas
+router.use(authenticateToken);
 
 // Lista de notificações (rota principal)
 router.get('/', getUserNotifications);
