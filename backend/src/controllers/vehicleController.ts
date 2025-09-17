@@ -93,12 +93,54 @@ export const createVehicle = asyncHandler(async (req: Request, res: Response) =>
 
 // Listar veículos com paginação
 export const getVehicles = asyncHandler(async (req: Request, res: Response) => {
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 10;
-    const ownerId = req.query.ownerId as string;
-    // ✅ CORREÇÃO: Só filtrar por active se explicitamente fornecido
-    const active = req.query.active !== undefined ? req.query.active === 'true' : undefined;
-    const licensePlate = req.query.licensePlate as string;
+    // ✅ SEGURANÇA: Validar tipos dos parâmetros de query (CWE-1287 Prevention)
+    const pageParam = req.query.page;
+    const limitParam = req.query.limit;
+    const ownerId = req.query.ownerId;
+    const activeParam = req.query.active;
+    const licensePlate = req.query.licensePlate;
+
+    // Validar tipos e converter valores
+    let page = 1;
+    let limit = 10;
+    let active: boolean | undefined = undefined;
+
+    if (pageParam !== undefined) {
+        if (typeof pageParam !== 'string') {
+            throw new ValidationError('Page parameter must be a string');
+        }
+        const parsedPage = parseInt(pageParam);
+        if (isNaN(parsedPage) || parsedPage < 1) {
+            throw new ValidationError('Page must be a positive number');
+        }
+        page = parsedPage;
+    }
+
+    if (limitParam !== undefined) {
+        if (typeof limitParam !== 'string') {
+            throw new ValidationError('Limit parameter must be a string');
+        }
+        const parsedLimit = parseInt(limitParam);
+        if (isNaN(parsedLimit) || parsedLimit < 1 || parsedLimit > 100) {
+            throw new ValidationError('Limit must be a number between 1 and 100');
+        }
+        limit = parsedLimit;
+    }
+
+    if (ownerId !== undefined && typeof ownerId !== 'string') {
+        throw new ValidationError('Owner ID must be a string');
+    }
+
+    if (activeParam !== undefined) {
+        if (typeof activeParam !== 'string') {
+            throw new ValidationError('Active parameter must be a string');
+        }
+        active = activeParam === 'true';
+    }
+
+    if (licensePlate !== undefined && typeof licensePlate !== 'string') {
+        throw new ValidationError('License plate must be a string');
+    }
 
     console.log('🔍 [BACKEND] getVehicles - Query params:', {
         page, limit, ownerId, active, licensePlate
@@ -363,7 +405,16 @@ export const updateVehicle = asyncHandler(async (req: Request, res: Response) =>
 // Excluir veículo (soft delete)
 export const deleteVehicle = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
-    const force = req.query.force === 'true';
+    const forceParam = req.query.force;
+
+    // ✅ SEGURANÇA: Validar tipo do parâmetro force (CWE-1287 Prevention)
+    let force = false;
+    if (forceParam !== undefined) {
+        if (typeof forceParam !== 'string') {
+            throw new ValidationError('Force parameter must be a string');
+        }
+        force = forceParam === 'true';
+    }
 
     // Verificar se o veículo existe
     const vehicle = await prisma.vehicle.findUnique({

@@ -121,7 +121,7 @@ class FileOperationThrottler {
      */
     public async safeMkdir(ip: string, path: string, options?: fs.MakeDirectoryOptions): Promise<void> {
         return this.throttleByIP(ip, async () => {
-            return fsAsync.mkdir(path, options) as Promise<void>;
+            await fsAsync.mkdir(path, options);
         });
     }
 

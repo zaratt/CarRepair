@@ -4,7 +4,12 @@ exports.validateSecurityConfig = exports.SecurityConfig = void 0;
 // Configurações de segurança
 exports.SecurityConfig = {
     // Senha padrão para novos usuários (deve ser alterada no primeiro login)
-    DEFAULT_PASSWORD: process.env.DEFAULT_USER_PASSWORD || 'ChangeMe123!',
+    DEFAULT_PASSWORD: (() => {
+        if (!process.env.DEFAULT_USER_PASSWORD) {
+            throw new Error('DEFAULT_USER_PASSWORD environment variable must be set for security reasons.');
+        }
+        return process.env.DEFAULT_USER_PASSWORD;
+    })(),
     // Rounds para bcrypt (quanto maior, mais seguro mas mais lento)
     BCRYPT_SALT_ROUNDS: parseInt(process.env.BCRYPT_SALT_ROUNDS || '12'),
     // Validações de senha

@@ -142,7 +142,7 @@ class FileOperationThrottler {
      */
     async safeMkdir(ip, path, options) {
         return this.throttleByIP(ip, async () => {
-            return exports.fsAsync.mkdir(path, options);
+            await exports.fsAsync.mkdir(path, options);
         });
     }
     /**

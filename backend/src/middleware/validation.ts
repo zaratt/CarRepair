@@ -28,12 +28,17 @@ export const validateUUID = (paramName: string = 'id') => {
 export const validateLicensePlateParam = (req: Request, res: Response, next: NextFunction) => {
     const { licensePlate } = req.body;
 
-    if (licensePlate && !isValidLicensePlate(licensePlate.toUpperCase())) {
-        throw new ValidationError('Invalid license plate format. Use format ABC1234 or ABC1D23');
-    }
+    // ✅ SEGURANÇA: Validar tipo antes do uso (CWE-1287 Prevention)
+    if (licensePlate !== undefined && licensePlate !== null) {
+        if (typeof licensePlate !== 'string') {
+            throw new ValidationError('License plate must be a string');
+        }
 
-    // Normaliza a placa para maiúscula
-    if (licensePlate) {
+        if (!isValidLicensePlate(licensePlate.toUpperCase())) {
+            throw new ValidationError('Invalid license plate format. Use format ABC1234 or ABC1D23');
+        }
+
+        // Normaliza a placa para maiúscula
         req.body.licensePlate = licensePlate.toUpperCase();
     }
 
@@ -44,8 +49,15 @@ export const validateLicensePlateParam = (req: Request, res: Response, next: Nex
 export const validateCpfCnpjParam = (req: Request, res: Response, next: NextFunction) => {
     const { cpfCnpj } = req.body;
 
-    if (cpfCnpj && !isValidCpfCnpj(cpfCnpj)) {
-        throw new ValidationError('Invalid CPF/CNPJ format');
+    // ✅ SEGURANÇA: Validar tipo antes do uso (CWE-1287 Prevention)
+    if (cpfCnpj !== undefined && cpfCnpj !== null) {
+        if (typeof cpfCnpj !== 'string') {
+            throw new ValidationError('CPF/CNPJ must be a string');
+        }
+
+        if (!isValidCpfCnpj(cpfCnpj)) {
+            throw new ValidationError('Invalid CPF/CNPJ format');
+        }
     }
 
     next();
@@ -168,17 +180,44 @@ export const validateRequiredFields = (fields: string[]) => {
 
 // Middleware de paginação
 export const validatePagination = (req: Request, res: Response, next: NextFunction) => {
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 10;
+    // ✅ SEGURANÇA: Validar tipos dos parâmetros de query (CWE-1287 Prevention)
+    const pageParam = req.query.page;
+    const limitParam = req.query.limit;
+
+    let page = 1;
+    let limit = 10;
+
+    if (pageParam !== undefined) {
+        if (typeof pageParam !== 'string') {
+            throw new ValidationError('Page parameter must be a string');
+        }
+        const parsedPage = parseInt(pageParam);
+        if (isNaN(parsedPage) || parsedPage < 1) {
+            throw new ValidationError('Page must be a positive number');
+        }
+        page = parsedPage;
+    }
+
+    if (limitParam !== undefined) {
+        if (typeof limitParam !== 'string') {
+            throw new ValidationError('Limit parameter must be a string');
+        }
+        const parsedLimit = parseInt(limitParam);
+        if (isNaN(parsedLimit) || parsedLimit < 1 || parsedLimit > 100) {
+            throw new ValidationError('Limit must be a number between 1 and 100');
+        }
+        limit = parsedLimit;
+    }
 
     if (page < 1) {
         throw new ValidationError('Page must be greater than 0');
     }
 
-    if (limit < 1 || limit > 100) {
-        throw new ValidationError('Limit must be between 1 and 100');
+    if (limit > 100) {
+        throw new ValidationError('Limit cannot exceed 100');
     }
 
+    // Adicionar valores validados ao query
     req.query.page = page.toString();
     req.query.limit = limit.toString();
 

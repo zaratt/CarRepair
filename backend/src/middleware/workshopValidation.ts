@@ -24,13 +24,18 @@ export function validateWorkshopData(req: Request, res: Response, next: NextFunc
     const workshopData: WorkshopCreateData = req.body;
     const errors: string[] = [];
 
-    // Validações obrigatórias
-    if (!workshopData.name || workshopData.name.trim().length < 2) {
-        errors.push('Workshop name must be at least 2 characters long');
+    // ✅ SEGURANÇA: Validar tipos de entrada (CWE-1287 Prevention)
+    if (!workshopData || typeof workshopData !== 'object') {
+        throw new ValidationError('Invalid request body: expected object');
     }
 
-    if (!workshopData.userId) {
-        errors.push('User ID is required');
+    // Validações obrigatórias com verificação de tipo
+    if (!workshopData.name || typeof workshopData.name !== 'string' || workshopData.name.trim().length < 2) {
+        errors.push('Workshop name must be a string with at least 2 characters');
+    }
+
+    if (!workshopData.userId || typeof workshopData.userId !== 'string') {
+        errors.push('User ID must be a valid string');
     } else {
         // Validar formato UUID
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -39,20 +44,24 @@ export function validateWorkshopData(req: Request, res: Response, next: NextFunc
         }
     }
 
-    if (!workshopData.address || workshopData.address.trim().length < 10) {
-        errors.push('Address must be at least 10 characters long');
+    if (!workshopData.address || typeof workshopData.address !== 'string' || workshopData.address.trim().length < 10) {
+        errors.push('Address must be a string with at least 10 characters');
     }
 
-    if (!workshopData.phone || !validatePhone(workshopData.phone)) {
-        errors.push('Valid phone number is required');
+    if (!workshopData.phone || typeof workshopData.phone !== 'string' || !validatePhone(workshopData.phone)) {
+        errors.push('Valid phone number is required (must be string)');
     }
 
-    // Validações opcionais
-    if (workshopData.subdomain) {
-        // Validar formato do subdomain (apenas letras, números e hífens)
-        const subdomainRegex = /^[a-z0-9-]+$/;
-        if (!subdomainRegex.test(workshopData.subdomain) || workshopData.subdomain.length < 3) {
-            errors.push('Subdomain must contain only lowercase letters, numbers and hyphens, minimum 3 characters');
+    // Validações opcionais com verificação de tipo
+    if (workshopData.subdomain !== undefined) {
+        if (typeof workshopData.subdomain !== 'string') {
+            errors.push('Subdomain must be a string');
+        } else {
+            // Validar formato do subdomain (apenas letras, números e hífens)
+            const subdomainRegex = /^[a-z0-9-]+$/;
+            if (!subdomainRegex.test(workshopData.subdomain) || workshopData.subdomain.length < 3) {
+                errors.push('Subdomain must contain only lowercase letters, numbers and hyphens, minimum 3 characters');
+            }
         }
     }
 
@@ -70,23 +79,38 @@ export function validateWorkshopUpdateData(req: Request, res: Response, next: Ne
     const workshopData: WorkshopUpdateData = req.body;
     const errors: string[] = [];
 
-    // Só validar campos que foram fornecidos
-    if (workshopData.name !== undefined && workshopData.name.trim().length < 2) {
-        errors.push('Workshop name must be at least 2 characters long');
+    // ✅ SEGURANÇA: Validar tipos de entrada (CWE-1287 Prevention)
+    if (!workshopData || typeof workshopData !== 'object') {
+        throw new ValidationError('Invalid request body: expected object');
     }
 
-    if (workshopData.address !== undefined && workshopData.address.trim().length < 10) {
-        errors.push('Address must be at least 10 characters long');
+    // Só validar campos que foram fornecidos com verificação de tipo
+    if (workshopData.name !== undefined) {
+        if (typeof workshopData.name !== 'string' || workshopData.name.trim().length < 2) {
+            errors.push('Workshop name must be a string with at least 2 characters');
+        }
     }
 
-    if (workshopData.phone !== undefined && !validatePhone(workshopData.phone)) {
-        errors.push('Invalid phone format');
+    if (workshopData.address !== undefined) {
+        if (typeof workshopData.address !== 'string' || workshopData.address.trim().length < 10) {
+            errors.push('Address must be a string with at least 10 characters');
+        }
+    }
+
+    if (workshopData.phone !== undefined) {
+        if (typeof workshopData.phone !== 'string' || !validatePhone(workshopData.phone)) {
+            errors.push('Phone must be a valid string format');
+        }
     }
 
     if (workshopData.subdomain !== undefined && workshopData.subdomain !== null) {
-        const subdomainRegex = /^[a-z0-9-]+$/;
-        if (!subdomainRegex.test(workshopData.subdomain) || workshopData.subdomain.length < 3) {
-            errors.push('Subdomain must contain only lowercase letters, numbers and hyphens, minimum 3 characters');
+        if (typeof workshopData.subdomain !== 'string') {
+            errors.push('Subdomain must be a string');
+        } else {
+            const subdomainRegex = /^[a-z0-9-]+$/;
+            if (!subdomainRegex.test(workshopData.subdomain) || workshopData.subdomain.length < 3) {
+                errors.push('Subdomain must contain only lowercase letters, numbers and hyphens, minimum 3 characters');
+            }
         }
     }
 
@@ -124,15 +148,24 @@ export function validateWorkshopSearchParams(req: Request, res: Response, next: 
     const { minRating, state } = req.query;
     const errors: string[] = [];
 
-    if (minRating) {
-        const rating = parseFloat(minRating as string);
-        if (isNaN(rating) || rating < 0 || rating > 5) {
-            errors.push('minRating must be a number between 0 and 5');
+    // ✅ SEGURANÇA: Validar tipos dos parâmetros de query (CWE-1287 Prevention)
+    if (minRating !== undefined) {
+        if (typeof minRating !== 'string') {
+            errors.push('minRating must be a string representation of a number');
+        } else {
+            const rating = parseFloat(minRating);
+            if (isNaN(rating) || rating < 0 || rating > 5) {
+                errors.push('minRating must be a number between 0 and 5');
+            }
         }
     }
 
-    if (state && (state as string).length !== 2) {
-        errors.push('state must be 2 characters (e.g., SP, RJ)');
+    if (state !== undefined) {
+        if (typeof state !== 'string') {
+            errors.push('state must be a string');
+        } else if (state.length !== 2) {
+            errors.push('state must be 2 characters (e.g., SP, RJ)');
+        }
     }
 
     if (errors.length > 0) {
@@ -148,7 +181,12 @@ export function validateWorkshopSearchParams(req: Request, res: Response, next: 
 export function validateSearchTerm(req: Request, res: Response, next: NextFunction) {
     const { term } = req.params;
 
-    if (!term || term.trim().length < 2) {
+    // ✅ SEGURANÇA: Validar tipo do parâmetro (CWE-1287 Prevention)
+    if (!term || typeof term !== 'string') {
+        throw new ValidationError('Search term must be a valid string');
+    }
+
+    if (term.trim().length < 2) {
         throw new ValidationError('Search term must be at least 2 characters long');
     }
 

@@ -152,11 +152,6 @@ const createFileFilter = (fileType) => {
     };
 };
 // ✅ Middleware para validação adicional após upload com throttling
-const pathIsInside = (parent, child) => {
-    const relative = path_1.default.relative(parent, child);
-    return !!relative && !relative.startsWith('..') && !path_1.default.isAbsolute(relative);
-};
-
 const validateUploadedFile = (fileType) => {
     return async (req, res, next) => {
         if (!req.file) {
@@ -167,35 +162,9 @@ const validateUploadedFile = (fileType) => {
             const file = req.file;
             const filePath = file.path;
             const sizeLimit = SIZE_LIMITS[fileType];
-
-            // Only allow file operations inside the intended upload directory
-            const allowedDir = fileType === 'images'
-                ? path_1.default.join(process.cwd(), 'uploads', 'vehicle_images')
-                : path_1.default.join(process.cwd(), 'uploads', 'maintenance_docs');
-            if (!pathIsInside(allowedDir, filePath)) {
-                (0, securityLogger_1.logSecurityEvent)({
-                    type: securityLogger_1.SecurityEventType.MALICIOUS_UPLOAD,
-                    ip: userIP,
-                    userAgent: req.get('User-Agent') || 'unknown',
-                    endpoint: req.originalUrl,
-                    method: req.method,
-                    payload: {
-                        filename: file.originalname,
-                        reason: 'Path traversal detected'
-                    },
-                    success: false,
-                    message: `Upload rejeitado - Path traversal detectado: ${filePath}`,
-                    risk_level: 'HIGH'
-                });
-                return res.status(400).json({
-                    success: false,
-                    message: 'Caminho de arquivo inválido detectado'
-                });
-            }
-
             // Verificar tamanho
             if (file.size > sizeLimit) {
-                // Remover arquivo com throttling
+                // ✅ Remover arquivo com throttling
                 await fileThrottler_1.fileThrottler.safeUnlink(userIP, filePath);
                 (0, securityLogger_1.logSecurityEvent)({
                     type: securityLogger_1.SecurityEventType.MALICIOUS_UPLOAD,
@@ -218,11 +187,11 @@ const validateUploadedFile = (fileType) => {
                     message: `Arquivo muito grande. Limite: ${Math.round(sizeLimit / 1024 / 1024)}MB`
                 });
             }
-            // Ler buffer do arquivo com throttling
+            // ✅ Ler buffer do arquivo com throttling
             const fileBuffer = await fileThrottler_1.fileThrottler.safeReadFile(userIP, filePath);
             // Validar assinatura do arquivo
             if (!validateFileSignature(fileBuffer, file.mimetype)) {
-                // Remover arquivo com throttling
+                // ✅ Remover arquivo com throttling
                 await fileThrottler_1.fileThrottler.safeUnlink(userIP, filePath);
                 (0, securityLogger_1.logSecurityEvent)({
                     type: securityLogger_1.SecurityEventType.MALICIOUS_UPLOAD,
@@ -251,7 +220,7 @@ const validateUploadedFile = (fileType) => {
                 /^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$/i, // Windows reserved names
             ];
             if (maliciousPatterns.some(pattern => pattern.test(file.originalname))) {
-                // Remover arquivo com throttling
+                // ✅ Remover arquivo com throttling
                 await fileThrottler_1.fileThrottler.safeUnlink(userIP, filePath);
                 (0, securityLogger_1.logSecurityEvent)({
                     type: securityLogger_1.SecurityEventType.MALICIOUS_UPLOAD,
@@ -292,16 +261,10 @@ const validateUploadedFile = (fileType) => {
             next();
         }
         catch (error) {
-            // Remover arquivo em caso de erro com throttling
+            // ✅ Remover arquivo em caso de erro com throttling
             if (req.file?.path) {
                 try {
-                    // Only allow unlink if path is inside allowed directory
-                    const allowedDir = fileType === 'images'
-                        ? path_1.default.join(process.cwd(), 'uploads', 'vehicle_images')
-                        : path_1.default.join(process.cwd(), 'uploads', 'maintenance_docs');
-                    if (pathIsInside(allowedDir, req.file.path)) {
-                        await fileThrottler_1.fileThrottler.safeUnlink(userIP, req.file.path);
-                    }
+                    await fileThrottler_1.fileThrottler.safeUnlink(userIP, req.file.path);
                 }
                 catch (unlinkError) {
                     // Ignorar erro de remoção

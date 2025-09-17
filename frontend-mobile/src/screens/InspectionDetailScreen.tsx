@@ -270,8 +270,9 @@ const safeOpenURL = async (url: string, description: string = 'este link') => {
     }
 };
 
-// ✅ Função para validar URLs de imagem de forma segura
+// ✅ Função para validar URLs de imagem de forma segura (CWE-601 Prevention)
 const getSafeImageSource = (url: string) => {
+    // ✅ Validação inicial de entrada
     if (!url || typeof url !== 'string') {
         logSecurityEvent({
             type: 'MALICIOUS_URL',
@@ -283,27 +284,112 @@ const getSafeImageSource = (url: string) => {
         return { uri: '' }; // Retorna URI vazia para não exibir imagem
     }
 
-    if (!isValidURL(url)) {
+    // ✅ Sanitização de entrada para prevenir injeção
+    const sanitizedUrl = url.trim().replace(/[\x00-\x1F\x7F-\x9F]/g, '');
+
+    if (sanitizedUrl !== url) {
+        logSecurityEvent({
+            type: 'MALICIOUS_URL',
+            level: 'WARN',
+            url,
+            reason: 'URL de imagem contém caracteres de controle suspeitos',
+            context: 'Image source sanitization'
+        });
+        return { uri: '' };
+    }
+
+    // ✅ Validação específica para imagens - extensões permitidas
+    let validatedComponents: { protocol: string; hostname: string; pathname: string; port?: string } | null = null;
+
+    try {
+        const urlObj = new URL(sanitizedUrl);
+        const pathname = urlObj.pathname.toLowerCase();
+        const allowedImageExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp', '.svg'];
+
+        const hasValidExtension = allowedImageExtensions.some(ext => pathname.endsWith(ext));
+        if (!hasValidExtension) {
+            logSecurityEvent({
+                type: 'ACCESS_DENIED',
+                level: 'WARN',
+                url: sanitizedUrl,
+                reason: 'Extensão de arquivo não permitida para imagem',
+                context: 'Image extension validation'
+            });
+            return { uri: '' };
+        }
+
+        // ✅ Extrair componentes validados da URL
+        validatedComponents = {
+            protocol: urlObj.protocol,
+            hostname: urlObj.hostname,
+            pathname: urlObj.pathname,
+            port: urlObj.port || undefined
+        };
+
+    } catch (urlError) {
+        logSecurityEvent({
+            type: 'MALICIOUS_URL',
+            level: 'ERROR',
+            url: sanitizedUrl,
+            reason: 'URL de imagem malformada',
+            context: 'Image URL parsing error'
+        });
+        return { uri: '' };
+    }
+
+    // ✅ Validação geral de URL usando função segura
+    if (!isValidURL(sanitizedUrl)) {
         logSecurityEvent({
             type: 'ACCESS_DENIED',
             level: 'WARN',
-            url,
+            url: sanitizedUrl,
             reason: 'URL de imagem não passou na validação de segurança',
             context: 'Image source security check'
         });
         return { uri: '' }; // Retorna URI vazia para não exibir imagem
     }
 
+    // ✅ Validação adicional para imagens - verificar se não é redirect
+    if (sanitizedUrl.includes('redirect') || sanitizedUrl.includes('goto') || sanitizedUrl.includes('url=')) {
+        logSecurityEvent({
+            type: 'MALICIOUS_URL',
+            level: 'WARN',
+            url: sanitizedUrl,
+            reason: 'URL de imagem pode conter redirecionamento suspeito',
+            context: 'Image redirect detection'
+        });
+        return { uri: '' };
+    }
+
+    // ✅ CORREÇÃO CWE-601: Construir URL segura a partir de componentes validados
+    // Em vez de retornar a URL original, construímos uma nova URL segura
+    if (!validatedComponents) {
+        logSecurityEvent({
+            type: 'MALICIOUS_URL',
+            level: 'ERROR',
+            url: sanitizedUrl,
+            reason: 'Componentes de URL não foram validados',
+            context: 'URL component validation error'
+        });
+        return { uri: '' };
+    }
+
+    // ✅ Construir URL segura com componentes validados
+    const safeUrl = validatedComponents.port
+        ? `${validatedComponents.protocol}//${validatedComponents.hostname}:${validatedComponents.port}${validatedComponents.pathname}`
+        : `${validatedComponents.protocol}//${validatedComponents.hostname}${validatedComponents.pathname}`;
+
     // ✅ Log de carregamento de imagem autorizada
     logSecurityEvent({
         type: 'ACCESS_GRANTED',
         level: 'INFO',
-        url,
-        reason: 'Carregamento de imagem autorizado',
+        url: safeUrl,
+        reason: 'Carregamento de imagem autorizado após validação completa e reconstrução segura',
         context: 'Safe image source'
     });
 
-    return { uri: url };
+    // ✅ Retornar URL segura reconstruída (não a original)
+    return { uri: safeUrl };
 };
 
 const statusColors = {

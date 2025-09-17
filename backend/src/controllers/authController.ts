@@ -19,6 +19,39 @@ import { getUserTypeFromDocument, validateDocument } from '../utils/documentVali
 export const register = asyncHandler(async (req: Request, res: Response) => {
     const userData: RegisterData = req.body;
 
+    // ✅ SEGURANÇA: Validar tipos de entrada (CWE-1287 Prevention)
+    if (!userData || typeof userData !== 'object') {
+        throw new ValidationError('Invalid request body: expected object');
+    }
+
+    if (!userData.email || typeof userData.email !== 'string') {
+        throw new ValidationError('Email must be a valid string');
+    }
+
+    if (!userData.name || typeof userData.name !== 'string') {
+        throw new ValidationError('Name must be a valid string');
+    }
+
+    if (!userData.password || typeof userData.password !== 'string') {
+        throw new ValidationError('Password must be a valid string');
+    }
+
+    if (!userData.document || typeof userData.document !== 'string') {
+        throw new ValidationError('Document must be a valid string');
+    }
+
+    if (userData.phone && typeof userData.phone !== 'string') {
+        throw new ValidationError('Phone must be a string when provided');
+    }
+
+    if (userData.city && typeof userData.city !== 'string') {
+        throw new ValidationError('City must be a string when provided');
+    }
+
+    if (userData.state && typeof userData.state !== 'string') {
+        throw new ValidationError('State must be a string when provided');
+    }
+
     // Verificar se email já existe
     const existingEmailUser = await prisma.user.findUnique({
         where: { email: userData.email }
@@ -92,6 +125,15 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
 // Login com email e senha
 export const login = asyncHandler(async (req: Request, res: Response) => {
     const { email, password }: LoginCredentials = req.body;
+
+    // ✅ SEGURANÇA: Validar tipos de entrada (CWE-1287 Prevention)
+    if (!email || typeof email !== 'string') {
+        throw new ValidationError('Email must be a valid string');
+    }
+
+    if (!password || typeof password !== 'string') {
+        throw new ValidationError('Password must be a valid string');
+    }
 
     try {
         // Buscar usuário por email
@@ -265,10 +307,27 @@ export const updateProfile = asyncHandler(async (req: Request, res: Response) =>
 
     const { name, phone, city, state } = req.body;
 
+    // ✅ SEGURANÇA: Validar tipos de entrada (CWE-1287 Prevention)
+    if (name !== undefined && typeof name !== 'string') {
+        throw new ValidationError('Name must be a string when provided');
+    }
+
+    if (phone !== undefined && phone !== null && typeof phone !== 'string') {
+        throw new ValidationError('Phone must be a string when provided');
+    }
+
+    if (city !== undefined && city !== null && typeof city !== 'string') {
+        throw new ValidationError('City must be a string when provided');
+    }
+
+    if (state !== undefined && state !== null && typeof state !== 'string') {
+        throw new ValidationError('State must be a string when provided');
+    }
+
     // Preparar dados para atualização (apenas campos permitidos)
     const dataToUpdate: any = {};
 
-    if (name) dataToUpdate.name = name.trim();
+    if (name && typeof name === 'string') dataToUpdate.name = name.trim();
     if (phone !== undefined) dataToUpdate.phone = phone;
     if (city !== undefined) dataToUpdate.city = city;
     if (state !== undefined) dataToUpdate.state = state?.toUpperCase();
@@ -297,6 +356,15 @@ export const changePassword = asyncHandler(async (req: Request, res: Response) =
     }
 
     const { currentPassword, newPassword } = req.body;
+
+    // ✅ SEGURANÇA: Validar tipos de entrada (CWE-1287 Prevention)
+    if (!currentPassword || typeof currentPassword !== 'string') {
+        throw new ValidationError('Current password must be a valid string');
+    }
+
+    if (!newPassword || typeof newPassword !== 'string') {
+        throw new ValidationError('New password must be a valid string');
+    }
 
     // Buscar usuário atual
     const user = await prisma.user.findUnique({

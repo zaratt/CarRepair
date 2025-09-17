@@ -182,22 +182,69 @@ export const createMaintenance = asyncHandler(async (req: Request, res: Response
 
 // Listar manutenções com paginação
 export const getMaintenances = asyncHandler(async (req: Request, res: Response) => {
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 10;
-    const vehicleId = req.query.vehicleId as string;
-    const workshopId = req.query.workshopId as string;
-    const validationStatus = req.query.validationStatus as string;
-    const dateFrom = req.query.dateFrom as string;
-    const dateTo = req.query.dateTo as string;
+    // ✅ SEGURANÇA: Validar tipos dos parâmetros de query (CWE-1287 Prevention)
+    const pageParam = req.query.page;
+    const limitParam = req.query.limit;
+    const vehicleId = req.query.vehicleId;
+    const workshopId = req.query.workshopId;
+    const validationStatus = req.query.validationStatus;
+    const dateFrom = req.query.dateFrom;
+    const dateTo = req.query.dateTo;
+
+    // Validar tipos e converter valores
+    let page = 1;
+    let limit = 10;
+
+    if (pageParam !== undefined) {
+        if (typeof pageParam !== 'string') {
+            throw new ValidationError('Page parameter must be a string');
+        }
+        const parsedPage = parseInt(pageParam);
+        if (isNaN(parsedPage) || parsedPage < 1) {
+            throw new ValidationError('Page must be a positive number');
+        }
+        page = parsedPage;
+    }
+
+    if (limitParam !== undefined) {
+        if (typeof limitParam !== 'string') {
+            throw new ValidationError('Limit parameter must be a string');
+        }
+        const parsedLimit = parseInt(limitParam);
+        if (isNaN(parsedLimit) || parsedLimit < 1 || parsedLimit > 100) {
+            throw new ValidationError('Limit must be a number between 1 and 100');
+        }
+        limit = parsedLimit;
+    }
+
+    if (vehicleId !== undefined && typeof vehicleId !== 'string') {
+        throw new ValidationError('Vehicle ID must be a string');
+    }
+
+    if (workshopId !== undefined && typeof workshopId !== 'string') {
+        throw new ValidationError('Workshop ID must be a string');
+    }
+
+    if (validationStatus !== undefined && typeof validationStatus !== 'string') {
+        throw new ValidationError('Validation status must be a string');
+    }
+
+    if (dateFrom !== undefined && typeof dateFrom !== 'string') {
+        throw new ValidationError('Date from must be a string');
+    }
+
+    if (dateTo !== undefined && typeof dateTo !== 'string') {
+        throw new ValidationError('Date to must be a string');
+    }
 
     const skip = (page - 1) * limit;
 
     // Construir filtros
     const where: any = {};
 
-    if (vehicleId) where.vehicleId = vehicleId;
-    if (workshopId) where.workshopId = workshopId;
-    if (validationStatus) where.validationStatus = validationStatus;
+    if (vehicleId && typeof vehicleId === 'string') where.vehicleId = vehicleId;
+    if (workshopId && typeof workshopId === 'string') where.workshopId = workshopId;
+    if (validationStatus && typeof validationStatus === 'string') where.validationStatus = validationStatus;
 
     // Filtros de data
     if (dateFrom || dateTo) {
@@ -412,7 +459,16 @@ export const updateMaintenance = asyncHandler(async (req: Request, res: Response
 // Excluir manutenção
 export const deleteMaintenance = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
-    const force = req.query.force === 'true';
+    const forceParam = req.query.force;
+
+    // ✅ SEGURANÇA: Validar tipo do parâmetro force (CWE-1287 Prevention)
+    let force = false;
+    if (forceParam !== undefined) {
+        if (typeof forceParam !== 'string') {
+            throw new ValidationError('Force parameter must be a string');
+        }
+        force = forceParam === 'true';
+    }
 
     // Verificar se a manutenção existe
     const maintenance = await prisma.maintenance.findUnique({
@@ -462,7 +518,20 @@ export const deleteMaintenance = asyncHandler(async (req: Request, res: Response
 // Buscar manutenções por veículo
 export const getMaintenancesByVehicle = asyncHandler(async (req: Request, res: Response) => {
     const { vehicleId } = req.params;
-    const limit = parseInt(req.query.limit as string) || 20;
+    const limitParam = req.query.limit;
+
+    // ✅ SEGURANÇA: Validar tipo do parâmetro limit (CWE-1287 Prevention)
+    let limit = 20;
+    if (limitParam !== undefined) {
+        if (typeof limitParam !== 'string') {
+            throw new ValidationError('Limit parameter must be a string');
+        }
+        const parsedLimit = parseInt(limitParam);
+        if (isNaN(parsedLimit) || parsedLimit < 1 || parsedLimit > 100) {
+            throw new ValidationError('Limit must be a number between 1 and 100');
+        }
+        limit = parsedLimit;
+    }
 
     // Verificar se o veículo existe
     const vehicle = await prisma.vehicle.findUnique({
