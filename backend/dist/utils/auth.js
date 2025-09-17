@@ -13,6 +13,7 @@ exports.validatePasswordStrength = validatePasswordStrength;
 exports.generateVerificationCode = generateVerificationCode;
 exports.isValidEmail = isValidEmail;
 exports.sanitizeUserData = sanitizeUserData;
+exports.sanitizeForLog = sanitizeForLog;
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const config_1 = require("../config");
@@ -141,5 +142,19 @@ function isValidEmail(email) {
 function sanitizeUserData(user) {
     const { password, ...sanitizedUser } = user;
     return sanitizedUser;
+}
+/**
+ * ✅ SEGURANÇA: Sanitizar strings para logs seguros (CWE-134 Prevention)
+ * Remove/escapa caracteres que podem ser usados em ataques de format string
+ */
+function sanitizeForLog(input) {
+    if (!input)
+        return 'EMPTY';
+    return input
+        .replace(/[%]/g, '%%') // Escape % usado em format strings
+        .replace(/[\r\n]/g, ' ') // Remove quebras de linha
+        .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // Remove caracteres de controle
+        .substring(0, 200) // Limita tamanho para evitar log bombing
+        .trim();
 }
 //# sourceMappingURL=auth.js.map

@@ -27,7 +27,8 @@ const createNotification = async (notificationData) => {
                 expiresAt: notificationData.expiresAt
             }
         });
-        console.log(`✅ Notificação criada: ${notification.type} para usuário ${notification.userId}`);
+        // ✅ SEGURANÇA: Log com format string estático (CWE-134 Prevention)
+        console.log('✅ Notificação criada:', notification.type, 'para usuário', notification.userId);
         // ✅ NOVO: Enviar push notification em paralelo (não bloquear a criação)
         setImmediate(async () => {
             try {
@@ -46,7 +47,8 @@ const createNotification = async (notificationData) => {
                     priority: notificationData.priority === 'high' ? 'high' : 'normal',
                     badge: 1
                 });
-                console.log(`📱 Push notification enviado para usuário ${notificationData.userId}`);
+                // ✅ SEGURANÇA: Log com format string estático (CWE-134 Prevention)
+                console.log('📱 Push notification enviado para usuário', notificationData.userId);
             }
             catch (error) {
                 console.error('❌ Erro ao enviar push notification:', error);
@@ -198,7 +200,8 @@ const cleanupExpiredNotifications = async () => {
                 }
             }
         });
-        console.log(`🧹 Limpeza automática: ${result.count} notificações expiradas removidas`);
+        // ✅ SEGURANÇA: Log com format string estático (CWE-134 Prevention)
+        console.log('🧹 Limpeza automática:', result.count, 'notificações expiradas removidas');
         return result.count;
     }
     catch (error) {
@@ -221,7 +224,8 @@ const markOldNotificationsAsRead = async () => {
                 readAt: new Date()
             }
         });
-        console.log(`📖 Marcação automática: ${result.count} notificações antigas marcadas como lidas`);
+        // ✅ SEGURANÇA: Log com format string estático (CWE-134 Prevention)
+        console.log('📖 Marcação automática:', result.count, 'notificações antigas marcadas como lidas');
         return result.count;
     }
     catch (error) {

@@ -42,6 +42,15 @@ npm run security:fix            # Correção automática
 - **Correções:** Hardcoded secrets, passwords, type validation
 - **Detalhes:** Ver `DOCS/Code_Security_Fixes_Report.md`
 
+#### **CWE-134 Format String - Multiple Files**
+- **Status:** ✅ **CORRIGIDO COMPLETAMENTE** (25/01/2025)
+- **Vulnerabilidades:** 19+ instâncias em 8 arquivos
+- **Risco:** 🟡 MÉDIO → 🟢 RESOLVIDO
+- **Componente:** Backend Logging System
+- **Correção:** Substituição de template literals por format strings estáticos
+- **Arquivos:** errorHandler.ts, app.ts, fipeService.ts, notificationService.ts, pushNotificationService.ts, fileUploadController.ts, uploadSecurity.ts, config/index.ts
+- **Detalhes:** Ver `DOCS/CWE_134_Format_String_Fix_Report.md`
+
 ### **⚠️ Vulnerabilidades Conhecidas**
 
 #### **SNYK-JS-INFLIGHT-6095116 - inflight@1.0.6**

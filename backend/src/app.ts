@@ -224,9 +224,10 @@ app.use((err: Error, req: express.Request, res: express.Response, next: express.
 
 // Start server
 const server = app.listen(config.port, () => {
-    console.log(`🚀 CarRepair API running on port ${config.port}`);
-    console.log(`📱 Environment: ${config.nodeEnv}`);
-    console.log(`🏥 Health check: http://localhost:${config.port}/health`);
+    // ✅ SEGURANÇA: Log com format string estático (CWE-134 Prevention)
+    console.log('🚀 CarRepair API running on port', config.port);
+    console.log('📱 Environment:', config.nodeEnv);
+    console.log('🏥 Health check: http://localhost:' + config.port + '/health');
 });
 
 // Graceful shutdown

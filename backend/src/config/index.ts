@@ -46,7 +46,8 @@ export function validateConfig(): void {
         throw new Error('❌ JWT_SECRET deve ser definido em produção');
     }
 
-    console.log(`✅ Configurações validadas para ambiente: ${config.nodeEnv}`);
+    // ✅ SEGURANÇA: Log com format string estático (CWE-134 Prevention)
+    console.log('✅ Configurações validadas para ambiente:', config.nodeEnv);
 }
 
 export default config;

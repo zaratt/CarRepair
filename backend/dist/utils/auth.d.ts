@@ -61,4 +61,9 @@ export declare function isValidEmail(email: string): boolean;
  * Sanitizar dados de usuário para resposta (remover senha)
  */
 export declare function sanitizeUserData(user: any): any;
+/**
+ * ✅ SEGURANÇA: Sanitizar strings para logs seguros (CWE-134 Prevention)
+ * Remove/escapa caracteres que podem ser usados em ataques de format string
+ */
+export declare function sanitizeForLog(input: string): string;
 //# sourceMappingURL=auth.d.ts.map

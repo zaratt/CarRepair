@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from 'express';
 import { config } from '../config';
 import { ApiResponse } from '../types';
+import { sanitizeForLog } from '../utils/auth';
 
 // Tipos de erro customizados
 export class AppError extends Error {
@@ -44,9 +45,16 @@ export const errorHandler = (
     let error = { ...err } as AppError;
     error.message = err.message;
 
-    // Log do erro
-    console.error(`🚨 Error [${req.method} ${req.path}]:`, {
-        message: err.message,
+    // ✅ SEGURANÇA: Sanitizar dados da request antes do log (CWE-134 Prevention)
+    const sanitizedMethod = sanitizeForLog(req.method || 'UNKNOWN');
+    const sanitizedPath = sanitizeForLog(req.path || '/unknown');
+    const sanitizedMessage = sanitizeForLog(err.message || 'Unknown error');
+
+    // ✅ Log do erro com format string estático (CWE-134 Prevention)
+    console.error('🚨 Error Details:', {
+        method: sanitizedMethod,
+        path: sanitizedPath,
+        message: sanitizedMessage,
         stack: config.isDevelopment ? err.stack : undefined,
         body: req.body,
         params: req.params,

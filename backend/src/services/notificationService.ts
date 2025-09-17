@@ -40,7 +40,8 @@ export const createNotification = async (notificationData: NotificationData) => 
             }
         });
 
-        console.log(`✅ Notificação criada: ${notification.type} para usuário ${notification.userId}`);
+        // ✅ SEGURANÇA: Log com format string estático (CWE-134 Prevention)
+        console.log('✅ Notificação criada:', notification.type, 'para usuário', notification.userId);
 
         // ✅ NOVO: Enviar push notification em paralelo (não bloquear a criação)
         setImmediate(async () => {
@@ -63,7 +64,8 @@ export const createNotification = async (notificationData: NotificationData) => 
                         badge: 1
                     }
                 );
-                console.log(`📱 Push notification enviado para usuário ${notificationData.userId}`);
+                // ✅ SEGURANÇA: Log com format string estático (CWE-134 Prevention)
+                console.log('📱 Push notification enviado para usuário', notificationData.userId);
             } catch (error) {
                 console.error('❌ Erro ao enviar push notification:', error);
             }
@@ -218,7 +220,8 @@ export const cleanupExpiredNotifications = async () => {
             }
         });
 
-        console.log(`🧹 Limpeza automática: ${result.count} notificações expiradas removidas`);
+        // ✅ SEGURANÇA: Log com format string estático (CWE-134 Prevention)
+        console.log('🧹 Limpeza automática:', result.count, 'notificações expiradas removidas');
         return result.count;
     } catch (error) {
         console.error('❌ Erro na limpeza de notificações:', error);
@@ -242,7 +245,8 @@ export const markOldNotificationsAsRead = async () => {
             }
         });
 
-        console.log(`📖 Marcação automática: ${result.count} notificações antigas marcadas como lidas`);
+        // ✅ SEGURANÇA: Log com format string estático (CWE-134 Prevention)
+        console.log('📖 Marcação automática:', result.count, 'notificações antigas marcadas como lidas');
         return result.count;
     } catch (error) {
         console.error('❌ Erro na marcação automática:', error);

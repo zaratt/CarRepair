@@ -566,7 +566,8 @@ export class FileUploadController {
                     }
                 } catch (fileError) {
                     // Continuar com próximo arquivo se houver erro
-                    console.warn(`Erro ao processar arquivo ${filename}:`, fileError);
+                    // ✅ SEGURANÇA: Log com format string estático (CWE-134 Prevention)
+                    console.warn('Erro ao processar arquivo:', filename, fileError);
                 }
             }
 

@@ -21,14 +21,17 @@ class FipeService {
      */
     async getBrandInfo(brandId) {
         try {
-            console.log(`🔍 Buscando marca FIPE ID: ${brandId}`);
+            // ✅ SEGURANÇA: Log com format string estático (CWE-134 Prevention)
+            console.log('🔍 Buscando marca FIPE ID:', brandId);
             const brands = await this.fetchFipe('cars/brands');
             const brand = brands.find(b => parseInt(b.code) === brandId);
             if (!brand) {
-                console.warn(`⚠️ Marca não encontrada para ID: ${brandId}`);
+                // ✅ SEGURANÇA: Log com format string estático (CWE-134 Prevention)
+                console.warn('⚠️ Marca não encontrada para ID:', brandId);
                 return 'Marca não identificada';
             }
-            console.log(`✅ Marca encontrada: ${brand.name}`);
+            // ✅ SEGURANÇA: Log com format string estático (CWE-134 Prevention)
+            console.log('✅ Marca encontrada:', brand.name);
             return brand.name;
         }
         catch (error) {
@@ -41,14 +44,17 @@ class FipeService {
      */
     async getModelInfo(brandId, modelId) {
         try {
-            console.log(`🔍 Buscando modelo FIPE - Brand: ${brandId}, Model: ${modelId}`);
+            // ✅ SEGURANÇA: Log com format string estático (CWE-134 Prevention)
+            console.log('🔍 Buscando modelo FIPE - Brand:', brandId, 'Model:', modelId);
             const models = await this.fetchFipe(`cars/brands/${brandId}/models`);
             const model = models.find(m => parseInt(m.code) === modelId);
             if (!model) {
-                console.warn(`⚠️ Modelo não encontrado para Brand: ${brandId}, Model: ${modelId}`);
+                // ✅ SEGURANÇA: Log com format string estático (CWE-134 Prevention)
+                console.warn('⚠️ Modelo não encontrado para Brand:', brandId, 'Model:', modelId);
                 return 'Modelo não identificado';
             }
-            console.log(`✅ Modelo encontrado: ${model.name}`);
+            // ✅ SEGURANÇA: Log com format string estático (CWE-134 Prevention)
+            console.log('✅ Modelo encontrado:', model.name);
             return model.name;
         }
         catch (error) {
@@ -61,9 +67,11 @@ class FipeService {
      */
     async getVehicleInfo(brandId, modelId, yearCode) {
         try {
-            console.log(`🔍 Buscando info completa - Brand: ${brandId}, Model: ${modelId}, Year: ${yearCode}`);
+            // ✅ SEGURANÇA: Log com format string estático (CWE-134 Prevention)
+            console.log('🔍 Buscando info completa - Brand:', brandId, 'Model:', modelId, 'Year:', yearCode);
             const vehicleInfo = await this.fetchFipe(`cars/brands/${brandId}/models/${modelId}/years/${yearCode}`);
-            console.log(`✅ Info completa encontrada: ${vehicleInfo.brand} ${vehicleInfo.model}`);
+            // ✅ SEGURANÇA: Log com format string estático (CWE-134 Prevention)
+            console.log('✅ Info completa encontrada:', vehicleInfo.brand, vehicleInfo.model);
             return {
                 brand: vehicleInfo.brand,
                 model: vehicleInfo.model,

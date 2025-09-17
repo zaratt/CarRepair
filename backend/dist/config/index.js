@@ -42,7 +42,8 @@ function validateConfig() {
     if (exports.config.isProduction && exports.config.jwtSecret === 'fallback-secret-key') {
         throw new Error('❌ JWT_SECRET deve ser definido em produção');
     }
-    console.log(`✅ Configurações validadas para ambiente: ${exports.config.nodeEnv}`);
+    // ✅ SEGURANÇA: Log com format string estático (CWE-134 Prevention)
+    console.log('✅ Configurações validadas para ambiente:', exports.config.nodeEnv);
 }
 exports.default = exports.config;
 //# sourceMappingURL=index.js.map

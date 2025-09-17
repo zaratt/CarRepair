@@ -36,6 +36,82 @@ const logSecurityEvent = (event: {
     // SecurityService.logEvent(logEntry);
 };
 
+// ✅ Função para sanitizar URLs de fontes remotas (CWE-601 Prevention)
+const sanitizeRemoteUrl = (url: string | undefined | null): string => {
+    // ✅ Validação inicial - retorna string vazia para valores inválidos
+    if (!url || typeof url !== 'string') {
+        logSecurityEvent({
+            type: 'MALICIOUS_URL',
+            level: 'WARN',
+            url: url || 'undefined',
+            reason: 'URL remota inválida ou vazia',
+            context: 'Remote URL sanitization'
+        });
+        return '';
+    }
+
+    // ✅ Sanitização básica - remover caracteres de controle e espaços
+    let sanitized = url.trim().replace(/[\x00-\x1F\x7F-\x9F]/g, '');
+
+    // ✅ Verificar se a sanitização modificou a URL (possível ataque)
+    if (sanitized !== url.trim()) {
+        logSecurityEvent({
+            type: 'MALICIOUS_URL',
+            level: 'WARN',
+            url,
+            reason: 'URL remota contém caracteres de controle suspeitos',
+            context: 'Remote URL control character detection'
+        });
+        return '';
+    }
+
+    // ✅ Verificar comprimento máximo
+    if (sanitized.length > 2048) {
+        logSecurityEvent({
+            type: 'MALICIOUS_URL',
+            level: 'WARN',
+            url: sanitized,
+            reason: `URL remota muito longa: ${sanitized.length} caracteres`,
+            context: 'Remote URL length validation'
+        });
+        return '';
+    }
+
+    // ✅ Verificar padrões de redirecionamento suspeitos
+    const redirectPatterns = [
+        /redirect=/i,
+        /goto=/i,
+        /url=/i,
+        /target=/i,
+        /link=/i,
+        /%72%65%64%69%72%65%63%74/i, // 'redirect' encoded
+    ];
+
+    for (const pattern of redirectPatterns) {
+        if (pattern.test(sanitized)) {
+            logSecurityEvent({
+                type: 'MALICIOUS_URL',
+                level: 'WARN',
+                url: sanitized,
+                reason: `URL remota contém padrão de redirecionamento suspeito: ${pattern.source}`,
+                context: 'Remote URL redirect pattern detection'
+            });
+            return '';
+        }
+    }
+
+    // ✅ Log de sanitização bem-sucedida
+    logSecurityEvent({
+        type: 'URL_VALIDATION',
+        level: 'INFO',
+        url: sanitized,
+        reason: 'URL remota sanitizada com sucesso',
+        context: 'Remote URL sanitization success'
+    });
+
+    return sanitized;
+};
+
 // ✅ Função para validação segura de URLs (CWE-601 - Open Redirect Prevention)
 const isValidURL = (url: string): boolean => {
     try {
@@ -523,24 +599,29 @@ const InspectionDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                             <View style={styles.section}>
                                 <Text style={styles.sectionTitle}>Anexos ({inspection.attachments.length})</Text>
                                 <View style={styles.attachmentsContainer}>
-                                    {inspection.attachments.map((attachment, index) => (
-                                        <TouchableOpacity
-                                            key={attachment.id || index}
-                                            onPress={() => safeOpenURL(attachment.url, `o anexo ${attachment.name || `#${index + 1}`}`)}
-                                            style={styles.attachmentItem}
-                                        >
-                                            {attachment.type && attachment.type.startsWith('image') ? (
-                                                <Image
-                                                    source={getSafeImageSource(attachment.url)}
-                                                    style={styles.attachmentImage}
-                                                />
-                                            ) : (
-                                                <View style={styles.attachmentFile}>
-                                                    <IconButton icon="file-pdf-box" size={32} iconColor="#d32f2f" />
-                                                </View>
-                                            )}
-                                        </TouchableOpacity>
-                                    ))}
+                                    {inspection.attachments.map((attachment, index) => {
+                                        // ✅ SEGURANÇA: Sanitização prévia da URL do anexo (CWE-601 Prevention)
+                                        const sanitizedAttachmentUrl = sanitizeRemoteUrl(attachment.url);
+
+                                        return (
+                                            <TouchableOpacity
+                                                key={attachment.id || index}
+                                                onPress={() => safeOpenURL(sanitizedAttachmentUrl, `o anexo ${attachment.name || `#${index + 1}`}`)}
+                                                style={styles.attachmentItem}
+                                            >
+                                                {attachment.type && attachment.type.startsWith('image') ? (
+                                                    <Image
+                                                        source={getSafeImageSource(sanitizedAttachmentUrl)}
+                                                        style={styles.attachmentImage}
+                                                    />
+                                                ) : (
+                                                    <View style={styles.attachmentFile}>
+                                                        <IconButton icon="file-pdf-box" size={32} iconColor="#d32f2f" />
+                                                    </View>
+                                                )}
+                                            </TouchableOpacity>
+                                        );
+                                    })}
                                 </View>
                             </View>
                         )}

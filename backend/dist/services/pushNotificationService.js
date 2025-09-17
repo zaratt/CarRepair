@@ -9,7 +9,8 @@ class PushNotificationService {
     // ✅ ENVIAR PUSH NOTIFICATION PARA USUÁRIO ESPECÍFICO
     async sendToUser(target, notification) {
         try {
-            console.log(`📱 Enviando push notification para usuário ${target.userId}`);
+            // ✅ SEGURANÇA: Log com format string estático (CWE-134 Prevention)
+            console.log('📱 Enviando push notification para usuário', target.userId);
             // Buscar tokens ativos do usuário
             const tokens = await prisma.pushToken.findMany({
                 where: {
@@ -18,7 +19,8 @@ class PushNotificationService {
                 }
             });
             if (tokens.length === 0) {
-                console.log(`⚠️ Nenhum token ativo encontrado para usuário ${target.userId}`);
+                // ✅ SEGURANÇA: Log com format string estático (CWE-134 Prevention)
+                console.log('⚠️ Nenhum token ativo encontrado para usuário', target.userId);
                 return false;
             }
             // Verificar preferências do usuário
@@ -26,7 +28,8 @@ class PushNotificationService {
                 where: { userId: target.userId }
             });
             if (!this.shouldSendNotification(preferences, target.notificationType)) {
-                console.log(`🔕 Notificação bloqueada pelas preferências do usuário ${target.userId}`);
+                // ✅ SEGURANÇA: Log com format string estático (CWE-134 Prevention)
+                console.log('🔕 Notificação bloqueada pelas preferências do usuário', target.userId);
                 return false;
             }
             // Preparar mensagens
@@ -44,7 +47,8 @@ class PushNotificationService {
                 channelId: notification.channelId || 'default',
             }));
             if (messages.length === 0) {
-                console.log(`⚠️ Nenhum token válido encontrado para usuário ${target.userId}`);
+                // ✅ SEGURANÇA: Log com format string estático (CWE-134 Prevention)
+                console.log('⚠️ Nenhum token válido encontrado para usuário', target.userId);
                 return false;
             }
             // Enviar em lotes
@@ -152,7 +156,8 @@ class PushNotificationService {
                 where: { id: tokenId },
                 data: { isActive: false }
             });
-            console.log(`🔴 Token ${tokenId} desativado (dispositivo não registrado)`);
+            // ✅ SEGURANÇA: Log com format string estático (CWE-134 Prevention)
+            console.log('🔴 Token desativado (dispositivo não registrado):', tokenId);
         }
         catch (error) {
             console.error('❌ Erro ao desativar token:', error);
@@ -193,7 +198,8 @@ class PushNotificationService {
             });
             const userIds = activeUsers.map(user => user.id);
             await this.sendToMultipleUsers(userIds, notification, notificationType);
-            console.log(`📢 Broadcast enviado para ${userIds.length} usuários`);
+            // ✅ SEGURANÇA: Log com format string estático (CWE-134 Prevention)
+            console.log('📢 Broadcast enviado para', userIds.length, 'usuários');
         }
         catch (error) {
             console.error('❌ Erro no broadcast:', error);
@@ -215,7 +221,8 @@ class PushNotificationService {
                     isActive: false
                 }
             });
-            console.log(`🧹 ${result.count} tokens antigos desativados`);
+            // ✅ SEGURANÇA: Log com format string estático (CWE-134 Prevention)
+            console.log('🧹', result.count, 'tokens antigos desativados');
         }
         catch (error) {
             console.error('❌ Erro na limpeza de tokens:', error);

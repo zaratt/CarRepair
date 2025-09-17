@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.asyncHandler = exports.errorHandler = exports.ConflictError = exports.NotFoundError = exports.ValidationError = exports.AppError = void 0;
 const config_1 = require("../config");
+const auth_1 = require("../utils/auth");
 // Tipos de erro customizados
 class AppError extends Error {
     statusCode;
@@ -36,9 +37,15 @@ exports.ConflictError = ConflictError;
 const errorHandler = (err, req, res, next) => {
     let error = { ...err };
     error.message = err.message;
-    // Log do erro
-    console.error(`🚨 Error [${req.method} ${req.path}]:`, {
-        message: err.message,
+    // ✅ SEGURANÇA: Sanitizar dados da request antes do log (CWE-134 Prevention)
+    const sanitizedMethod = (0, auth_1.sanitizeForLog)(req.method || 'UNKNOWN');
+    const sanitizedPath = (0, auth_1.sanitizeForLog)(req.path || '/unknown');
+    const sanitizedMessage = (0, auth_1.sanitizeForLog)(err.message || 'Unknown error');
+    // ✅ Log do erro com format string estático (CWE-134 Prevention)
+    console.error('🚨 Error Details:', {
+        method: sanitizedMethod,
+        path: sanitizedPath,
+        message: sanitizedMessage,
         stack: config_1.config.isDevelopment ? err.stack : undefined,
         body: req.body,
         params: req.params,

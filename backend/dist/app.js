@@ -196,9 +196,10 @@ app.use((err, req, res, next) => {
 });
 // Start server
 const server = app.listen(config_1.config.port, () => {
-    console.log(`🚀 CarRepair API running on port ${config_1.config.port}`);
-    console.log(`📱 Environment: ${config_1.config.nodeEnv}`);
-    console.log(`🏥 Health check: http://localhost:${config_1.config.port}/health`);
+    // ✅ SEGURANÇA: Log com format string estático (CWE-134 Prevention)
+    console.log('🚀 CarRepair API running on port', config_1.config.port);
+    console.log('📱 Environment:', config_1.config.nodeEnv);
+    console.log('🏥 Health check: http://localhost:' + config_1.config.port + '/health');
 });
 // Graceful shutdown
 process.on('SIGTERM', () => {
