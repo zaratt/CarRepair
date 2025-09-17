@@ -87,12 +87,48 @@ exports.createVehicle = (0, errorHandler_1.asyncHandler)(async (req, res) => {
 });
 // Listar veículos com paginação
 exports.getVehicles = (0, errorHandler_1.asyncHandler)(async (req, res) => {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    // ✅ SEGURANÇA: Validar tipos dos parâmetros de query (CWE-1287 Prevention)
+    const pageParam = req.query.page;
+    const limitParam = req.query.limit;
     const ownerId = req.query.ownerId;
-    // ✅ CORREÇÃO: Só filtrar por active se explicitamente fornecido
-    const active = req.query.active !== undefined ? req.query.active === 'true' : undefined;
+    const activeParam = req.query.active;
     const licensePlate = req.query.licensePlate;
+    // Validar tipos e converter valores
+    let page = 1;
+    let limit = 10;
+    let active = undefined;
+    if (pageParam !== undefined) {
+        if (typeof pageParam !== 'string') {
+            throw new errorHandler_1.ValidationError('Page parameter must be a string');
+        }
+        const parsedPage = parseInt(pageParam);
+        if (isNaN(parsedPage) || parsedPage < 1) {
+            throw new errorHandler_1.ValidationError('Page must be a positive number');
+        }
+        page = parsedPage;
+    }
+    if (limitParam !== undefined) {
+        if (typeof limitParam !== 'string') {
+            throw new errorHandler_1.ValidationError('Limit parameter must be a string');
+        }
+        const parsedLimit = parseInt(limitParam);
+        if (isNaN(parsedLimit) || parsedLimit < 1 || parsedLimit > 100) {
+            throw new errorHandler_1.ValidationError('Limit must be a number between 1 and 100');
+        }
+        limit = parsedLimit;
+    }
+    if (ownerId !== undefined && typeof ownerId !== 'string') {
+        throw new errorHandler_1.ValidationError('Owner ID must be a string');
+    }
+    if (activeParam !== undefined) {
+        if (typeof activeParam !== 'string') {
+            throw new errorHandler_1.ValidationError('Active parameter must be a string');
+        }
+        active = activeParam === 'true';
+    }
+    if (licensePlate !== undefined && typeof licensePlate !== 'string') {
+        throw new errorHandler_1.ValidationError('License plate must be a string');
+    }
     console.log('🔍 [BACKEND] getVehicles - Query params:', {
         page, limit, ownerId, active, licensePlate
     });
@@ -104,10 +140,13 @@ exports.getVehicles = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     if (active !== undefined)
         where.active = active;
     if (licensePlate) {
-        where.licensePlate = {
-            contains: licensePlate.toUpperCase(),
-            mode: 'insensitive'
-        };
+        // ✅ SEGURANÇA: Validação adicional antes do toUpperCase() (CWE-1287 Prevention)
+        if (typeof licensePlate === 'string') {
+            where.licensePlate = {
+                contains: licensePlate.toUpperCase(),
+                mode: 'insensitive'
+            };
+        }
     }
     console.log('🔍 [BACKEND] Filtros construídos:', where);
     // Verificar se há veículos no banco para esse ownerId
@@ -321,7 +360,15 @@ exports.updateVehicle = (0, errorHandler_1.asyncHandler)(async (req, res) => {
 // Excluir veículo (soft delete)
 exports.deleteVehicle = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     const { id } = req.params;
-    const force = req.query.force === 'true';
+    const forceParam = req.query.force;
+    // ✅ SEGURANÇA: Validar tipo do parâmetro force (CWE-1287 Prevention)
+    let force = false;
+    if (forceParam !== undefined) {
+        if (typeof forceParam !== 'string') {
+            throw new errorHandler_1.ValidationError('Force parameter must be a string');
+        }
+        force = forceParam === 'true';
+    }
     // Verificar se o veículo existe
     const vehicle = await prisma_1.prisma.vehicle.findUnique({
         where: { id },
@@ -389,7 +436,11 @@ exports.deleteVehicle = (0, errorHandler_1.asyncHandler)(async (req, res) => {
 });
 // Buscar veículos por placa (busca parcial)
 exports.searchVehiclesByPlate = (0, errorHandler_1.asyncHandler)(async (req, res) => {
+    // ✅ SEGURANÇA: Validar tipo do parâmetro plate (CWE-1287 Prevention)
     const { plate } = req.params;
+    if (typeof plate !== 'string') {
+        throw new errorHandler_1.ValidationError('Plate parameter must be a string');
+    }
     if (!plate || plate.length < 3) {
         throw new errorHandler_1.ValidationError('Plate search must have at least 3 characters');
     }

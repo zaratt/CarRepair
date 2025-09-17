@@ -7,33 +7,40 @@ const documentValidation_1 = require("../utils/documentValidation");
 // Criar nova oficina
 exports.createWorkshop = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     const workshopData = req.body;
-    // Verificar se o usuário existe e é do tipo business
+    // ✅ SEGURANÇA: Validar tipos de entrada (CWE-1287 Prevention)
+    if (!workshopData || typeof workshopData !== 'object') {
+        throw new errorHandler_1.ValidationError('Invalid request body: expected object');
+    }
+    if (!workshopData.name || typeof workshopData.name !== 'string') {
+        throw new errorHandler_1.ValidationError('Workshop name must be a valid string');
+    }
+    if (!workshopData.address || typeof workshopData.address !== 'string') {
+        throw new errorHandler_1.ValidationError('Workshop address must be a valid string');
+    }
+    if (!workshopData.phone || typeof workshopData.phone !== 'string') {
+        throw new errorHandler_1.ValidationError('Workshop phone must be a valid string');
+    }
+    if (!workshopData.userId || typeof workshopData.userId !== 'string') {
+        throw new errorHandler_1.ValidationError('User ID must be a valid string');
+    }
+    if (workshopData.subdomain !== undefined && typeof workshopData.subdomain !== 'string') {
+        throw new errorHandler_1.ValidationError('Subdomain must be a string when provided');
+    }
+    // Verificar se usuário existe
     const user = await prisma_1.prisma.user.findUnique({
-        where: { id: workshopData.userId },
-        select: {
-            id: true,
-            name: true,
-            cpfCnpj: true,
-            type: true,
-            profile: true
-        }
+        where: { id: workshopData.userId }
     });
     if (!user) {
         throw new errorHandler_1.NotFoundError('User');
     }
-    // Validar se o usuário tem CNPJ (business)
-    const documentValidation = (0, documentValidation_1.validateDocument)(user.cpfCnpj);
-    if (documentValidation.type !== 'cnpj') {
-        throw new errorHandler_1.ValidationError('Workshop owner must have CNPJ (business document)');
-    }
-    // Verificar se já existe oficina para este usuário
+    // Verificar se o usuário já tem uma oficina
     const existingWorkshop = await prisma_1.prisma.workshop.findFirst({
         where: { userId: workshopData.userId }
     });
     if (existingWorkshop) {
-        throw new errorHandler_1.ConflictError('User already has a workshop registered');
+        throw new errorHandler_1.ConflictError('User already has a workshop');
     }
-    // Verificar se subdomain já existe (se fornecido)
+    // Verificar subdomain único (se fornecido)
     if (workshopData.subdomain) {
         const existingSubdomain = await prisma_1.prisma.workshop.findUnique({
             where: { subdomain: workshopData.subdomain }
@@ -56,17 +63,7 @@ exports.createWorkshop = (0, errorHandler_1.asyncHandler)(async (req, res) => {
                 select: {
                     id: true,
                     name: true,
-                    email: true,
-                    cpfCnpj: true,
-                    phone: true,
-                    city: true,
-                    state: true
-                }
-            },
-            _count: {
-                select: {
-                    maintenances: true,
-                    ratings: true
+                    email: true
                 }
             }
         }
@@ -75,43 +72,79 @@ exports.createWorkshop = (0, errorHandler_1.asyncHandler)(async (req, res) => {
         success: true,
         message: 'Workshop created successfully',
         data: {
-            ...workshop,
-            formatted: {
-                phone: (0, documentValidation_1.formatPhone)(workshop.phone),
-                userDocument: (0, documentValidation_1.validateDocument)(workshop.user.cpfCnpj).formatted,
-                userPhone: workshop.user.phone ? (0, documentValidation_1.formatPhone)(workshop.user.phone) : null,
-                createdAt: workshop.createdAt.toLocaleDateString('pt-BR')
-            },
-            stats: {
-                maintenancesCount: workshop._count.maintenances,
-                ratingsCount: workshop._count.ratings,
-                avgRating: workshop.rating || 0
-            }
+            workshop
         }
     };
     res.status(201).json(response);
 });
 // Listar oficinas com filtros
 exports.getWorkshops = (0, errorHandler_1.asyncHandler)(async (req, res) => {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    // ✅ SEGURANÇA: Validar tipos dos parâmetros de query (CWE-1287 Prevention)
+    const pageParam = req.query.page;
+    const limitParam = req.query.limit;
     const city = req.query.city;
     const state = req.query.state;
     const search = req.query.search;
-    const minRating = req.query.minRating ? parseFloat(req.query.minRating) : undefined;
+    const minRatingParam = req.query.minRating;
+    // ✅ SEGURANÇA: Validação imediata de tipos para prevenir CWE-1287
+    if (search !== undefined && typeof search !== 'string') {
+        throw new errorHandler_1.ValidationError('Search parameter must be a string');
+    }
+    // Validar tipos e converter valores
+    let page = 1;
+    let limit = 10;
+    let minRating = undefined;
+    if (pageParam !== undefined) {
+        if (typeof pageParam !== 'string') {
+            throw new errorHandler_1.ValidationError('Page parameter must be a string');
+        }
+        const parsedPage = parseInt(pageParam);
+        if (isNaN(parsedPage) || parsedPage < 1) {
+            throw new errorHandler_1.ValidationError('Page must be a positive number');
+        }
+        page = parsedPage;
+    }
+    if (limitParam !== undefined) {
+        if (typeof limitParam !== 'string') {
+            throw new errorHandler_1.ValidationError('Limit parameter must be a string');
+        }
+        const parsedLimit = parseInt(limitParam);
+        if (isNaN(parsedLimit) || parsedLimit < 1 || parsedLimit > 100) {
+            throw new errorHandler_1.ValidationError('Limit must be a number between 1 and 100');
+        }
+        limit = parsedLimit;
+    }
+    if (city !== undefined && typeof city !== 'string') {
+        throw new errorHandler_1.ValidationError('City must be a string');
+    }
+    if (state !== undefined && typeof state !== 'string') {
+        throw new errorHandler_1.ValidationError('State must be a string');
+    }
+    if (minRatingParam !== undefined) {
+        if (typeof minRatingParam !== 'string') {
+            throw new errorHandler_1.ValidationError('MinRating must be a string');
+        }
+        const parsedRating = parseFloat(minRatingParam);
+        if (isNaN(parsedRating) || parsedRating < 0 || parsedRating > 5) {
+            throw new errorHandler_1.ValidationError('MinRating must be a number between 0 and 5');
+        }
+        minRating = parsedRating;
+    }
     const skip = (page - 1) * limit;
     // Construir filtros
     const where = {};
     // Filtros geográficos
     if (city || state) {
         where.user = {};
-        if (city)
+        if (city && typeof city === 'string') {
             where.user.city = { contains: city, mode: 'insensitive' };
-        if (state)
+        }
+        if (state && typeof state === 'string') {
             where.user.state = state.toUpperCase();
+        }
     }
     // Filtro de busca (nome da oficina)
-    if (search) {
+    if (search && typeof search === 'string') {
         where.name = { contains: search, mode: 'insensitive' };
     }
     // Filtro de avaliação mínima
@@ -260,8 +293,53 @@ exports.getWorkshopById = (0, errorHandler_1.asyncHandler)(async (req, res) => {
 });
 // Atualizar oficina
 exports.updateWorkshop = (0, errorHandler_1.asyncHandler)(async (req, res) => {
+    // Validar tipo do parâmetro id
     const { id } = req.params;
+    if (typeof id !== 'string' || !id.trim()) {
+        res.status(400).json({
+            success: false,
+            message: 'Workshop ID is required and must be a string'
+        });
+        return;
+    }
+    // Validar tipo do corpo da requisição
+    if (typeof req.body !== 'object' || req.body === null) {
+        res.status(400).json({
+            success: false,
+            message: 'Request body must be an object'
+        });
+        return;
+    }
     const updateData = req.body;
+    // Validar tipos dos campos de atualização
+    if (updateData.name !== undefined && typeof updateData.name !== 'string') {
+        res.status(400).json({
+            success: false,
+            message: 'Name must be a string'
+        });
+        return;
+    }
+    if (updateData.address !== undefined && typeof updateData.address !== 'string') {
+        res.status(400).json({
+            success: false,
+            message: 'Address must be a string'
+        });
+        return;
+    }
+    if (updateData.phone !== undefined && typeof updateData.phone !== 'string') {
+        res.status(400).json({
+            success: false,
+            message: 'Phone must be a string'
+        });
+        return;
+    }
+    if (updateData.subdomain !== undefined && typeof updateData.subdomain !== 'string') {
+        res.status(400).json({
+            success: false,
+            message: 'Subdomain must be a string'
+        });
+        return;
+    }
     // Verificar se a oficina existe
     const existingWorkshop = await prisma_1.prisma.workshop.findUnique({
         where: { id }
@@ -270,7 +348,7 @@ exports.updateWorkshop = (0, errorHandler_1.asyncHandler)(async (req, res) => {
         throw new errorHandler_1.NotFoundError('Workshop');
     }
     // Verificar subdomain se está sendo alterado
-    if (updateData.subdomain && updateData.subdomain !== existingWorkshop.subdomain) {
+    if (typeof updateData.subdomain === 'string' && updateData.subdomain !== existingWorkshop.subdomain) {
         const existingSubdomain = await prisma_1.prisma.workshop.findUnique({
             where: { subdomain: updateData.subdomain }
         });
@@ -280,14 +358,18 @@ exports.updateWorkshop = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     }
     // Preparar dados para atualização
     const dataToUpdate = {};
-    if (updateData.name)
+    if (typeof updateData.name === 'string' && updateData.name.trim()) {
         dataToUpdate.name = updateData.name.trim();
-    if (updateData.address)
+    }
+    if (typeof updateData.address === 'string' && updateData.address.trim()) {
         dataToUpdate.address = updateData.address.trim();
-    if (updateData.phone)
-        dataToUpdate.phone = updateData.phone;
-    if (updateData.subdomain !== undefined)
-        dataToUpdate.subdomain = updateData.subdomain;
+    }
+    if (typeof updateData.phone === 'string' && updateData.phone.trim()) {
+        dataToUpdate.phone = updateData.phone.trim();
+    }
+    if (updateData.subdomain !== undefined && typeof updateData.subdomain === 'string') {
+        dataToUpdate.subdomain = updateData.subdomain.trim();
+    }
     // Atualizar oficina
     const workshop = await prisma_1.prisma.workshop.update({
         where: { id },
@@ -330,8 +412,36 @@ exports.updateWorkshop = (0, errorHandler_1.asyncHandler)(async (req, res) => {
 });
 // Buscar oficinas por proximidade/região
 exports.searchWorkshops = (0, errorHandler_1.asyncHandler)(async (req, res) => {
+    // Validar tipo do parâmetro term
     const { term } = req.params;
-    const limit = parseInt(req.query.limit) || 20;
+    if (typeof term !== 'string' || !term.trim()) {
+        res.status(400).json({
+            success: false,
+            message: 'Search term is required and must be a string'
+        });
+        return;
+    }
+    // Validar e converter parâmetro limit
+    const limitParam = req.query.limit;
+    let limit = 20; // valor padrão
+    if (limitParam !== undefined) {
+        if (typeof limitParam !== 'string') {
+            res.status(400).json({
+                success: false,
+                message: 'Limit must be a string number'
+            });
+            return;
+        }
+        const parsedLimit = parseInt(limitParam, 10);
+        if (isNaN(parsedLimit) || parsedLimit < 1 || parsedLimit > 100) {
+            res.status(400).json({
+                success: false,
+                message: 'Limit must be a number between 1 and 100'
+            });
+            return;
+        }
+        limit = parsedLimit;
+    }
     const workshops = await prisma_1.prisma.workshop.findMany({
         where: {
             OR: [
@@ -394,7 +504,15 @@ exports.searchWorkshops = (0, errorHandler_1.asyncHandler)(async (req, res) => {
 });
 // Estatísticas detalhadas da oficina
 exports.getWorkshopStats = (0, errorHandler_1.asyncHandler)(async (req, res) => {
+    // Validar tipo do parâmetro id
     const { id } = req.params;
+    if (typeof id !== 'string' || !id.trim()) {
+        res.status(400).json({
+            success: false,
+            message: 'Workshop ID is required and must be a string'
+        });
+        return;
+    }
     const workshop = await prisma_1.prisma.workshop.findUnique({
         where: { id },
         select: { name: true }

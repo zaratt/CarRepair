@@ -12,15 +12,19 @@ const errorHandler_1 = require("./errorHandler");
 function validateUserData(req, res, next) {
     const userData = req.body;
     const errors = [];
-    // Validações obrigatórias
-    if (!userData.name || userData.name.trim().length < 2) {
-        errors.push('Name must be at least 2 characters long');
+    // ✅ SEGURANÇA: Validar tipos de entrada (CWE-1287 Prevention)
+    if (!userData || typeof userData !== 'object') {
+        throw new errorHandler_1.ValidationError('Invalid request body: expected object');
     }
-    if (!userData.email || !(0, documentValidation_1.validateEmail)(userData.email)) {
-        errors.push('Valid email is required');
+    // Validações obrigatórias com verificação de tipo
+    if (!userData.name || typeof userData.name !== 'string' || userData.name.trim().length < 2) {
+        errors.push('Name must be a string with at least 2 characters');
     }
-    if (!userData.document) {
-        errors.push('Document (CPF or CNPJ) is required');
+    if (!userData.email || typeof userData.email !== 'string' || !(0, documentValidation_1.validateEmail)(userData.email)) {
+        errors.push('Valid email is required (must be string)');
+    }
+    if (!userData.document || typeof userData.document !== 'string') {
+        errors.push('Document (CPF or CNPJ) is required and must be a string');
     }
     else {
         const documentValidation = (0, documentValidation_1.validateDocument)(userData.document);
@@ -32,12 +36,16 @@ function validateUserData(req, res, next) {
             userData.document = documentValidation.formatted;
         }
     }
-    // Validações opcionais
-    if (userData.phone && !(0, documentValidation_1.validatePhone)(userData.phone)) {
-        errors.push('Invalid phone format');
+    // Validações opcionais com verificação de tipo
+    if (userData.phone !== undefined && userData.phone !== null) {
+        if (typeof userData.phone !== 'string' || !(0, documentValidation_1.validatePhone)(userData.phone)) {
+            errors.push('Phone must be a valid string format');
+        }
     }
-    if (userData.state && userData.state.length !== 2) {
-        errors.push('State must be 2 characters (e.g., SP, RJ)');
+    if (userData.state !== undefined && userData.state !== null) {
+        if (typeof userData.state !== 'string' || userData.state.length !== 2) {
+            errors.push('State must be a string with 2 characters (e.g., SP, RJ)');
+        }
     }
     if (errors.length > 0) {
         throw new errorHandler_1.ValidationError(`Validation failed: ${errors.join(', ')}`);
@@ -50,18 +58,30 @@ function validateUserData(req, res, next) {
 function validateUserUpdateData(req, res, next) {
     const userData = req.body;
     const errors = [];
-    // Só validar campos que foram fornecidos
-    if (userData.name !== undefined && userData.name.trim().length < 2) {
-        errors.push('Name must be at least 2 characters long');
+    // ✅ SEGURANÇA: Validar tipos de entrada (CWE-1287 Prevention)
+    if (!userData || typeof userData !== 'object') {
+        throw new errorHandler_1.ValidationError('Invalid request body: expected object');
     }
-    if (userData.email !== undefined && !(0, documentValidation_1.validateEmail)(userData.email)) {
-        errors.push('Invalid email format');
+    // Só validar campos que foram fornecidos com verificação de tipo
+    if (userData.name !== undefined) {
+        if (typeof userData.name !== 'string' || userData.name.trim().length < 2) {
+            errors.push('Name must be a string with at least 2 characters');
+        }
     }
-    if (userData.phone !== undefined && userData.phone !== null && !(0, documentValidation_1.validatePhone)(userData.phone)) {
-        errors.push('Invalid phone format');
+    if (userData.email !== undefined) {
+        if (typeof userData.email !== 'string' || !(0, documentValidation_1.validateEmail)(userData.email)) {
+            errors.push('Email must be a valid string format');
+        }
     }
-    if (userData.state !== undefined && userData.state !== null && userData.state.length !== 2) {
-        errors.push('State must be 2 characters (e.g., SP, RJ)');
+    if (userData.phone !== undefined && userData.phone !== null) {
+        if (typeof userData.phone !== 'string' || !(0, documentValidation_1.validatePhone)(userData.phone)) {
+            errors.push('Phone must be a valid string format');
+        }
+    }
+    if (userData.state !== undefined && userData.state !== null) {
+        if (typeof userData.state !== 'string' || userData.state.length !== 2) {
+            errors.push('State must be a string with 2 characters (e.g., SP, RJ)');
+        }
     }
     if (errors.length > 0) {
         throw new errorHandler_1.ValidationError(`Validation failed: ${errors.join(', ')}`);
@@ -89,14 +109,30 @@ function validateUserId(req, res, next) {
 function validateUserSearchParams(req, res, next) {
     const { type, profile, state } = req.query;
     const errors = [];
-    if (type && !['user', 'workshop'].includes(type)) {
-        errors.push('type must be "user" or "workshop"');
+    // ✅ SEGURANÇA: Validar tipos dos parâmetros de query (CWE-1287 Prevention)
+    if (type !== undefined) {
+        if (typeof type !== 'string') {
+            errors.push('type must be a string');
+        }
+        else if (!['user', 'workshop'].includes(type)) {
+            errors.push('type must be "user" or "workshop"');
+        }
     }
-    if (profile && !['car_owner', 'wshop_owner'].includes(profile)) {
-        errors.push('profile must be "car_owner" or "wshop_owner"');
+    if (profile !== undefined) {
+        if (typeof profile !== 'string') {
+            errors.push('profile must be a string');
+        }
+        else if (!['car_owner', 'wshop_owner'].includes(profile)) {
+            errors.push('profile must be "car_owner" or "wshop_owner"');
+        }
     }
-    if (state && state.length !== 2) {
-        errors.push('state must be 2 characters (e.g., SP, RJ)');
+    if (state !== undefined) {
+        if (typeof state !== 'string') {
+            errors.push('state must be a string');
+        }
+        else if (state.length !== 2) {
+            errors.push('state must be 2 characters (e.g., SP, RJ)');
+        }
     }
     if (errors.length > 0) {
         throw new errorHandler_1.ValidationError(`Invalid search parameters: ${errors.join(', ')}`);

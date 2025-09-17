@@ -114,7 +114,7 @@ exports.getUsers = (0, errorHandler_1.asyncHandler)(async (req, res) => {
         where.OR = [
             { name: { contains: search, mode: 'insensitive' } },
             { email: { contains: search, mode: 'insensitive' } },
-            { cpfCnpj: { contains: search.replace(/\D/g, '') } }
+            { cpfCnpj: { contains: typeof search === 'string' ? search.replace(/\D/g, '') : search } }
         ];
     }
     // ✅ BUSCAR USUÁRIOS SIMPLES (SEM _count)
@@ -393,9 +393,10 @@ exports.validateUser = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     res.json(response);
 });
 exports.getUserByDocument = (0, errorHandler_1.asyncHandler)(async (req, res) => {
+    // ✅ SEGURANÇA: Validar tipo do parâmetro document (CWE-1287 Prevention)
     const { document } = req.params;
-    if (!document) {
-        throw new errorHandler_1.ValidationError('Document parameter is required');
+    if (!document || typeof document !== 'string') {
+        throw new errorHandler_1.ValidationError('Document parameter must be a valid string');
     }
     const cleanDocument = document.replace(/\D/g, '');
     const user = await prisma_1.prisma.user.findUnique({

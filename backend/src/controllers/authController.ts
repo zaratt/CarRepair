@@ -81,15 +81,15 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
     // Criar usuário
     const user = await prisma.user.create({
         data: {
-            name: userData.name.trim(),
-            email: userData.email.toLowerCase(),
+            name: typeof userData.name === 'string' ? userData.name.trim() : userData.name,
+            email: typeof userData.email === 'string' ? userData.email.toLowerCase() : userData.email,
             password: hashedPassword,
             phone: userData.phone || null,
             cpfCnpj: userData.document,
             type: userType,
             profile: profile,
             city: userData.city || null,
-            state: userData.state?.toUpperCase() || null,
+            state: (userData.state && typeof userData.state === 'string') ? userData.state.toUpperCase() : null,
             isValidated: true
         }
     });
@@ -138,7 +138,7 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
     try {
         // Buscar usuário por email
         const user = await prisma.user.findUnique({
-            where: { email: email.toLowerCase() }
+            where: { email: typeof email === 'string' ? email.toLowerCase() : email }
         });
 
         if (!user) {

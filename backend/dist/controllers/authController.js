@@ -9,6 +9,31 @@ const documentValidation_1 = require("../utils/documentValidation");
 // Registrar novo usuário com senha
 exports.register = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     const userData = req.body;
+    // ✅ SEGURANÇA: Validar tipos de entrada (CWE-1287 Prevention)
+    if (!userData || typeof userData !== 'object') {
+        throw new errorHandler_1.ValidationError('Invalid request body: expected object');
+    }
+    if (!userData.email || typeof userData.email !== 'string') {
+        throw new errorHandler_1.ValidationError('Email must be a valid string');
+    }
+    if (!userData.name || typeof userData.name !== 'string') {
+        throw new errorHandler_1.ValidationError('Name must be a valid string');
+    }
+    if (!userData.password || typeof userData.password !== 'string') {
+        throw new errorHandler_1.ValidationError('Password must be a valid string');
+    }
+    if (!userData.document || typeof userData.document !== 'string') {
+        throw new errorHandler_1.ValidationError('Document must be a valid string');
+    }
+    if (userData.phone && typeof userData.phone !== 'string') {
+        throw new errorHandler_1.ValidationError('Phone must be a string when provided');
+    }
+    if (userData.city && typeof userData.city !== 'string') {
+        throw new errorHandler_1.ValidationError('City must be a string when provided');
+    }
+    if (userData.state && typeof userData.state !== 'string') {
+        throw new errorHandler_1.ValidationError('State must be a string when provided');
+    }
     // Verificar se email já existe
     const existingEmailUser = await prisma_1.prisma.user.findUnique({
         where: { email: userData.email }
@@ -32,15 +57,15 @@ exports.register = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     // Criar usuário
     const user = await prisma_1.prisma.user.create({
         data: {
-            name: userData.name.trim(),
-            email: userData.email.toLowerCase(),
+            name: typeof userData.name === 'string' ? userData.name.trim() : userData.name,
+            email: typeof userData.email === 'string' ? userData.email.toLowerCase() : userData.email,
             password: hashedPassword,
             phone: userData.phone || null,
             cpfCnpj: userData.document,
             type: userType,
             profile: profile,
             city: userData.city || null,
-            state: userData.state?.toUpperCase() || null,
+            state: (userData.state && typeof userData.state === 'string') ? userData.state.toUpperCase() : null,
             isValidated: true
         }
     });
@@ -70,10 +95,17 @@ exports.register = (0, errorHandler_1.asyncHandler)(async (req, res) => {
 // Login com email e senha
 exports.login = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     const { email, password } = req.body;
+    // ✅ SEGURANÇA: Validar tipos de entrada (CWE-1287 Prevention)
+    if (!email || typeof email !== 'string') {
+        throw new errorHandler_1.ValidationError('Email must be a valid string');
+    }
+    if (!password || typeof password !== 'string') {
+        throw new errorHandler_1.ValidationError('Password must be a valid string');
+    }
     try {
         // Buscar usuário por email
         const user = await prisma_1.prisma.user.findUnique({
-            where: { email: email.toLowerCase() }
+            where: { email: typeof email === 'string' ? email.toLowerCase() : email }
         });
         if (!user) {
             (0, auth_1.incrementLoginAttempts)(req);
@@ -214,9 +246,22 @@ exports.updateProfile = (0, errorHandler_1.asyncHandler)(async (req, res) => {
         throw new errorHandler_1.ValidationError('User not authenticated');
     }
     const { name, phone, city, state } = req.body;
+    // ✅ SEGURANÇA: Validar tipos de entrada (CWE-1287 Prevention)
+    if (name !== undefined && typeof name !== 'string') {
+        throw new errorHandler_1.ValidationError('Name must be a string when provided');
+    }
+    if (phone !== undefined && phone !== null && typeof phone !== 'string') {
+        throw new errorHandler_1.ValidationError('Phone must be a string when provided');
+    }
+    if (city !== undefined && city !== null && typeof city !== 'string') {
+        throw new errorHandler_1.ValidationError('City must be a string when provided');
+    }
+    if (state !== undefined && state !== null && typeof state !== 'string') {
+        throw new errorHandler_1.ValidationError('State must be a string when provided');
+    }
     // Preparar dados para atualização (apenas campos permitidos)
     const dataToUpdate = {};
-    if (name)
+    if (name && typeof name === 'string')
         dataToUpdate.name = name.trim();
     if (phone !== undefined)
         dataToUpdate.phone = phone;
@@ -243,6 +288,13 @@ exports.changePassword = (0, errorHandler_1.asyncHandler)(async (req, res) => {
         throw new errorHandler_1.ValidationError('User not authenticated');
     }
     const { currentPassword, newPassword } = req.body;
+    // ✅ SEGURANÇA: Validar tipos de entrada (CWE-1287 Prevention)
+    if (!currentPassword || typeof currentPassword !== 'string') {
+        throw new errorHandler_1.ValidationError('Current password must be a valid string');
+    }
+    if (!newPassword || typeof newPassword !== 'string') {
+        throw new errorHandler_1.ValidationError('New password must be a valid string');
+    }
     // Buscar usuário atual
     const user = await prisma_1.prisma.user.findUnique({
         where: { id: userId }

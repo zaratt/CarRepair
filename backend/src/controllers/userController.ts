@@ -127,7 +127,7 @@ export const getUsers = asyncHandler(async (req: Request, res: Response) => {
         where.OR = [
             { name: { contains: search, mode: 'insensitive' } },
             { email: { contains: search, mode: 'insensitive' } },
-            { cpfCnpj: { contains: search.replace(/\D/g, '') } }
+            { cpfCnpj: { contains: typeof search === 'string' ? search.replace(/\D/g, '') : search } }
         ];
     }
 
@@ -437,10 +437,11 @@ export const validateUser = asyncHandler(async (req: Request, res: Response) => 
 });
 
 export const getUserByDocument = asyncHandler(async (req: Request, res: Response) => {
+    // ✅ SEGURANÇA: Validar tipo do parâmetro document (CWE-1287 Prevention)
     const { document } = req.params;
 
-    if (!document) {
-        throw new ValidationError('Document parameter is required');
+    if (!document || typeof document !== 'string') {
+        throw new ValidationError('Document parameter must be a valid string');
     }
 
     const cleanDocument = document.replace(/\D/g, '');

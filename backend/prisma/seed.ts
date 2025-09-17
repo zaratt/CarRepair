@@ -1,9 +1,23 @@
 import { PrismaClient } from '@prisma/client';
+import { hashPassword } from '../src/utils/auth';
 
 const prisma = new PrismaClient();
 
 async function main() {
     console.log('🌱 Iniciando seed do banco de dados...');
+
+    // ✅ SEGURANÇA: Gerar senhas dinamicamente para desenvolvimento (CWE-798/CWE-259 Prevention)
+    // Usar variáveis de ambiente ou gerar senhas randômicas
+    const testPassword = process.env.SEED_USER_PASSWORD || `test${Math.random().toString(36).slice(-8)}!`;
+    const workshopPassword = process.env.SEED_WORKSHOP_PASSWORD || `work${Math.random().toString(36).slice(-8)}!`;
+
+    console.log('🔐 Gerando hashes de senha seguros...');
+    const testUserHashedPassword = await hashPassword(testPassword);
+    const workshopOwnerHashedPassword = await hashPassword(workshopPassword);
+
+    console.log('ℹ️  Credenciais de desenvolvimento:');
+    console.log('   👤 Usuário: joao.silva@email.com | Senha:', testPassword);
+    console.log('   🔧 Oficina: maria.santos@oficina.com | Senha:', workshopPassword);
 
     // Limpar dados existentes
     console.log('🧹 Limpando dados existentes...');
@@ -63,7 +77,7 @@ async function main() {
             city: 'São Paulo',
             state: 'SP',
             isValidated: true,
-            password: '$2b$10$defaultPasswordHashForSeeding'
+            password: testUserHashedPassword // ✅ SEGURANÇA: Senha gerada dinamicamente
         }
     });
 
@@ -80,7 +94,7 @@ async function main() {
             city: 'São Paulo',
             state: 'SP',
             isValidated: true,
-            password: '$2b$10$defaultPasswordHashForSeeding'
+            password: workshopOwnerHashedPassword // ✅ SEGURANÇA: Senha gerada dinamicamente
         }
     });
 

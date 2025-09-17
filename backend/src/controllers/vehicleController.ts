@@ -154,10 +154,13 @@ export const getVehicles = asyncHandler(async (req: Request, res: Response) => {
     if (ownerId) where.ownerId = ownerId;
     if (active !== undefined) where.active = active;
     if (licensePlate) {
-        where.licensePlate = {
-            contains: licensePlate.toUpperCase(),
-            mode: 'insensitive'
-        };
+        // ✅ SEGURANÇA: Validação adicional antes do toUpperCase() (CWE-1287 Prevention)
+        if (typeof licensePlate === 'string') {
+            where.licensePlate = {
+                contains: licensePlate.toUpperCase(),
+                mode: 'insensitive'
+            };
+        }
     }
 
     console.log('🔍 [BACKEND] Filtros construídos:', where);
@@ -488,7 +491,12 @@ export const deleteVehicle = asyncHandler(async (req: Request, res: Response) =>
 
 // Buscar veículos por placa (busca parcial)
 export const searchVehiclesByPlate = asyncHandler(async (req: Request, res: Response) => {
+    // ✅ SEGURANÇA: Validar tipo do parâmetro plate (CWE-1287 Prevention)
     const { plate } = req.params;
+
+    if (typeof plate !== 'string') {
+        throw new ValidationError('Plate parameter must be a string');
+    }
 
     if (!plate || plate.length < 3) {
         throw new ValidationError('Plate search must have at least 3 characters');

@@ -19,11 +19,15 @@ exports.validateUUID = validateUUID;
 // Middleware de validação de placa
 const validateLicensePlateParam = (req, res, next) => {
     const { licensePlate } = req.body;
-    if (licensePlate && !(0, validation_1.isValidLicensePlate)(licensePlate.toUpperCase())) {
-        throw new errorHandler_1.ValidationError('Invalid license plate format. Use format ABC1234 or ABC1D23');
-    }
-    // Normaliza a placa para maiúscula
-    if (licensePlate) {
+    // ✅ SEGURANÇA: Validar tipo antes do uso (CWE-1287 Prevention)
+    if (licensePlate !== undefined && licensePlate !== null) {
+        if (typeof licensePlate !== 'string') {
+            throw new errorHandler_1.ValidationError('License plate must be a string');
+        }
+        if (!(0, validation_1.isValidLicensePlate)(licensePlate.toUpperCase())) {
+            throw new errorHandler_1.ValidationError('Invalid license plate format. Use format ABC1234 or ABC1D23');
+        }
+        // Normaliza a placa para maiúscula
         req.body.licensePlate = licensePlate.toUpperCase();
     }
     next();
@@ -32,8 +36,14 @@ exports.validateLicensePlateParam = validateLicensePlateParam;
 // Middleware de validação de CPF/CNPJ
 const validateCpfCnpjParam = (req, res, next) => {
     const { cpfCnpj } = req.body;
-    if (cpfCnpj && !(0, validation_1.isValidCpfCnpj)(cpfCnpj)) {
-        throw new errorHandler_1.ValidationError('Invalid CPF/CNPJ format');
+    // ✅ SEGURANÇA: Validar tipo antes do uso (CWE-1287 Prevention)
+    if (cpfCnpj !== undefined && cpfCnpj !== null) {
+        if (typeof cpfCnpj !== 'string') {
+            throw new errorHandler_1.ValidationError('CPF/CNPJ must be a string');
+        }
+        if (!(0, validation_1.isValidCpfCnpj)(cpfCnpj)) {
+            throw new errorHandler_1.ValidationError('Invalid CPF/CNPJ format');
+        }
     }
     next();
 };
@@ -135,14 +145,38 @@ const validateRequiredFields = (fields) => {
 exports.validateRequiredFields = validateRequiredFields;
 // Middleware de paginação
 const validatePagination = (req, res, next) => {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    // ✅ SEGURANÇA: Validar tipos dos parâmetros de query (CWE-1287 Prevention)
+    const pageParam = req.query.page;
+    const limitParam = req.query.limit;
+    let page = 1;
+    let limit = 10;
+    if (pageParam !== undefined) {
+        if (typeof pageParam !== 'string') {
+            throw new errorHandler_1.ValidationError('Page parameter must be a string');
+        }
+        const parsedPage = parseInt(pageParam);
+        if (isNaN(parsedPage) || parsedPage < 1) {
+            throw new errorHandler_1.ValidationError('Page must be a positive number');
+        }
+        page = parsedPage;
+    }
+    if (limitParam !== undefined) {
+        if (typeof limitParam !== 'string') {
+            throw new errorHandler_1.ValidationError('Limit parameter must be a string');
+        }
+        const parsedLimit = parseInt(limitParam);
+        if (isNaN(parsedLimit) || parsedLimit < 1 || parsedLimit > 100) {
+            throw new errorHandler_1.ValidationError('Limit must be a number between 1 and 100');
+        }
+        limit = parsedLimit;
+    }
     if (page < 1) {
         throw new errorHandler_1.ValidationError('Page must be greater than 0');
     }
-    if (limit < 1 || limit > 100) {
-        throw new errorHandler_1.ValidationError('Limit must be between 1 and 100');
+    if (limit > 100) {
+        throw new errorHandler_1.ValidationError('Limit cannot exceed 100');
     }
+    // Adicionar valores validados ao query
     req.query.page = page.toString();
     req.query.limit = limit.toString();
     next();

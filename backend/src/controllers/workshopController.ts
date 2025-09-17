@@ -179,12 +179,16 @@ export const getWorkshops = asyncHandler(async (req: Request, res: Response) => 
     // Filtros geográficos
     if (city || state) {
         where.user = {};
-        if (city) where.user.city = { contains: city, mode: 'insensitive' };
-        if (state) where.user.state = state.toUpperCase();
+        if (city && typeof city === 'string') {
+            where.user.city = { contains: city, mode: 'insensitive' };
+        }
+        if (state && typeof state === 'string') {
+            where.user.state = state.toUpperCase();
+        }
     }
 
     // Filtro de busca (nome da oficina)
-    if (search) {
+    if (search && typeof search === 'string') {
         where.name = { contains: search, mode: 'insensitive' };
     }
 
