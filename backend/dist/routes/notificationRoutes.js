@@ -2,7 +2,10 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const notificationController_1 = require("../controllers/notificationController");
+const auth_1 = require("../middleware/auth");
 const router = (0, express_1.Router)();
+// ✅ Aplicar middleware de autenticação para todas as rotas
+router.use(auth_1.authenticateToken);
 // Lista de notificações (rota principal)
 router.get('/', notificationController_1.getUserNotifications);
 // Estatísticas de notificações
@@ -35,5 +38,39 @@ router.patch('/user/:userId/read-all', notificationController_1.markAllNotificat
 router.delete('/:notificationId', notificationController_1.deleteNotification);
 // Estatísticas de notificações
 router.get('/stats/:userId', notificationController_1.getNotificationStats);
+// ✅ NOVO: Rotas para Push Tokens
+router.post('/register-token', notificationController_1.registerPushToken);
+router.get('/tokens', notificationController_1.getUserPushTokens);
+router.delete('/tokens/:tokenId', notificationController_1.removePushToken);
+// ✅ TESTE: Endpoint para testar push notifications
+router.post('/test-push', async (req, res) => {
+    try {
+        const { userId } = req.user;
+        const { pushNotificationService } = require('../services/pushNotificationService');
+        const success = await pushNotificationService.sendToUser({ userId, notificationType: 'system_update' }, {
+            title: '🧪 Teste de Push Notification',
+            body: 'Sistema de notificações funcionando perfeitamente!',
+            data: {
+                test: true,
+                timestamp: new Date().toISOString(),
+                actionUrl: '/notifications'
+            },
+            priority: 'high'
+        });
+        res.json({
+            success,
+            message: success
+                ? 'Push notification de teste enviado com sucesso!'
+                : 'Falha ao enviar push notification de teste'
+        });
+    }
+    catch (error) {
+        console.error('Erro no teste de push:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Erro interno no teste de push notification'
+        });
+    }
+});
 exports.default = router;
 //# sourceMappingURL=notificationRoutes.js.map

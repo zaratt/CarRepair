@@ -6,13 +6,19 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.getUserByDocument = exports.validateUser = exports.updateUser = exports.getUserById = exports.getUsers = exports.createUser = void 0;
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const prisma_1 = require("../config/prisma");
+const security_1 = require("../config/security");
 const errorHandler_1 = require("../middleware/errorHandler");
 const documentValidation_1 = require("../utils/documentValidation");
+const typeValidation_1 = require("../utils/typeValidation");
 // Criar novo usuário
 exports.createUser = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     const userData = req.body;
-    // ✅ SENHA PADRÃO (REMOVER userData.password)
-    const defaultPassword = 'temp123456'; // Senha temporária sempre
+    // ✅ VALIDAÇÃO DE TIPOS
+    if (!typeValidation_1.TypeGuards.isUserCreateData(userData)) {
+        throw new errorHandler_1.ValidationError('Invalid user data structure');
+    }
+    // ✅ SENHA PADRÃO SEGURA (de variável de ambiente)
+    const defaultPassword = security_1.SecurityConfig.DEFAULT_PASSWORD;
     // Verificar se email já existe
     const existingEmailUser = await prisma_1.prisma.user.findUnique({
         where: { email: userData.email }
@@ -27,24 +33,24 @@ exports.createUser = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     if (existingDocumentUser) {
         throw new errorHandler_1.ConflictError('User with this document already exists');
     }
-    // Hash da senha
-    const hashedPassword = await bcryptjs_1.default.hash(defaultPassword, 12);
+    // ✅ HASH SEGURO (salt de variável de ambiente)
+    const hashedPassword = await bcryptjs_1.default.hash(defaultPassword, security_1.SecurityConfig.BCRYPT_SALT_ROUNDS);
     // Determinar tipo e perfil baseado no documento
     const documentType = (0, documentValidation_1.getUserTypeFromDocument)(userData.document);
     const userType = 'user';
     const profile = documentType === 'individual' ? 'car_owner' : 'wshop_owner';
-    // ✅ CRIAR USUÁRIO (SIMPLES - SEM _count)
+    // ✅ CRIAR USUÁRIO COM VALIDAÇÃO SEGURA DE TIPOS
     const user = await prisma_1.prisma.user.create({
         data: {
-            name: userData.name.trim(),
-            email: userData.email.toLowerCase(),
+            name: typeValidation_1.TypeValidators.safeTrim(userData.name),
+            email: typeValidation_1.TypeValidators.safeToLowerCase(userData.email),
             password: hashedPassword,
             phone: userData.phone || null,
             cpfCnpj: userData.document,
             type: userType,
             profile: profile,
             city: userData.city || null,
-            state: userData.state?.toUpperCase() || null,
+            state: userData.state ? typeValidation_1.TypeValidators.safeToUpperCase(userData.state) : null,
         }
     });
     // ✅ BUSCAR CONTADORES SEPARADAMENTE
@@ -88,12 +94,13 @@ exports.createUser = (0, errorHandler_1.asyncHandler)(async (req, res) => {
 });
 // ✅ CORRIGIR getUsers
 exports.getUsers = (0, errorHandler_1.asyncHandler)(async (req, res) => {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const userType = req.query.userType;
-    const profile = req.query.profile;
-    const state = req.query.state;
-    const search = req.query.search;
+    // ✅ VALIDAÇÃO SEGURA DE QUERY PARAMS
+    const page = typeValidation_1.TypeValidators.safeNumber(req.query.page, 1);
+    const limit = typeValidation_1.TypeValidators.safeNumber(req.query.limit, 10);
+    const userType = typeValidation_1.TypeValidators.safeString(req.query.userType);
+    const profile = typeValidation_1.TypeValidators.safeString(req.query.profile);
+    const state = typeValidation_1.TypeValidators.safeString(req.query.state);
+    const search = typeValidation_1.TypeValidators.safeString(req.query.search);
     const skip = (page - 1) * limit;
     // Construir filtros
     const where = {};
@@ -102,7 +109,7 @@ exports.getUsers = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     if (profile)
         where.profile = profile;
     if (state)
-        where.state = state.toUpperCase();
+        where.state = typeValidation_1.TypeValidators.safeToUpperCase(state);
     if (search) {
         where.OR = [
             { name: { contains: search, mode: 'insensitive' } },
@@ -270,6 +277,10 @@ exports.getUserById = (0, errorHandler_1.asyncHandler)(async (req, res) => {
 exports.updateUser = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     const { id } = req.params;
     const updateData = req.body;
+    // ✅ VALIDAÇÃO DE TIPOS
+    if (!typeValidation_1.TypeGuards.isUserUpdateData(updateData)) {
+        throw new errorHandler_1.ValidationError('Invalid update data structure');
+    }
     const existingUser = await prisma_1.prisma.user.findUnique({
         where: { id },
         select: { id: true, email: true }
@@ -286,16 +297,17 @@ exports.updateUser = (0, errorHandler_1.asyncHandler)(async (req, res) => {
         }
     }
     const dataToUpdate = {};
+    // ✅ VALIDAÇÃO SEGURA DE TIPOS EM CADA CAMPO
     if (updateData.name)
-        dataToUpdate.name = updateData.name.trim();
+        dataToUpdate.name = typeValidation_1.TypeValidators.safeTrim(updateData.name);
     if (updateData.email)
-        dataToUpdate.email = updateData.email.toLowerCase();
+        dataToUpdate.email = typeValidation_1.TypeValidators.safeToLowerCase(updateData.email);
     if (updateData.phone !== undefined)
         dataToUpdate.phone = updateData.phone;
     if (updateData.city !== undefined)
         dataToUpdate.city = updateData.city;
     if (updateData.state !== undefined)
-        dataToUpdate.state = updateData.state?.toUpperCase();
+        dataToUpdate.state = updateData.state ? typeValidation_1.TypeValidators.safeToUpperCase(updateData.state) : null;
     // ✅ ATUALIZAR USUÁRIO SIMPLES
     const user = await prisma_1.prisma.user.update({
         where: { id },
@@ -353,6 +365,8 @@ exports.updateUser = (0, errorHandler_1.asyncHandler)(async (req, res) => {
 exports.validateUser = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     const { id } = req.params;
     const { validated } = req.body;
+    // ✅ VALIDAÇÃO SEGURA DE TIPO
+    const validatedValue = typeValidation_1.TypeValidators.safeBoolean(validated, false);
     const user = await prisma_1.prisma.user.findUnique({
         where: { id },
         select: { id: true, name: true, email: true }
@@ -362,7 +376,7 @@ exports.validateUser = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     }
     const updatedUser = await prisma_1.prisma.user.update({
         where: { id },
-        data: { isValidated: validated === true },
+        data: { isValidated: validatedValue },
         select: {
             id: true,
             name: true,
@@ -373,7 +387,7 @@ exports.validateUser = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     });
     const response = {
         success: true,
-        message: `User ${validated ? 'validated' : 'unvalidated'} successfully`,
+        message: `User ${validatedValue ? 'validated' : 'unvalidated'} successfully`,
         data: updatedUser
     };
     res.json(response);

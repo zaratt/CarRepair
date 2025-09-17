@@ -1,8 +1,8 @@
 import crypto from 'crypto';
 import { NextFunction, Request, Response } from 'express';
-import fs from 'fs';
 import multer from 'multer';
 import path from 'path';
+import { fileOperationRateLimit, fileThrottler } from '../utils/fileThrottler';
 import { logSecurityEvent, SecurityEventType } from './securityLogger';
 
 // ✅ Tipos de arquivo permitidos
@@ -84,24 +84,33 @@ const validateFileSignature = (buffer: Buffer, mimetype: string): boolean => {
     );
 };
 
-// ✅ Configuração do storage
+// ✅ Configuração do storage com throttling
 const createStorage = (uploadPath: string) => {
     return multer.diskStorage({
-        destination: (req, file, cb) => {
-            // Criar diretório se não existir
-            if (!fs.existsSync(uploadPath)) {
-                fs.mkdirSync(uploadPath, { recursive: true });
+        destination: async (req, file, cb) => {
+            try {
+                const userIP = req.ip || 'unknown';
+
+                // ✅ Verificar se diretório existe de forma assíncrona com throttling
+                await fileThrottler.safeAccess(userIP, uploadPath);
+                cb(null, uploadPath);
+            } catch (error) {
+                try {
+                    // ✅ Criar diretório se não existir com throttling
+                    const userIP = req.ip || 'unknown';
+                    await fileThrottler.safeMkdir(userIP, uploadPath, { recursive: true });
+                    cb(null, uploadPath);
+                } catch (mkdirError) {
+                    cb(mkdirError instanceof Error ? mkdirError : new Error('Erro ao criar diretório'), '');
+                }
             }
-            cb(null, uploadPath);
         },
         filename: (req, file, cb) => {
             const safeFilename = generateSafeFilename(file.originalname);
             cb(null, safeFilename);
         }
     });
-};
-
-// ✅ Configuração de filtro de arquivos
+};// ✅ Configuração de filtro de arquivos
 const createFileFilter = (fileType: 'images' | 'documents') => {
     return (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
         const allowedMimes = ALLOWED_MIME_TYPES[fileType];
@@ -153,12 +162,14 @@ const createFileFilter = (fileType: 'images' | 'documents') => {
     };
 };
 
-// ✅ Middleware para validação adicional após upload
+// ✅ Middleware para validação adicional após upload com throttling
 export const validateUploadedFile = (fileType: 'images' | 'documents') => {
     return async (req: Request, res: Response, next: NextFunction) => {
         if (!req.file) {
             return next();
         }
+
+        const userIP = req.ip || 'unknown';
 
         try {
             const file = req.file;
@@ -167,12 +178,12 @@ export const validateUploadedFile = (fileType: 'images' | 'documents') => {
 
             // Verificar tamanho
             if (file.size > sizeLimit) {
-                // Remover arquivo
-                fs.unlinkSync(filePath);
+                // ✅ Remover arquivo com throttling
+                await fileThrottler.safeUnlink(userIP, filePath);
 
                 logSecurityEvent({
                     type: SecurityEventType.MALICIOUS_UPLOAD,
-                    ip: req.ip || 'unknown',
+                    ip: userIP,
                     userAgent: req.get('User-Agent') || 'unknown',
                     endpoint: req.originalUrl,
                     method: req.method,
@@ -193,17 +204,17 @@ export const validateUploadedFile = (fileType: 'images' | 'documents') => {
                 });
             }
 
-            // Ler buffer do arquivo para validação de assinatura
-            const fileBuffer = fs.readFileSync(filePath);
+            // ✅ Ler buffer do arquivo com throttling
+            const fileBuffer = await fileThrottler.safeReadFile(userIP, filePath);
 
             // Validar assinatura do arquivo
             if (!validateFileSignature(fileBuffer, file.mimetype)) {
-                // Remover arquivo
-                fs.unlinkSync(filePath);
+                // ✅ Remover arquivo com throttling
+                await fileThrottler.safeUnlink(userIP, filePath);
 
                 logSecurityEvent({
                     type: SecurityEventType.MALICIOUS_UPLOAD,
-                    ip: req.ip || 'unknown',
+                    ip: userIP,
                     userAgent: req.get('User-Agent') || 'unknown',
                     endpoint: req.originalUrl,
                     method: req.method,
@@ -231,12 +242,12 @@ export const validateUploadedFile = (fileType: 'images' | 'documents') => {
             ];
 
             if (maliciousPatterns.some(pattern => pattern.test(file.originalname))) {
-                // Remover arquivo
-                fs.unlinkSync(filePath);
+                // ✅ Remover arquivo com throttling
+                await fileThrottler.safeUnlink(userIP, filePath);
 
                 logSecurityEvent({
                     type: SecurityEventType.MALICIOUS_UPLOAD,
-                    ip: req.ip || 'unknown',
+                    ip: userIP,
                     userAgent: req.get('User-Agent') || 'unknown',
                     endpoint: req.originalUrl,
                     method: req.method,
@@ -258,7 +269,7 @@ export const validateUploadedFile = (fileType: 'images' | 'documents') => {
             // Log upload bem-sucedido
             logSecurityEvent({
                 type: SecurityEventType.FILE_UPLOAD,
-                ip: req.ip || 'unknown',
+                ip: userIP,
                 userAgent: req.get('User-Agent') || 'unknown',
                 endpoint: req.originalUrl,
                 method: req.method,
@@ -276,14 +287,18 @@ export const validateUploadedFile = (fileType: 'images' | 'documents') => {
             next();
 
         } catch (error) {
-            // Remover arquivo em caso de erro
-            if (req.file?.path && fs.existsSync(req.file.path)) {
-                fs.unlinkSync(req.file.path);
+            // ✅ Remover arquivo em caso de erro com throttling
+            if (req.file?.path) {
+                try {
+                    await fileThrottler.safeUnlink(userIP, req.file.path);
+                } catch (unlinkError) {
+                    // Ignorar erro de remoção
+                }
             }
 
             logSecurityEvent({
                 type: SecurityEventType.MALICIOUS_UPLOAD,
-                ip: req.ip || 'unknown',
+                ip: userIP,
                 userAgent: req.get('User-Agent') || 'unknown',
                 endpoint: req.originalUrl,
                 method: req.method,
@@ -324,26 +339,35 @@ export const uploadMaintenanceDoc = multer({
     }
 });
 
-// ✅ Middleware para limpeza de arquivos antigos
+// ✅ Middleware para limpeza de arquivos antigos com throttling
 export const cleanupOldFiles = (directory: string, maxAgeHours: number = 24) => {
-    return (req: Request, res: Response, next: NextFunction) => {
+    return async (req: Request, res: Response, next: NextFunction) => {
         try {
+            const userIP = req.ip || 'system';
             const now = Date.now();
             const maxAge = maxAgeHours * 60 * 60 * 1000;
 
-            if (fs.existsSync(directory)) {
-                const files = fs.readdirSync(directory);
+            // ✅ Verificar se diretório existe com throttling
+            await fileThrottler.safeAccess(userIP, directory);
 
-                files.forEach(file => {
-                    const filePath = path.join(directory, file);
-                    const stats = fs.statSync(filePath);
+            // ✅ Ler diretório com throttling
+            const files = await fileThrottler.safeReaddir(userIP, directory);
 
-                    if (now - stats.mtime.getTime() > maxAge) {
-                        fs.unlinkSync(filePath);
+            // Processar arquivos sequencialmente para evitar sobrecarga
+            for (const file of files) {
+                const filePath = path.join(directory, file);
+
+                try {
+                    // ✅ Verificar estatísticas do arquivo com throttling
+                    const stats = await fileThrottler.safeStat(userIP, filePath);
+
+                    if (stats && now - stats.mtime.getTime() > maxAge) {
+                        // ✅ Remover arquivo antigo com throttling
+                        await fileThrottler.safeUnlink(userIP, filePath);
 
                         logSecurityEvent({
                             type: SecurityEventType.FILE_UPLOAD,
-                            ip: 'system',
+                            ip: userIP,
                             userAgent: 'cleanup-service',
                             endpoint: 'cleanup',
                             method: 'DELETE',
@@ -353,12 +377,19 @@ export const cleanupOldFiles = (directory: string, maxAgeHours: number = 24) => 
                             risk_level: 'LOW'
                         });
                     }
-                });
+                } catch (fileError) {
+                    // Continuar com o próximo arquivo se houver erro
+                    console.warn(`Erro ao processar arquivo ${file}:`, fileError);
+                }
             }
         } catch (error) {
-            console.error('Erro na limpeza de arquivos:', error);
+            // Se o diretório não existir ou houver outro erro, apenas log
+            console.info('Diretório de limpeza não encontrado ou inacessível:', directory);
         }
 
         next();
     };
 };
+
+// ✅ Middleware de rate limiting para operações de arquivo
+export const fileOperationLimit = fileOperationRateLimit();

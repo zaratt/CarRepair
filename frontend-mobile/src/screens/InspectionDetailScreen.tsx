@@ -1,12 +1,310 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import React from 'react';
-import { Image, Linking, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, Linking, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { ActivityIndicator, Badge, Button, Card, Divider, IconButton, Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useInspectionQuery } from '../api/api';
 import { RootStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'InspectionDetail'>;
+
+// ✅ Sistema de logs de segurança estruturado
+const logSecurityEvent = (event: {
+    type: 'URL_VALIDATION' | 'REDIRECT_ATTEMPT' | 'MALICIOUS_URL' | 'ACCESS_DENIED' | 'ACCESS_GRANTED';
+    level: 'INFO' | 'WARN' | 'ERROR';
+    url: string;
+    reason?: string;
+    context?: string;
+}) => {
+    const timestamp = new Date().toISOString();
+    const logEntry = {
+        timestamp,
+        type: 'SECURITY_EVENT',
+        event: event.type,
+        level: event.level,
+        url: event.url,
+        reason: event.reason,
+        context: event.context,
+        userAgent: 'CarRepair Mobile App',
+        component: 'InspectionDetailScreen',
+    };
+
+    // ✅ Log estruturado para análise posterior
+    console.log(`[SECURITY] ${event.level}:`, JSON.stringify(logEntry));
+
+    // ✅ Em produção, aqui seria enviado para serviço de monitoramento
+    // SecurityService.logEvent(logEntry);
+};
+
+// ✅ Função para validação segura de URLs (CWE-601 - Open Redirect Prevention)
+const isValidURL = (url: string): boolean => {
+    try {
+        const urlObj = new URL(url);
+
+        // ✅ Whitelist de protocolos permitidos
+        const allowedProtocols = ['http:', 'https:'];
+        if (!allowedProtocols.includes(urlObj.protocol)) {
+            logSecurityEvent({
+                type: 'MALICIOUS_URL',
+                level: 'WARN',
+                url,
+                reason: `Protocolo não permitido: ${urlObj.protocol}`,
+                context: 'Protocol validation'
+            });
+            return false;
+        }
+
+        // ✅ Whitelist de domínios permitidos (configuração baseada no ambiente)
+        const allowedDomains = [
+            // Domínios locais de desenvolvimento
+            'localhost',
+            '127.0.0.1',
+            '0.0.0.0',
+            // Domínios de teste (se aplicável)
+            'staging.carrepair.com',
+            'test.carrepair.com',
+            // Domínios de produção (configurar conforme necessário)
+            'api.carrepair.com',
+            'files.carrepair.com',
+            'cdn.carrepair.com',
+            'storage.carrepair.com',
+            // Domínios de serviços de arquivo autorizados
+            'drive.google.com',
+            'onedrive.live.com',
+            // Adicionar outros domínios conforme necessário
+        ];
+
+        // ✅ Verificar portas permitidas para localhost
+        const isLocalhost = ['localhost', '127.0.0.1', '0.0.0.0'].includes(urlObj.hostname);
+        if (isLocalhost) {
+            const allowedPorts = [3000, 3001, 8000, 8080, 8081]; // Portas comuns de desenvolvimento
+            const port = urlObj.port ? parseInt(urlObj.port, 10) : (urlObj.protocol === 'https:' ? 443 : 80);
+
+            if (urlObj.port && !allowedPorts.includes(port)) {
+                logSecurityEvent({
+                    type: 'MALICIOUS_URL',
+                    level: 'WARN',
+                    url,
+                    reason: `Porta não permitida para localhost: ${port}`,
+                    context: 'Port validation'
+                });
+                return false;
+            }
+        }
+
+        // ✅ Verificar se o domínio está na whitelist
+        const isAllowedDomain = allowedDomains.some(domain => {
+            return urlObj.hostname === domain || urlObj.hostname.endsWith('.' + domain);
+        });
+
+        if (!isAllowedDomain) {
+            logSecurityEvent({
+                type: 'ACCESS_DENIED',
+                level: 'WARN',
+                url,
+                reason: `Domínio não permitido: ${urlObj.hostname}`,
+                context: 'Domain whitelist validation'
+            });
+            return false;
+        }
+
+        // ✅ Verificar padrões maliciosos na URL
+        const maliciousPatterns = [
+            /javascript:/i,  // Protocolos perigosos
+            /data:/i,
+            /vbscript:/i,
+            /file:/i,
+            /\.\.\//, // Directory traversal
+            /%2e%2e%2f/i, // Directory traversal encoded
+            /%00/, // Null bytes
+            /\x00-\x1f/, // Control characters
+            /<script/i, // Script injection
+            /on\w+=/i, // Event handlers
+        ];
+
+        const urlString = url.toLowerCase();
+        for (const pattern of maliciousPatterns) {
+            if (pattern.test(urlString)) {
+                logSecurityEvent({
+                    type: 'MALICIOUS_URL',
+                    level: 'ERROR',
+                    url,
+                    reason: `Padrão malicioso detectado: ${pattern.source}`,
+                    context: 'Malicious pattern detection'
+                });
+                return false;
+            }
+        }
+
+        // ✅ Verificar comprimento da URL (prevenir URLs excessivamente longas)
+        if (url.length > 2048) {
+            logSecurityEvent({
+                type: 'MALICIOUS_URL',
+                level: 'WARN',
+                url,
+                reason: `URL muito longa: ${url.length} caracteres`,
+                context: 'URL length validation'
+            });
+            return false;
+        }
+
+        // ✅ URL válida - log de sucesso
+        logSecurityEvent({
+            type: 'URL_VALIDATION',
+            level: 'INFO',
+            url,
+            reason: 'URL validada com sucesso',
+            context: 'URL validation success'
+        });
+
+        return true;
+    } catch (error) {
+        logSecurityEvent({
+            type: 'MALICIOUS_URL',
+            level: 'ERROR',
+            url,
+            reason: `URL inválida: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            context: 'URL parsing error'
+        });
+        return false;
+    }
+};
+
+// ✅ Função segura para abrir URLs com validação
+const safeOpenURL = async (url: string, description: string = 'este link') => {
+    if (!url || typeof url !== 'string') {
+        logSecurityEvent({
+            type: 'MALICIOUS_URL',
+            level: 'ERROR',
+            url: url || 'undefined',
+            reason: 'URL inválida ou vazia',
+            context: `Tentativa de abrir ${description}`
+        });
+
+        Alert.alert(
+            'Erro',
+            'URL inválida. Não é possível abrir o arquivo.',
+            [{ text: 'OK' }]
+        );
+        return;
+    }
+
+    // ✅ Validar URL antes de abrir
+    if (!isValidURL(url)) {
+        logSecurityEvent({
+            type: 'ACCESS_DENIED',
+            level: 'WARN',
+            url,
+            reason: 'URL não passou na validação de segurança',
+            context: `Usuário tentou abrir ${description}`
+        });
+
+        Alert.alert(
+            'Acesso Negado',
+            `Por motivos de segurança, não é possível abrir ${description}. O link pode ser malicioso ou não está autorizado.`,
+            [
+                { text: 'Cancelar', style: 'cancel' },
+                {
+                    text: 'Reportar Problema',
+                    onPress: () => {
+                        logSecurityEvent({
+                            type: 'MALICIOUS_URL',
+                            level: 'ERROR',
+                            url,
+                            reason: 'Usuário reportou URL suspeita',
+                            context: 'User report'
+                        });
+                        Alert.alert('Obrigado', 'Problema reportado para a equipe de segurança.');
+                    }
+                }
+            ]
+        );
+        return;
+    }
+
+    try {
+        // ✅ Verificar se o app pode abrir a URL
+        const canOpen = await Linking.canOpenURL(url);
+        if (!canOpen) {
+            logSecurityEvent({
+                type: 'ACCESS_DENIED',
+                level: 'WARN',
+                url,
+                reason: 'Dispositivo não consegue abrir este tipo de URL',
+                context: 'Linking.canOpenURL failed'
+            });
+
+            Alert.alert(
+                'Erro',
+                'Não é possível abrir este tipo de arquivo no dispositivo.',
+                [{ text: 'OK' }]
+            );
+            return;
+        }
+
+        // ✅ Log de acesso autorizado
+        logSecurityEvent({
+            type: 'ACCESS_GRANTED',
+            level: 'INFO',
+            url,
+            reason: 'Acesso autorizado pelo sistema de segurança',
+            context: `Abrindo ${description}`
+        });
+
+        // ✅ Abrir URL de forma segura
+        await Linking.openURL(url);
+    } catch (error) {
+        logSecurityEvent({
+            type: 'REDIRECT_ATTEMPT',
+            level: 'ERROR',
+            url,
+            reason: `Erro ao abrir URL: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            context: 'Linking.openURL error'
+        });
+
+        Alert.alert(
+            'Erro',
+            'Ocorreu um erro ao tentar abrir o arquivo. Tente novamente mais tarde.',
+            [{ text: 'OK' }]
+        );
+    }
+};
+
+// ✅ Função para validar URLs de imagem de forma segura
+const getSafeImageSource = (url: string) => {
+    if (!url || typeof url !== 'string') {
+        logSecurityEvent({
+            type: 'MALICIOUS_URL',
+            level: 'WARN',
+            url: url || 'undefined',
+            reason: 'URL de imagem inválida ou vazia',
+            context: 'Image source validation'
+        });
+        return { uri: '' }; // Retorna URI vazia para não exibir imagem
+    }
+
+    if (!isValidURL(url)) {
+        logSecurityEvent({
+            type: 'ACCESS_DENIED',
+            level: 'WARN',
+            url,
+            reason: 'URL de imagem não passou na validação de segurança',
+            context: 'Image source security check'
+        });
+        return { uri: '' }; // Retorna URI vazia para não exibir imagem
+    }
+
+    // ✅ Log de carregamento de imagem autorizada
+    logSecurityEvent({
+        type: 'ACCESS_GRANTED',
+        level: 'INFO',
+        url,
+        reason: 'Carregamento de imagem autorizado',
+        context: 'Safe image source'
+    });
+
+    return { uri: url };
+};
 
 const statusColors = {
     'Aprovado': '#388e3c',
@@ -124,7 +422,7 @@ const InspectionDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                             <View style={styles.section}>
                                 <Text style={styles.sectionTitle}>Arquivo Principal</Text>
                                 <TouchableOpacity
-                                    onPress={() => Linking.openURL(inspection.fileUrl)}
+                                    onPress={() => safeOpenURL(inspection.fileUrl, 'o arquivo principal')}
                                     style={styles.fileButton}
                                 >
                                     <IconButton icon="file-document" size={24} iconColor="#1976d2" />
@@ -142,12 +440,12 @@ const InspectionDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                                     {inspection.attachments.map((attachment, index) => (
                                         <TouchableOpacity
                                             key={attachment.id || index}
-                                            onPress={() => Linking.openURL(attachment.url)}
+                                            onPress={() => safeOpenURL(attachment.url, `o anexo ${attachment.name || `#${index + 1}`}`)}
                                             style={styles.attachmentItem}
                                         >
                                             {attachment.type && attachment.type.startsWith('image') ? (
                                                 <Image
-                                                    source={{ uri: attachment.url }}
+                                                    source={getSafeImageSource(attachment.url)}
                                                     style={styles.attachmentImage}
                                                 />
                                             ) : (

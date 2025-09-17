@@ -1,16 +1,23 @@
 import bcrypt from 'bcryptjs';
 import { Request, Response } from 'express';
 import { prisma } from '../config/prisma';
+import { SecurityConfig } from '../config/security';
 import { asyncHandler, ConflictError, NotFoundError, ValidationError } from '../middleware/errorHandler';
-import { ApiResponse, PaginationResponse, UserCreateData, UserUpdateData } from '../types';
+import { ApiResponse, PaginationResponse } from '../types';
 import { formatPhone, getUserTypeFromDocument, validateDocument } from '../utils/documentValidation';
+import { TypeGuards, TypeValidators } from '../utils/typeValidation';
 
 // Criar novo usuário
 export const createUser = asyncHandler(async (req: Request, res: Response) => {
-    const userData: UserCreateData = req.body;
+    const userData = req.body;
 
-    // ✅ SENHA PADRÃO (REMOVER userData.password)
-    const defaultPassword = 'temp123456'; // Senha temporária sempre
+    // ✅ VALIDAÇÃO DE TIPOS
+    if (!TypeGuards.isUserCreateData(userData)) {
+        throw new ValidationError('Invalid user data structure');
+    }
+
+    // ✅ SENHA PADRÃO SEGURA (de variável de ambiente)
+    const defaultPassword = SecurityConfig.DEFAULT_PASSWORD;
 
     // Verificar se email já existe
     const existingEmailUser = await prisma.user.findUnique({
@@ -30,26 +37,26 @@ export const createUser = asyncHandler(async (req: Request, res: Response) => {
         throw new ConflictError('User with this document already exists');
     }
 
-    // Hash da senha
-    const hashedPassword = await bcrypt.hash(defaultPassword, 12);
+    // ✅ HASH SEGURO (salt de variável de ambiente)
+    const hashedPassword = await bcrypt.hash(defaultPassword, SecurityConfig.BCRYPT_SALT_ROUNDS);
 
     // Determinar tipo e perfil baseado no documento
     const documentType = getUserTypeFromDocument(userData.document);
     const userType = 'user';
     const profile = documentType === 'individual' ? 'car_owner' : 'wshop_owner';
 
-    // ✅ CRIAR USUÁRIO (SIMPLES - SEM _count)
+    // ✅ CRIAR USUÁRIO COM VALIDAÇÃO SEGURA DE TIPOS
     const user = await prisma.user.create({
         data: {
-            name: userData.name.trim(),
-            email: userData.email.toLowerCase(),
+            name: TypeValidators.safeTrim(userData.name),
+            email: TypeValidators.safeToLowerCase(userData.email),
             password: hashedPassword,
             phone: userData.phone || null,
             cpfCnpj: userData.document,
             type: userType,
             profile: profile,
             city: userData.city || null,
-            state: userData.state?.toUpperCase() || null,
+            state: userData.state ? TypeValidators.safeToUpperCase(userData.state) : null,
         }
     });
 
@@ -99,12 +106,13 @@ export const createUser = asyncHandler(async (req: Request, res: Response) => {
 
 // ✅ CORRIGIR getUsers
 export const getUsers = asyncHandler(async (req: Request, res: Response) => {
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 10;
-    const userType = req.query.userType as string;
-    const profile = req.query.profile as string;
-    const state = req.query.state as string;
-    const search = req.query.search as string;
+    // ✅ VALIDAÇÃO SEGURA DE QUERY PARAMS
+    const page = TypeValidators.safeNumber(req.query.page, 1);
+    const limit = TypeValidators.safeNumber(req.query.limit, 10);
+    const userType = TypeValidators.safeString(req.query.userType);
+    const profile = TypeValidators.safeString(req.query.profile);
+    const state = TypeValidators.safeString(req.query.state);
+    const search = TypeValidators.safeString(req.query.search);
 
     const skip = (page - 1) * limit;
 
@@ -113,7 +121,7 @@ export const getUsers = asyncHandler(async (req: Request, res: Response) => {
 
     if (userType) where.type = userType;
     if (profile) where.profile = profile;
-    if (state) where.state = state.toUpperCase();
+    if (state) where.state = TypeValidators.safeToUpperCase(state);
 
     if (search) {
         where.OR = [
@@ -297,7 +305,12 @@ export const getUserById = asyncHandler(async (req: Request, res: Response) => {
 // ✅ CORRIGIR updateUser
 export const updateUser = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
-    const updateData: UserUpdateData = req.body;
+    const updateData = req.body;
+
+    // ✅ VALIDAÇÃO DE TIPOS
+    if (!TypeGuards.isUserUpdateData(updateData)) {
+        throw new ValidationError('Invalid update data structure');
+    }
 
     const existingUser = await prisma.user.findUnique({
         where: { id },
@@ -320,11 +333,12 @@ export const updateUser = asyncHandler(async (req: Request, res: Response) => {
 
     const dataToUpdate: any = {};
 
-    if (updateData.name) dataToUpdate.name = updateData.name.trim();
-    if (updateData.email) dataToUpdate.email = updateData.email.toLowerCase();
+    // ✅ VALIDAÇÃO SEGURA DE TIPOS EM CADA CAMPO
+    if (updateData.name) dataToUpdate.name = TypeValidators.safeTrim(updateData.name);
+    if (updateData.email) dataToUpdate.email = TypeValidators.safeToLowerCase(updateData.email);
     if (updateData.phone !== undefined) dataToUpdate.phone = updateData.phone;
     if (updateData.city !== undefined) dataToUpdate.city = updateData.city;
-    if (updateData.state !== undefined) dataToUpdate.state = updateData.state?.toUpperCase();
+    if (updateData.state !== undefined) dataToUpdate.state = updateData.state ? TypeValidators.safeToUpperCase(updateData.state) : null;
 
     // ✅ ATUALIZAR USUÁRIO SIMPLES
     const user = await prisma.user.update({
@@ -389,6 +403,9 @@ export const validateUser = asyncHandler(async (req: Request, res: Response) => 
     const { id } = req.params;
     const { validated } = req.body;
 
+    // ✅ VALIDAÇÃO SEGURA DE TIPO
+    const validatedValue = TypeValidators.safeBoolean(validated, false);
+
     const user = await prisma.user.findUnique({
         where: { id },
         select: { id: true, name: true, email: true }
@@ -400,7 +417,7 @@ export const validateUser = asyncHandler(async (req: Request, res: Response) => 
 
     const updatedUser = await prisma.user.update({
         where: { id },
-        data: { isValidated: validated === true },
+        data: { isValidated: validatedValue },
         select: {
             id: true,
             name: true,
@@ -412,7 +429,7 @@ export const validateUser = asyncHandler(async (req: Request, res: Response) => 
 
     const response: ApiResponse = {
         success: true,
-        message: `User ${validated ? 'validated' : 'unvalidated'} successfully`,
+        message: `User ${validatedValue ? 'validated' : 'unvalidated'} successfully`,
         data: updatedUser
     };
 

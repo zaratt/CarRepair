@@ -4,7 +4,6 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.securityMiddleware = exports.validateUserAgent = exports.validatePayloadSize = exports.validateContentType = exports.hppProtection = exports.sanitizeInput = exports.apiRateLimit = exports.uploadRateLimit = exports.authRateLimit = exports.generalRateLimit = exports.helmetConfig = void 0;
-const express_mongo_sanitize_1 = __importDefault(require("express-mongo-sanitize"));
 const express_rate_limit_1 = __importDefault(require("express-rate-limit"));
 const helmet_1 = __importDefault(require("helmet"));
 const hpp_1 = __importDefault(require("hpp"));
@@ -102,9 +101,8 @@ exports.apiRateLimit = createRateLimit(1 * 60 * 1000, // 1 minuto
 'API rate limit exceeded. Aguarde 1 minuto.');
 // ✅ Middleware de sanitização de dados
 const sanitizeInput = (req, res, next) => {
-    // Sanitizar dados MongoDB
-    (0, express_mongo_sanitize_1.default)()(req, res, () => {
-        // Sanitização adicional para XSS
+    try {
+        // Sanitização XSS personalizada
         const sanitizeObject = (obj) => {
             if (typeof obj === 'string') {
                 // Remove scripts e tags perigosas
@@ -121,29 +119,51 @@ const sanitizeInput = (req, res, next) => {
             if (typeof obj === 'object' && obj !== null) {
                 const sanitized = {};
                 for (const key in obj) {
-                    sanitized[key] = sanitizeObject(obj[key]);
+                    if (Object.prototype.hasOwnProperty.call(obj, key)) {
+                        sanitized[key] = sanitizeObject(obj[key]);
+                    }
                 }
                 return sanitized;
             }
             return obj;
         };
-        // Sanitizar query parameters
-        if (req.query) {
-            req.query = sanitizeObject(req.query);
+        // Sanitizar body, query e params de forma segura
+        if (req.body && typeof req.body === 'object') {
+            try {
+                req.body = sanitizeObject(req.body);
+            }
+            catch (e) {
+                console.warn('Erro ao sanitizar body:', e);
+            }
         }
-        // Sanitizar body
-        if (req.body) {
-            req.body = sanitizeObject(req.body);
+        if (req.query && typeof req.query === 'object') {
+            try {
+                // Criar uma nova query object em vez de modificar diretamente
+                const sanitizedQuery = sanitizeObject(req.query);
+                // Substituir completamente a query
+                Object.keys(req.query).forEach(key => delete req.query[key]);
+                Object.assign(req.query, sanitizedQuery);
+            }
+            catch (e) {
+                console.warn('Erro ao sanitizar query:', e);
+            }
         }
-        // Sanitizar params
-        if (req.params) {
-            req.params = sanitizeObject(req.params);
+        if (req.params && typeof req.params === 'object') {
+            try {
+                req.params = sanitizeObject(req.params);
+            }
+            catch (e) {
+                console.warn('Erro ao sanitizar params:', e);
+            }
         }
         next();
-    });
-};
+    }
+    catch (error) {
+        console.error('Erro geral na sanitização:', error);
+        next(); // Continuar mesmo se houver erro na sanitização
+    }
+}; // ✅ Middleware para proteção HPP (HTTP Parameter Pollution)
 exports.sanitizeInput = sanitizeInput;
-// ✅ Middleware para proteção HPP (HTTP Parameter Pollution)
 exports.hppProtection = (0, hpp_1.default)({
     whitelist: ['tags', 'services'] // Permitir arrays para estes campos
 });

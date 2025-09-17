@@ -11,12 +11,54 @@ npm run security:audit          # Auditoria completa
 npm run security:check          # Apenas vulnerabilidades HIGH
 npm run security:fix            # Correção automática
 
-# Frontend
+# Frontend Mobile
 cd frontend-mobile
 npm run security:audit          # Auditoria completa  
 npm run security:check          # Apenas vulnerabilidades HIGH
 npm run security:fix            # Correção automática
+npm run security:monitor-inflight # Monitorar vulnerabilidade conhecida
+
+# Frontend Web
+cd frontend-web
+npm run security:audit          # Auditoria completa
+npm run security:check          # Apenas vulnerabilidades HIGH
+npm run security:fix            # Correção automática
 ```
+
+### **✅ Vulnerabilidades Corrigidas**
+
+#### **CVE-2025-43864 & CVE-2025-43865 - react-router-dom**
+- **Status:** ✅ **CORRIGIDO** (17/09/2025)
+- **Versão:** 7.5.0 → 7.9.1
+- **Risco:** 🔴 HIGH → 🟢 RESOLVIDO
+- **Componente:** Frontend Web
+- **Detalhes:** Ver `DOCS/React_Router_Vulnerabilities_Fix_Report.md`
+
+#### **Code Security - userController.ts**
+- **Status:** ✅ **CORRIGIDO** (17/09/2025)
+- **Vulnerabilidades:** 4 issues (1 HIGH, 1 MEDIUM, 2+ LOW)
+- **Risco:** 🔴 HIGH → 🟢 RESOLVIDO
+- **Componente:** Backend Controller
+- **Correções:** Hardcoded secrets, passwords, type validation
+- **Detalhes:** Ver `DOCS/Code_Security_Fixes_Report.md`
+
+### **⚠️ Vulnerabilidades Conhecidas**
+
+#### **SNYK-JS-INFLIGHT-6095116 - inflight@1.0.6**
+- **Status:** ⏳ Aguardando correção upstream (React Native/Expo)
+- **Risco:** 🟡 BAIXO-MÉDIO (desenvolvimento apenas)
+- **Vetor:** LOCAL (não remoto)
+- **Repositório:** 🔒 Arquivado em maio/2024 (sem correção planejada)
+- **Ação:** Monitoramento ativo - Ver `DOCS/Inflight_Vulnerability_Analysis.md`
+- **Análise Completa:** Ver `DOCS/Frontend_Mobile_Security_Analysis.md`
+- **Script:** `npm run security:monitor-inflight`
+
+#### **Dependências Desatualizadas**
+- **Status:** 🔄 Parcialmente atualizadas (33 pacotes identificados)
+- **Críticas:** React Native 0.79.5, Expo 53.0.22 (mantidos para estabilidade)
+- **Atualizadas:** TypeScript 5.9.2, React Query 5.89.0, @types/react 19.1.13
+- **Risco:** 🟡 MÉDIO (patches de segurança em versões mais recentes)
+- **Monitoramento:** `npm outdated` regular
 
 ### **📦 Versionamento de Dependências**
 

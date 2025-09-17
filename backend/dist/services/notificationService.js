@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.markOldNotificationsAsRead = exports.cleanupExpiredNotifications = exports.notifySystemUpdate = exports.notifyInspectionReminder = exports.notifyMaintenanceReminder = exports.notifyMaintenanceCompleted = exports.notifyMaintenanceCreated = exports.notifyInspectionRejected = exports.notifyInspectionApproved = exports.notifyInspectionCreated = exports.createNotification = void 0;
 const client_1 = require("@prisma/client");
+const pushNotificationService_1 = require("./pushNotificationService");
 const prisma = new client_1.PrismaClient();
 // ✅ Função principal para criar notificação
 const createNotification = async (notificationData) => {
@@ -27,6 +28,30 @@ const createNotification = async (notificationData) => {
             }
         });
         console.log(`✅ Notificação criada: ${notification.type} para usuário ${notification.userId}`);
+        // ✅ NOVO: Enviar push notification em paralelo (não bloquear a criação)
+        setImmediate(async () => {
+            try {
+                await pushNotificationService_1.pushNotificationService.sendToUser({
+                    userId: notificationData.userId,
+                    notificationType: notificationData.type
+                }, {
+                    title: notificationData.title,
+                    body: notificationData.message,
+                    data: {
+                        notificationId: notification.id,
+                        actionUrl: notificationData.actionUrl,
+                        type: notificationData.type,
+                        ...notificationData.data
+                    },
+                    priority: notificationData.priority === 'high' ? 'high' : 'normal',
+                    badge: 1
+                });
+                console.log(`📱 Push notification enviado para usuário ${notificationData.userId}`);
+            }
+            catch (error) {
+                console.error('❌ Erro ao enviar push notification:', error);
+            }
+        });
         return notification;
     }
     catch (error) {

@@ -9,7 +9,8 @@
     "web": "expo start --web",
     "security:audit": "npm audit",
     "security:fix": "npm audit fix",
-    "security:check": "npm audit --audit-level high"
+    "security:check": "npm audit --audit-level high",
+    "security:monitor-inflight": "npm ls inflight && echo 'Monitoring inflight dependency - Status: Known issue, awaiting upstream fix'"
   },
   "dependencies": {
     "@expo/metro-runtime": "~5.0.4",

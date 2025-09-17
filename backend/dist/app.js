@@ -7,11 +7,13 @@ const cors_1 = __importDefault(require("cors"));
 const express_1 = __importDefault(require("express"));
 const path_1 = __importDefault(require("path"));
 const config_1 = require("./config");
+const security_1 = require("./config/security");
 const errorHandler_1 = require("./middleware/errorHandler");
 const securityLogger_1 = require("./middleware/securityLogger");
 const securityMiddleware_1 = require("./middleware/securityMiddleware");
 const uploadSecurity_1 = require("./middleware/uploadSecurity");
 const authRoutes_1 = __importDefault(require("./routes/authRoutes"));
+const dashboardRoutes_1 = __importDefault(require("./routes/dashboardRoutes"));
 const inspectionRoutes_1 = __importDefault(require("./routes/inspectionRoutes"));
 const maintenanceRoutes_1 = __importDefault(require("./routes/maintenanceRoutes"));
 const notificationRoutes_1 = __importDefault(require("./routes/notificationRoutes"));
@@ -23,6 +25,8 @@ const workshopRoutes_1 = __importDefault(require("./routes/workshopRoutes"));
 const cronJobs_1 = require("./services/cronJobs");
 // Validar configurações na inicialização
 (0, config_1.validateConfig)();
+// ✅ VALIDAR CONFIGURAÇÕES DE SEGURANÇA
+(0, security_1.validateSecurityConfig)();
 // Inicializar sistema de logging de segurança
 (0, securityLogger_1.initializeLogger)();
 // ✅ INICIALIZAR TAREFAS AUTOMÁTICAS
@@ -54,10 +58,32 @@ app.use(express_1.default.urlencoded({
 }));
 // ✅ SEGURANÇA LAYER 6: Limpeza automática de arquivos antigos
 app.use((0, uploadSecurity_1.cleanupOldFiles)(path_1.default.join(process.cwd(), 'uploads', 'temp'), 2)); // 2 horas
+// ✅ FUNÇÃO DE SANITIZAÇÃO para prevenção de Format String Injection
+const sanitizeForLog = (input) => {
+    if (!input || typeof input !== 'string') {
+        return '[invalid]';
+    }
+    // Limitar comprimento máximo
+    const maxLength = 200;
+    let sanitized = input.length > maxLength ? input.substring(0, maxLength) + '...' : input;
+    // Remover caracteres de controle e format specifiers perigosos
+    sanitized = sanitized
+        .replace(/[\x00-\x1F\x7F]/g, '') // Remove caracteres de controle
+        .replace(/%[0-9a-fA-F]*[diouxXeEfFgGaAcspn%]/g, '[fmt]') // Remove format specifiers
+        .replace(/\\/g, '\\\\') // Escape backslashes
+        .replace(/"/g, '\\"') // Escape quotes
+        .replace(/'/g, "\\'") // Escape single quotes
+        .replace(/`/g, '\\`') // Escape backticks
+        .replace(/\${/g, '\\${'); // Escape template literals
+    return sanitized;
+};
 // Request logging para desenvolvimento
 if (config_1.config.isDevelopment) {
     app.use((req, res, next) => {
-        console.log(`📡 ${req.method} ${req.path}`, {
+        // ✅ SEGURANÇA: Sanitizar entradas para prevenir Format String Injection
+        const safeMethod = sanitizeForLog(req.method);
+        const safePath = sanitizeForLog(req.path);
+        console.log('📡 %s %s', safeMethod, safePath, {
             body: req.body && Object.keys(req.body).length > 0 ? req.body : undefined,
             query: req.query && Object.keys(req.query).length > 0 ? req.query : undefined,
         });
@@ -84,6 +110,7 @@ app.use('/api/users', securityMiddleware_1.apiRateLimit, userRoutes_1.default);
 app.use('/api/workshops', securityMiddleware_1.apiRateLimit, workshopRoutes_1.default);
 app.use('/api/inspections', securityMiddleware_1.apiRateLimit, inspectionRoutes_1.default);
 app.use('/api/notifications', securityMiddleware_1.apiRateLimit, notificationRoutes_1.default);
+app.use('/api/dashboard', securityMiddleware_1.apiRateLimit, dashboardRoutes_1.default);
 // Rota específica para tipos de manutenção (compatibilidade)
 app.get('/api/maintenance-types', (req, res) => {
     res.json({
@@ -137,6 +164,7 @@ app.get('/health', (req, res) => {
                 workshops: '/api/workshops',
                 inspections: '/api/inspections',
                 notifications: '/api/notifications',
+                dashboard: '/api/dashboard',
                 health: '/health'
             }
         }
@@ -145,10 +173,13 @@ app.get('/health', (req, res) => {
 });
 // 404 handler
 app.use((req, res) => {
+    // ✅ SEGURANÇA: Sanitizar entradas para prevenir Format String Injection
+    const safeMethod = sanitizeForLog(req.method);
+    const safeOriginalUrl = sanitizeForLog(req.originalUrl);
     const response = {
         success: false,
         error: 'Endpoint not found',
-        message: `Route ${req.method} ${req.originalUrl} not found`
+        message: `Route ${safeMethod} ${safeOriginalUrl} not found`
     };
     res.status(404).json(response);
 });

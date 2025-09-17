@@ -2,6 +2,7 @@ import cors from 'cors';
 import express from 'express';
 import path from 'path';
 import { config, validateConfig } from './config';
+import { validateSecurityConfig } from './config/security';
 import { errorHandler } from './middleware/errorHandler';
 import { initializeLogger, requestLogger, suspiciousActivityDetector } from './middleware/securityLogger';
 import {
@@ -26,6 +27,9 @@ import { ApiResponse } from './types';
 
 // Validar configurações na inicialização
 validateConfig();
+
+// ✅ VALIDAR CONFIGURAÇÕES DE SEGURANÇA
+validateSecurityConfig();
 
 // Inicializar sistema de logging de segurança
 initializeLogger();
@@ -67,10 +71,37 @@ app.use(express.urlencoded({
 // ✅ SEGURANÇA LAYER 6: Limpeza automática de arquivos antigos
 app.use(cleanupOldFiles(path.join(process.cwd(), 'uploads', 'temp'), 2)); // 2 horas
 
+// ✅ FUNÇÃO DE SANITIZAÇÃO para prevenção de Format String Injection
+const sanitizeForLog = (input: string | undefined): string => {
+    if (!input || typeof input !== 'string') {
+        return '[invalid]';
+    }
+
+    // Limitar comprimento máximo
+    const maxLength = 200;
+    let sanitized = input.length > maxLength ? input.substring(0, maxLength) + '...' : input;
+
+    // Remover caracteres de controle e format specifiers perigosos
+    sanitized = sanitized
+        .replace(/[\x00-\x1F\x7F]/g, '') // Remove caracteres de controle
+        .replace(/%[0-9a-fA-F]*[diouxXeEfFgGaAcspn%]/g, '[fmt]') // Remove format specifiers
+        .replace(/\\/g, '\\\\') // Escape backslashes
+        .replace(/"/g, '\\"') // Escape quotes
+        .replace(/'/g, "\\'") // Escape single quotes
+        .replace(/`/g, '\\`') // Escape backticks
+        .replace(/\${/g, '\\${'); // Escape template literals
+
+    return sanitized;
+};
+
 // Request logging para desenvolvimento
 if (config.isDevelopment) {
     app.use((req, res, next) => {
-        console.log(`📡 ${req.method} ${req.path}`, {
+        // ✅ SEGURANÇA: Sanitizar entradas para prevenir Format String Injection
+        const safeMethod = sanitizeForLog(req.method);
+        const safePath = sanitizeForLog(req.path);
+
+        console.log('📡 %s %s', safeMethod, safePath, {
             body: req.body && Object.keys(req.body).length > 0 ? req.body : undefined,
             query: req.query && Object.keys(req.query).length > 0 ? req.query : undefined,
         });
@@ -165,10 +196,14 @@ app.get('/health', (req, res) => {
 
 // 404 handler
 app.use((req, res) => {
+    // ✅ SEGURANÇA: Sanitizar entradas para prevenir Format String Injection
+    const safeMethod = sanitizeForLog(req.method);
+    const safeOriginalUrl = sanitizeForLog(req.originalUrl);
+
     const response: ApiResponse = {
         success: false,
         error: 'Endpoint not found',
-        message: `Route ${req.method} ${req.originalUrl} not found`
+        message: `Route ${safeMethod} ${safeOriginalUrl} not found`
     };
     res.status(404).json(response);
 });
