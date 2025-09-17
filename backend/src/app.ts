@@ -12,6 +12,7 @@ import {
 } from './middleware/securityMiddleware';
 import { cleanupOldFiles } from './middleware/uploadSecurity';
 import authRoutes from './routes/authRoutes';
+import dashboardRoutes from './routes/dashboardRoutes';
 import inspectionRoutes from './routes/inspectionRoutes';
 import maintenanceRoutes from './routes/maintenanceRoutes';
 import notificationRoutes from './routes/notificationRoutes';
@@ -98,6 +99,7 @@ app.use('/api/users', apiRateLimit, userRoutes);
 app.use('/api/workshops', apiRateLimit, workshopRoutes);
 app.use('/api/inspections', apiRateLimit, inspectionRoutes);
 app.use('/api/notifications', apiRateLimit, notificationRoutes);
+app.use('/api/dashboard', apiRateLimit, dashboardRoutes);
 
 // Rota específica para tipos de manutenção (compatibilidade)
 app.get('/api/maintenance-types', (req, res) => {
@@ -153,6 +155,7 @@ app.get('/health', (req, res) => {
                 workshops: '/api/workshops',
                 inspections: '/api/inspections',
                 notifications: '/api/notifications',
+                dashboard: '/api/dashboard',
                 health: '/health'
             }
         }
