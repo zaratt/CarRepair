@@ -11,7 +11,10 @@
     "seed": "tsx prisma/seed.ts",
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "security:audit": "npm audit",
+    "security:fix": "npm audit fix",
+    "security:check": "npm audit --audit-level high"
   },
   "keywords": [
     "carrepair",
@@ -31,7 +34,6 @@
     "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
     "csrf-csrf": "^4.0.3",
-    "csurf": "^1.11.0",
     "dompurify": "^3.2.6",
     "dotenv": "^16.3.1",
     "expo-server-sdk": "^4.0.0",
