@@ -39,6 +39,9 @@ initializeCronJobs();
 
 const app = express();
 
+// ✅ SEGURANÇA CWE-200: Desativar o cabeçalho X-Powered-By para evitar exposição de informações
+app.disable('x-powered-by');
+
 // ✅ SEGURANÇA LAYER 1: Trust proxy para aplicações atrás de proxy/load balancer
 app.set('trust proxy', 1);
 

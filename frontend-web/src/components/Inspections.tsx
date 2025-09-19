@@ -2,6 +2,19 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Inspection, Maintenance, User } from '../types';
 
+// ✅ SEGURANÇA XSS: Função para sanitizar URLs (CWE-79 Prevention)
+const sanitizeUrl = (url: string): string => {
+    // Verifica se a URL começa com http:// ou https://
+    const isValidUrl = /^https?:\/\/[^\s]+$/.test(url);
+    return isValidUrl ? url : '#'; // Retorna '#' se a URL for inválida
+};
+
+// ✅ SEGURANÇA XSS: Função para exibir texto seguro do link (CWE-79 Prevention)
+const safeDisplayText = (url: string): string => {
+    // Evita exibir URLs potencialmente perigosas diretamente
+    return sanitizeUrl(url) !== '#' ? url : 'URL inválida';
+};
+
 const Inspections: React.FC = () => {
     const [inspections, setInspections] = useState<Inspection[]>([]);
     const [maintenances, setMaintenances] = useState<Maintenance[]>([]);
@@ -196,7 +209,15 @@ const Inspections: React.FC = () => {
                         {inspections.map((inspection) => (
                             <tr key={inspection.id}>
                                 <td>{inspection.maintenance?.description || 'N/A'}</td>
-                                <td><a href={inspection.fileUrl} target="_blank">{inspection.fileUrl}</a></td>
+                                <td>
+                                    <a
+                                        href={sanitizeUrl(inspection.fileUrl)}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                    >
+                                        {safeDisplayText(inspection.fileUrl)}
+                                    </a>
+                                </td>
                                 <td>{inspection.uploadedBy?.name || 'N/A'}</td>
                                 <td>
                                     <button onClick={() => handleEdit(inspection)}>Editar</button>

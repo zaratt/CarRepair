@@ -32,6 +32,8 @@ const cronJobs_1 = require("./services/cronJobs");
 // ✅ INICIALIZAR TAREFAS AUTOMÁTICAS
 (0, cronJobs_1.initializeCronJobs)();
 const app = (0, express_1.default)();
+// ✅ SEGURANÇA CWE-200: Desativar o cabeçalho X-Powered-By para evitar exposição de informações
+app.disable('x-powered-by');
 // ✅ SEGURANÇA LAYER 1: Trust proxy para aplicações atrás de proxy/load balancer
 app.set('trust proxy', 1);
 // ✅ SEGURANÇA LAYER 2: Middlewares de segurança principais

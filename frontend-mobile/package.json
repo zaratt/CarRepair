@@ -10,7 +10,16 @@
     "security:audit": "npm audit",
     "security:fix": "npm audit fix",
     "security:check": "npm audit --audit-level high",
-    "security:monitor-inflight": "npm ls inflight && echo 'Monitoring inflight dependency - Status: Known issue, awaiting upstream fix'"
+    "security:monitor-inflight": "npm ls inflight && echo 'Monitoring inflight dependency - Status: Known issue, awaiting upstream fix'",
+    "postinstall": "npm ls inflight || echo 'Inflight dependency resolved via overrides'"
+  },
+  "overrides": {
+    "glob": "^10.0.0",
+    "rimraf": "^5.0.0"
+  },
+  "resolutions": {
+    "inflight": "npm:@npmcli/promise-spawn@^7.0.0",
+    "glob": "^10.0.0"
   },
   "dependencies": {
     "@expo/metro-runtime": "~5.0.4",
@@ -41,7 +50,7 @@
     "gerador-validador-cpf": "^6.3.0",
     "react": "19.0.0",
     "react-dom": "19.0.0",
-    "react-native": "0.79.5",
+    "react-native": "0.79.6",
     "react-native-calendars": "^1.1313.0",
     "react-native-element-dropdown": "^2.12.4",
     "react-native-elements": "^3.4.3",
