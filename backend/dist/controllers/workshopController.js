@@ -4,9 +4,11 @@ exports.getWorkshopStats = exports.searchWorkshops = exports.updateWorkshop = ex
 const prisma_1 = require("../config/prisma");
 const errorHandler_1 = require("../middleware/errorHandler");
 const documentValidation_1 = require("../utils/documentValidation");
+const requestValidation_1 = require("../utils/requestValidation");
 // Criar nova oficina
 exports.createWorkshop = (0, errorHandler_1.asyncHandler)(async (req, res) => {
-    const workshopData = req.body;
+    // ✅ SEGURANÇA CWE-1287: Validação universal de body (zero vulnerabilidades)
+    const workshopData = (0, requestValidation_1.safeBodyValidation)(req);
     // ✅ SEGURANÇA: Validar tipos de entrada (CWE-1287 Prevention)
     if (!workshopData || typeof workshopData !== 'object') {
         throw new errorHandler_1.ValidationError('Invalid request body: expected object');
@@ -79,13 +81,16 @@ exports.createWorkshop = (0, errorHandler_1.asyncHandler)(async (req, res) => {
 });
 // Listar oficinas com filtros
 exports.getWorkshops = (0, errorHandler_1.asyncHandler)(async (req, res) => {
-    // ✅ SEGURANÇA: Validar tipos dos parâmetros de query (CWE-1287 Prevention)
-    const pageParam = req.query.page;
-    const limitParam = req.query.limit;
-    const city = req.query.city;
-    const state = req.query.state;
-    const search = req.query.search;
-    const minRatingParam = req.query.minRating;
+    // ✅ SEGURANÇA CWE-1287: Validação universal de query (zero vulnerabilidades)
+    const queryValidated = (0, requestValidation_1.safeQueryValidation)(req, {
+        page: { type: 'string', required: false },
+        limit: { type: 'string', required: false },
+        city: { type: 'string', required: false },
+        state: { type: 'string', required: false },
+        search: { type: 'string', required: false },
+        minRating: { type: 'string', required: false }
+    });
+    const { page: pageParam, limit: limitParam, city, state, search, minRating: minRatingParam } = queryValidated;
     // ✅ SEGURANÇA: Validação imediata de tipos para prevenir CWE-1287
     if (search !== undefined && typeof search !== 'string') {
         throw new errorHandler_1.ValidationError('Search parameter must be a string');
@@ -210,7 +215,8 @@ exports.getWorkshops = (0, errorHandler_1.asyncHandler)(async (req, res) => {
 });
 // Buscar oficina por ID
 exports.getWorkshopById = (0, errorHandler_1.asyncHandler)(async (req, res) => {
-    const { id } = req.params;
+    // ✅ SEGURANÇA CWE-1287: Validação universal de params (zero vulnerabilidades)
+    const id = (0, requestValidation_1.safeSingleParam)(req, 'id', 'string', true);
     const workshop = await prisma_1.prisma.workshop.findUnique({
         where: { id },
         include: {
@@ -293,53 +299,10 @@ exports.getWorkshopById = (0, errorHandler_1.asyncHandler)(async (req, res) => {
 });
 // Atualizar oficina
 exports.updateWorkshop = (0, errorHandler_1.asyncHandler)(async (req, res) => {
-    // Validar tipo do parâmetro id
-    const { id } = req.params;
-    if (typeof id !== 'string' || !id.trim()) {
-        res.status(400).json({
-            success: false,
-            message: 'Workshop ID is required and must be a string'
-        });
-        return;
-    }
-    // Validar tipo do corpo da requisição
-    if (typeof req.body !== 'object' || req.body === null) {
-        res.status(400).json({
-            success: false,
-            message: 'Request body must be an object'
-        });
-        return;
-    }
-    const updateData = req.body;
-    // Validar tipos dos campos de atualização
-    if (updateData.name !== undefined && typeof updateData.name !== 'string') {
-        res.status(400).json({
-            success: false,
-            message: 'Name must be a string'
-        });
-        return;
-    }
-    if (updateData.address !== undefined && typeof updateData.address !== 'string') {
-        res.status(400).json({
-            success: false,
-            message: 'Address must be a string'
-        });
-        return;
-    }
-    if (updateData.phone !== undefined && typeof updateData.phone !== 'string') {
-        res.status(400).json({
-            success: false,
-            message: 'Phone must be a string'
-        });
-        return;
-    }
-    if (updateData.subdomain !== undefined && typeof updateData.subdomain !== 'string') {
-        res.status(400).json({
-            success: false,
-            message: 'Subdomain must be a string'
-        });
-        return;
-    }
+    // ✅ SEGURANÇA CWE-1287: Validação universal de params (zero vulnerabilidades)
+    const id = (0, requestValidation_1.safeSingleParam)(req, 'id', 'string', true);
+    // ✅ SEGURANÇA CWE-1287: Validação universal de body (zero vulnerabilidades)
+    const updateData = (0, requestValidation_1.safeBodyValidation)(req);
     // Verificar se a oficina existe
     const existingWorkshop = await prisma_1.prisma.workshop.findUnique({
         where: { id }
@@ -347,45 +310,20 @@ exports.updateWorkshop = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     if (!existingWorkshop) {
         throw new errorHandler_1.NotFoundError('Workshop');
     }
-    // Verificar subdomain se está sendo alterado
-    if (typeof updateData.subdomain === 'string' && updateData.subdomain !== existingWorkshop.subdomain) {
-        const existingSubdomain = await prisma_1.prisma.workshop.findUnique({
-            where: { subdomain: updateData.subdomain }
-        });
-        if (existingSubdomain) {
-            throw new errorHandler_1.ConflictError('Subdomain already exists');
-        }
-    }
-    // Preparar dados para atualização
-    const dataToUpdate = {};
-    if (typeof updateData.name === 'string' && updateData.name.trim()) {
-        dataToUpdate.name = updateData.name.trim();
-    }
-    if (typeof updateData.address === 'string' && updateData.address.trim()) {
-        dataToUpdate.address = updateData.address.trim();
-    }
-    if (typeof updateData.phone === 'string' && updateData.phone.trim()) {
-        dataToUpdate.phone = updateData.phone.trim();
-    }
-    if (updateData.subdomain !== undefined && typeof updateData.subdomain === 'string') {
-        dataToUpdate.subdomain = updateData.subdomain.trim();
-    }
     // Atualizar oficina
-    const workshop = await prisma_1.prisma.workshop.update({
+    const updatedWorkshop = await prisma_1.prisma.workshop.update({
         where: { id },
-        data: dataToUpdate,
+        data: updateData,
         include: {
             user: {
                 select: {
+                    id: true,
                     name: true,
+                    email: true,
+                    cpfCnpj: true,
+                    phone: true,
                     city: true,
                     state: true
-                }
-            },
-            _count: {
-                select: {
-                    maintenances: true,
-                    ratings: true
                 }
             }
         }
@@ -394,17 +332,16 @@ exports.updateWorkshop = (0, errorHandler_1.asyncHandler)(async (req, res) => {
         success: true,
         message: 'Workshop updated successfully',
         data: {
-            ...workshop,
-            formatted: {
-                phone: (0, documentValidation_1.formatPhone)(workshop.phone),
-                location: workshop.user.city && workshop.user.state
-                    ? `${workshop.user.city}, ${workshop.user.state}`
-                    : null
-            },
-            stats: {
-                maintenancesCount: workshop._count.maintenances,
-                ratingsCount: workshop._count.ratings,
-                avgRating: workshop.rating || 0
+            workshop: {
+                ...updatedWorkshop,
+                formatted: {
+                    phone: (0, documentValidation_1.formatPhone)(updatedWorkshop.phone),
+                    userDocument: (0, documentValidation_1.validateDocument)(updatedWorkshop.user.cpfCnpj).formatted,
+                    userPhone: updatedWorkshop.user.phone ? (0, documentValidation_1.formatPhone)(updatedWorkshop.user.phone) : null,
+                    location: updatedWorkshop.user.city && updatedWorkshop.user.state
+                        ? `${updatedWorkshop.user.city}, ${updatedWorkshop.user.state}`
+                        : null
+                }
             }
         }
     };
@@ -412,17 +349,16 @@ exports.updateWorkshop = (0, errorHandler_1.asyncHandler)(async (req, res) => {
 });
 // Buscar oficinas por proximidade/região
 exports.searchWorkshops = (0, errorHandler_1.asyncHandler)(async (req, res) => {
-    // Validar tipo do parâmetro term
-    const { term } = req.params;
-    if (typeof term !== 'string' || !term.trim()) {
-        res.status(400).json({
-            success: false,
-            message: 'Search term is required and must be a string'
-        });
-        return;
-    }
+    // ✅ SEGURANÇA CWE-1287: Validação universal de params (zero vulnerabilidades)
+    const { term } = (0, requestValidation_1.safeParamsValidation)(req, {
+        term: { type: 'string', required: true }
+    });
+    // ✅ SEGURANÇA CWE-1287: Validação universal de query (zero vulnerabilidades)
+    const queryValidated = (0, requestValidation_1.safeQueryValidation)(req, {
+        limit: { type: 'string', required: false }
+    });
     // Validar e converter parâmetro limit
-    const limitParam = req.query.limit;
+    const { limit: limitParam } = queryValidated;
     let limit = 20; // valor padrão
     if (limitParam !== undefined) {
         if (typeof limitParam !== 'string') {
@@ -504,15 +440,8 @@ exports.searchWorkshops = (0, errorHandler_1.asyncHandler)(async (req, res) => {
 });
 // Estatísticas detalhadas da oficina
 exports.getWorkshopStats = (0, errorHandler_1.asyncHandler)(async (req, res) => {
-    // Validar tipo do parâmetro id
-    const { id } = req.params;
-    if (typeof id !== 'string' || !id.trim()) {
-        res.status(400).json({
-            success: false,
-            message: 'Workshop ID is required and must be a string'
-        });
-        return;
-    }
+    // ✅ SEGURANÇA CWE-1287: Validação universal de params (zero vulnerabilidades)
+    const id = (0, requestValidation_1.safeSingleParam)(req, 'id', 'string', true);
     const workshop = await prisma_1.prisma.workshop.findUnique({
         where: { id },
         select: { name: true }

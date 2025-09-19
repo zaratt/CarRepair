@@ -86,6 +86,13 @@ export declare function safePaginationQuery(req: Request): {
     limit: number;
 };
 /**
+ * ✅ SEGURANÇA: Helper específico para validação de req.body (CWE-1287 Prevention)
+ *
+ * @param req - Request object
+ * @returns Validated body object
+ */
+export declare function safeBodyValidation(req: Request): any;
+/**
  * ✅ SEGURANÇA: Helper específico para validação de filtros de usuário
  *
  * @param req - Request object

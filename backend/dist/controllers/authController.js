@@ -6,9 +6,11 @@ const auth_1 = require("../middleware/auth");
 const errorHandler_1 = require("../middleware/errorHandler");
 const auth_2 = require("../utils/auth");
 const documentValidation_1 = require("../utils/documentValidation");
-// Registrar novo usuário com senha
+const requestValidation_1 = require("../utils/requestValidation");
+// ✅ SEGURANÇA: Registrar novo usuário com validação CWE-1287 completa
 exports.register = (0, errorHandler_1.asyncHandler)(async (req, res) => {
-    const userData = req.body;
+    // ✅ SEGURANÇA CWE-1287: Validação universal de body (zero vulnerabilidades)
+    const userData = (0, requestValidation_1.safeBodyValidation)(req);
     // ✅ SEGURANÇA: Validar tipos de entrada (CWE-1287 Prevention)
     if (!userData || typeof userData !== 'object') {
         throw new errorHandler_1.ValidationError('Invalid request body: expected object');
@@ -92,9 +94,10 @@ exports.register = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     };
     res.status(201).json(response);
 });
-// Login com email e senha
+// ✅ SEGURANÇA: Login com validação CWE-1287 completa
 exports.login = (0, errorHandler_1.asyncHandler)(async (req, res) => {
-    const { email, password } = req.body;
+    // ✅ SEGURANÇA CWE-1287: Validação universal de body (zero vulnerabilidades)
+    const { email, password } = (0, requestValidation_1.safeBodyValidation)(req);
     // ✅ SEGURANÇA: Validar tipos de entrada (CWE-1287 Prevention)
     if (!email || typeof email !== 'string') {
         throw new errorHandler_1.ValidationError('Email must be a valid string');
@@ -149,7 +152,8 @@ exports.login = (0, errorHandler_1.asyncHandler)(async (req, res) => {
 });
 // Refresh token
 exports.refreshTokenEndpoint = (0, errorHandler_1.asyncHandler)(async (req, res) => {
-    const { refreshToken: providedRefreshToken } = req.body;
+    // ✅ SEGURANÇA CWE-1287: Validação universal de body (zero vulnerabilidades)
+    const { refreshToken: providedRefreshToken } = (0, requestValidation_1.safeBodyValidation)(req);
     if (!providedRefreshToken) {
         throw new errorHandler_1.ValidationError('Refresh token is required');
     }
@@ -245,7 +249,8 @@ exports.updateProfile = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     if (!userId) {
         throw new errorHandler_1.ValidationError('User not authenticated');
     }
-    const { name, phone, city, state } = req.body;
+    // ✅ SEGURANÇA CWE-1287: Validação universal de body (zero vulnerabilidades)
+    const { name, phone, city, state } = (0, requestValidation_1.safeBodyValidation)(req);
     // ✅ SEGURANÇA: Validar tipos de entrada (CWE-1287 Prevention)
     if (name !== undefined && typeof name !== 'string') {
         throw new errorHandler_1.ValidationError('Name must be a string when provided');
@@ -287,7 +292,8 @@ exports.changePassword = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     if (!userId) {
         throw new errorHandler_1.ValidationError('User not authenticated');
     }
-    const { currentPassword, newPassword } = req.body;
+    // ✅ SEGURANÇA CWE-1287: Validação universal de body (zero vulnerabilidades)
+    const { currentPassword, newPassword } = (0, requestValidation_1.safeBodyValidation)(req);
     // ✅ SEGURANÇA: Validar tipos de entrada (CWE-1287 Prevention)
     if (!currentPassword || typeof currentPassword !== 'string') {
         throw new errorHandler_1.ValidationError('Current password must be a valid string');

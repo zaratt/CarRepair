@@ -7,13 +7,46 @@ const parsing_1 = require("../utils/parsing");
 const requestValidation_1 = require("../utils/requestValidation");
 // ✅ Função para criar dados de attachment a partir de URLs de upload
 const createAttachmentFromUpload = (uploadedFile, category) => {
+    // ✅ SEGURANÇA CWE-1287: Validação rigorosa de uploadedFile
+    if (!uploadedFile || typeof uploadedFile !== 'object') {
+        throw new errorHandler_1.ValidationError('Arquivo de upload inválido');
+    }
+    const { url, mimeType, size, originalName, fileName } = uploadedFile;
+    // ✅ SEGURANÇA CWE-1287: Validação de propriedades obrigatórias
+    if (typeof url !== 'string' || url.trim() === '') {
+        throw new errorHandler_1.ValidationError('URL do arquivo é obrigatória e deve ser uma string válida');
+    }
+    if (typeof mimeType !== 'string' || mimeType.trim() === '') {
+        throw new errorHandler_1.ValidationError('MIME type do arquivo é obrigatório e deve ser uma string válida');
+    }
+    if (typeof size !== 'number' || size < 0) {
+        throw new errorHandler_1.ValidationError('Tamanho do arquivo deve ser um número não negativo');
+    }
+    if (typeof category !== 'string' || category.trim() === '') {
+        throw new errorHandler_1.ValidationError('Categoria do anexo é obrigatória e deve ser uma string válida');
+    }
+    // ✅ SEGURANÇA CWE-1287: Determinar tipo com base no mimeType
+    let type;
+    if (mimeType.startsWith('image/')) {
+        type = 'image';
+    }
+    else if (mimeType === 'application/pdf') {
+        type = 'pdf';
+    }
+    else {
+        throw new errorHandler_1.ValidationError(`MIME type não suportado: ${mimeType}`);
+    }
     return {
-        url: uploadedFile.url,
-        type: uploadedFile.mimeType.startsWith('image/') ? 'image' : 'pdf',
+        url,
+        type,
         category: category,
-        name: uploadedFile.originalName || uploadedFile.fileName,
-        size: uploadedFile.size,
-        mimeType: uploadedFile.mimeType,
+        name: (typeof originalName === 'string' && originalName.trim() !== '')
+            ? originalName
+            : (typeof fileName === 'string' && fileName.trim() !== '')
+                ? fileName
+                : 'unnamed_file',
+        size,
+        mimeType,
     };
 };
 exports.createAttachmentFromUpload = createAttachmentFromUpload;
@@ -37,15 +70,35 @@ const validateMaintenanceDate = (date) => {
 };
 // ✅ SEGURANÇA: Criar nova manutenção com validação CWE-1287 completa
 exports.createMaintenance = (0, errorHandler_1.asyncHandler)(async (req, res) => {
-    // ✅ SEGURANÇA CWE-1287: Validação explícita de req.body antes de uso
+    // ✅ SEGURANÇA CWE-1287: Validação inicial rigorosa de bodyData
     if (!req.body || typeof req.body !== 'object') {
-        throw new errorHandler_1.ValidationError('Request body must be a valid object');
+        throw new errorHandler_1.ValidationError('Corpo da requisição inválido');
     }
-    // ✅ SEGURANÇA: Validação segura de estrutura do body
-    const bodyData = req.body;
-    if (Array.isArray(bodyData)) {
-        throw new errorHandler_1.ValidationError('Request body cannot be an array');
+    const bodyData = (0, requestValidation_1.safeBodyValidation)(req);
+    // ✅ SEGURANÇA CWE-1287: Validação rigorosa de propriedades obrigatórias
+    if (typeof bodyData.vehicleId !== 'string' || bodyData.vehicleId.trim() === '') {
+        throw new errorHandler_1.ValidationError('vehicleId é obrigatório e deve ser uma string válida');
     }
+    if (typeof bodyData.date !== 'string' || isNaN(Date.parse(bodyData.date))) {
+        throw new errorHandler_1.ValidationError('date é obrigatório e deve ser uma data válida');
+    }
+    if (typeof bodyData.mileage !== 'number' || bodyData.mileage < 0) {
+        throw new errorHandler_1.ValidationError('mileage é obrigatório e deve ser um número não negativo');
+    }
+    // ✅ SEGURANÇA CWE-1287: Validação de propriedades opcionais
+    if (bodyData.description !== undefined && typeof bodyData.description !== 'string') {
+        throw new errorHandler_1.ValidationError('description deve ser uma string quando fornecida');
+    }
+    if (bodyData.services !== undefined && !Array.isArray(bodyData.services)) {
+        throw new errorHandler_1.ValidationError('services deve ser um array quando fornecido');
+    }
+    if (bodyData.attachments !== undefined && !Array.isArray(bodyData.attachments)) {
+        throw new errorHandler_1.ValidationError('attachments deve ser um array quando fornecido');
+    }
+    if (bodyData.value !== undefined && (typeof bodyData.value !== 'number' || bodyData.value < 0)) {
+        throw new errorHandler_1.ValidationError('value deve ser um número não negativo quando fornecido');
+    }
+    // ✅ SEGURANÇA CWE-1287: Desestruturação segura após validação rigorosa
     const { attachments, ...maintenanceData } = bodyData;
     // ✅ Validar data da manutenção
     validateMaintenanceDate(new Date(maintenanceData.date));
@@ -74,20 +127,20 @@ exports.createMaintenance = (0, errorHandler_1.asyncHandler)(async (req, res) =>
             throw new errorHandler_1.NotFoundError('Workshop');
         }
     }
-    // Criar manutenção
+    // ✅ SEGURANÇA CWE-1287: Criar manutenção com fallbacks explícitos
     const maintenance = await prisma_1.prisma.maintenance.create({
         data: {
             vehicleId: maintenanceData.vehicleId,
-            workshopId: maintenanceData.workshopId,
-            date: maintenanceData.date,
-            description: maintenanceData.description,
-            services: maintenanceData.services || [], // ✅ NOVO: Array de serviços
-            products: maintenanceData.products,
-            workshopName: maintenanceData.workshopName, // ✅ NOVO
-            workshopCnpj: maintenanceData.workshopCnpj, // ✅ NOVO  
-            workshopAddress: maintenanceData.workshopAddress, // ✅ NOVO
+            workshopId: maintenanceData.workshopId || null,
+            date: new Date(maintenanceData.date), // ✅ Já validado pelo esquema
+            description: maintenanceData.description || null, // ✅ Fallback seguro
+            services: maintenanceData.services || [], // ✅ Já validado como array
+            products: maintenanceData.products || null,
+            workshopName: maintenanceData.workshopName || null,
+            workshopCnpj: maintenanceData.workshopCnpj || null,
+            workshopAddress: maintenanceData.workshopAddress || null,
             mileage: maintenanceData.mileage,
-            value: maintenanceData.value,
+            value: maintenanceData.value || null,
         },
         include: {
             vehicle: {
@@ -149,24 +202,44 @@ exports.createMaintenance = (0, errorHandler_1.asyncHandler)(async (req, res) =>
                 attachments: true,
             }
         });
+        // ✅ SEGURANÇA: Verificar se attachments foram criados com sucesso
         if (maintenanceWithAttachments) {
-            maintenance.attachments = maintenanceWithAttachments.attachments;
+            const response = {
+                success: true,
+                message: 'Maintenance created successfully',
+                data: {
+                    ...maintenanceWithAttachments,
+                    // Adicionar valores formatados para exibição
+                    formatted: {
+                        value: maintenanceWithAttachments.value ? (0, parsing_1.formatCurrency)(maintenanceWithAttachments.value) : null,
+                        mileage: (0, parsing_1.formatKilometers)(maintenanceWithAttachments.mileage),
+                        date: maintenanceWithAttachments.date.toLocaleDateString('pt-BR')
+                    }
+                }
+            };
+            res.status(201).json(response);
+        }
+        else {
+            throw new errorHandler_1.ValidationError('Erro ao criar manutenção com anexos');
         }
     }
-    const response = {
-        success: true,
-        message: 'Maintenance created successfully',
-        data: {
-            ...maintenance,
-            // Adicionar valores formatados para exibição
-            formatted: {
-                value: maintenance.value ? (0, parsing_1.formatCurrency)(maintenance.value) : null,
-                mileage: (0, parsing_1.formatKilometers)(maintenance.mileage),
-                date: maintenance.date.toLocaleDateString('pt-BR')
+    else {
+        // ✅ Resposta sem attachments
+        const response = {
+            success: true,
+            message: 'Maintenance created successfully',
+            data: {
+                ...maintenance,
+                // Adicionar valores formatados para exibição
+                formatted: {
+                    value: maintenance.value ? (0, parsing_1.formatCurrency)(maintenance.value) : null,
+                    mileage: (0, parsing_1.formatKilometers)(maintenance.mileage),
+                    date: maintenance.date.toLocaleDateString('pt-BR')
+                }
             }
-        }
-    };
-    res.status(201).json(response);
+        };
+        res.status(201).json(response);
+    }
 });
 // ✅ SEGURANÇA: Listar manutenções com validação CWE-1287 completa
 exports.getMaintenances = (0, errorHandler_1.asyncHandler)(async (req, res) => {
@@ -303,16 +376,8 @@ exports.getMaintenanceById = (0, errorHandler_1.asyncHandler)(async (req, res) =
 exports.updateMaintenance = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     // ✅ SEGURANÇA CWE-1287: Validação universal de params (zero vulnerabilidades)
     const id = (0, requestValidation_1.safeSingleParam)(req, 'id', 'string', true);
-    // ✅ SEGURANÇA CWE-1287: Validação explícita de req.body antes de uso
-    if (!req.body || typeof req.body !== 'object') {
-        throw new errorHandler_1.ValidationError('Request body must be a valid object');
-    }
-    // ✅ SEGURANÇA: Validação segura de estrutura do body
-    const bodyData = req.body;
-    if (Array.isArray(bodyData)) {
-        throw new errorHandler_1.ValidationError('Request body cannot be an array');
-    }
-    const updateData = bodyData;
+    // ✅ SEGURANÇA CWE-1287: Validação universal de body (zero vulnerabilidades)
+    const updateData = (0, requestValidation_1.safeBodyValidation)(req);
     // Verificar se a manutenção existe
     const existingMaintenance = await prisma_1.prisma.maintenance.findUnique({
         where: { id },

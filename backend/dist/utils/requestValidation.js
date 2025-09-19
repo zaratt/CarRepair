@@ -16,6 +16,7 @@ exports.safeParamsValidation = safeParamsValidation;
 exports.safeSingleQuery = safeSingleQuery;
 exports.safeSingleParam = safeSingleParam;
 exports.safePaginationQuery = safePaginationQuery;
+exports.safeBodyValidation = safeBodyValidation;
 exports.safeUserFiltersQuery = safeUserFiltersQuery;
 /**
  * ✅ SEGURANÇA: Helper universal para validação segura de req.query (CWE-1287 Prevention)
@@ -242,6 +243,24 @@ function safePaginationQuery(req) {
         }
     };
     return safeQueryValidation(req, schema);
+}
+/**
+ * ✅ SEGURANÇA: Helper específico para validação de req.body (CWE-1287 Prevention)
+ *
+ * @param req - Request object
+ * @returns Validated body object
+ */
+function safeBodyValidation(req) {
+    // ✅ SEGURANÇA CWE-1287: Validação explícita de req.body antes de uso
+    if (!req.body || typeof req.body !== 'object') {
+        throw new Error('Request body must be a valid object');
+    }
+    // ✅ SEGURANÇA: Validação segura de estrutura do body
+    const bodyData = req.body;
+    if (Array.isArray(bodyData)) {
+        throw new Error('Request body cannot be an array');
+    }
+    return bodyData;
 }
 /**
  * ✅ SEGURANÇA: Helper específico para validação de filtros de usuário

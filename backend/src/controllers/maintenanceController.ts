@@ -3,17 +3,52 @@ import { prisma } from '../config/prisma';
 import { asyncHandler, NotFoundError, ValidationError } from '../middleware/errorHandler';
 import { ApiResponse, MaintenanceAttachmentData, MaintenanceCreateData, PaginationResponse } from '../types';
 import { formatCurrency, formatKilometers } from '../utils/parsing';
-import { safeQueryValidation, safeSingleParam, ValidationSchema } from '../utils/requestValidation';
+import { safeBodyValidation, safeQueryValidation, safeSingleParam, ValidationSchema } from '../utils/requestValidation';
 
 // ✅ Função para criar dados de attachment a partir de URLs de upload
 export const createAttachmentFromUpload = (uploadedFile: any, category: string): MaintenanceAttachmentData => {
+    // ✅ SEGURANÇA CWE-1287: Validação rigorosa de uploadedFile
+    if (!uploadedFile || typeof uploadedFile !== 'object') {
+        throw new ValidationError('Arquivo de upload inválido');
+    }
+
+    const { url, mimeType, size, originalName, fileName } = uploadedFile;
+
+    // ✅ SEGURANÇA CWE-1287: Validação de propriedades obrigatórias
+    if (typeof url !== 'string' || url.trim() === '') {
+        throw new ValidationError('URL do arquivo é obrigatória e deve ser uma string válida');
+    }
+    if (typeof mimeType !== 'string' || mimeType.trim() === '') {
+        throw new ValidationError('MIME type do arquivo é obrigatório e deve ser uma string válida');
+    }
+    if (typeof size !== 'number' || size < 0) {
+        throw new ValidationError('Tamanho do arquivo deve ser um número não negativo');
+    }
+    if (typeof category !== 'string' || category.trim() === '') {
+        throw new ValidationError('Categoria do anexo é obrigatória e deve ser uma string válida');
+    }
+
+    // ✅ SEGURANÇA CWE-1287: Determinar tipo com base no mimeType
+    let type: 'image' | 'pdf';
+    if (mimeType.startsWith('image/')) {
+        type = 'image';
+    } else if (mimeType === 'application/pdf') {
+        type = 'pdf';
+    } else {
+        throw new ValidationError(`MIME type não suportado: ${mimeType}`);
+    }
+
     return {
-        url: uploadedFile.url,
-        type: uploadedFile.mimeType.startsWith('image/') ? 'image' : 'pdf',
+        url,
+        type,
         category: category as 'nota_fiscal' | 'orcamento' | 'garantia' | 'outros',
-        name: uploadedFile.originalName || uploadedFile.fileName,
-        size: uploadedFile.size,
-        mimeType: uploadedFile.mimeType,
+        name: (typeof originalName === 'string' && originalName.trim() !== '')
+            ? originalName
+            : (typeof fileName === 'string' && fileName.trim() !== '')
+                ? fileName
+                : 'unnamed_file',
+        size,
+        mimeType,
     };
 };
 
@@ -41,17 +76,39 @@ const validateMaintenanceDate = (date: Date) => {
 
 // ✅ SEGURANÇA: Criar nova manutenção com validação CWE-1287 completa
 export const createMaintenance = asyncHandler(async (req: Request, res: Response) => {
-    // ✅ SEGURANÇA CWE-1287: Validação explícita de req.body antes de uso
+    // ✅ SEGURANÇA CWE-1287: Validação inicial rigorosa de bodyData
     if (!req.body || typeof req.body !== 'object') {
-        throw new ValidationError('Request body must be a valid object');
+        throw new ValidationError('Corpo da requisição inválido');
     }
 
-    // ✅ SEGURANÇA: Validação segura de estrutura do body
-    const bodyData = req.body;
-    if (Array.isArray(bodyData)) {
-        throw new ValidationError('Request body cannot be an array');
+    const bodyData = safeBodyValidation(req);
+
+    // ✅ SEGURANÇA CWE-1287: Validação rigorosa de propriedades obrigatórias
+    if (typeof bodyData.vehicleId !== 'string' || bodyData.vehicleId.trim() === '') {
+        throw new ValidationError('vehicleId é obrigatório e deve ser uma string válida');
+    }
+    if (typeof bodyData.date !== 'string' || isNaN(Date.parse(bodyData.date))) {
+        throw new ValidationError('date é obrigatório e deve ser uma data válida');
+    }
+    if (typeof bodyData.mileage !== 'number' || bodyData.mileage < 0) {
+        throw new ValidationError('mileage é obrigatório e deve ser um número não negativo');
     }
 
+    // ✅ SEGURANÇA CWE-1287: Validação de propriedades opcionais
+    if (bodyData.description !== undefined && typeof bodyData.description !== 'string') {
+        throw new ValidationError('description deve ser uma string quando fornecida');
+    }
+    if (bodyData.services !== undefined && !Array.isArray(bodyData.services)) {
+        throw new ValidationError('services deve ser um array quando fornecido');
+    }
+    if (bodyData.attachments !== undefined && !Array.isArray(bodyData.attachments)) {
+        throw new ValidationError('attachments deve ser um array quando fornecido');
+    }
+    if (bodyData.value !== undefined && (typeof bodyData.value !== 'number' || bodyData.value < 0)) {
+        throw new ValidationError('value deve ser um número não negativo quando fornecido');
+    }
+
+    // ✅ SEGURANÇA CWE-1287: Desestruturação segura após validação rigorosa
     const { attachments, ...maintenanceData }: MaintenanceCreateData & { attachments?: MaintenanceAttachmentData[] } = bodyData;
 
     // ✅ Validar data da manutenção
@@ -88,20 +145,20 @@ export const createMaintenance = asyncHandler(async (req: Request, res: Response
         }
     }
 
-    // Criar manutenção
+    // ✅ SEGURANÇA CWE-1287: Criar manutenção com fallbacks explícitos
     const maintenance = await prisma.maintenance.create({
         data: {
             vehicleId: maintenanceData.vehicleId,
-            workshopId: maintenanceData.workshopId,
-            date: maintenanceData.date,
-            description: maintenanceData.description,
-            services: maintenanceData.services || [], // ✅ NOVO: Array de serviços
-            products: maintenanceData.products,
-            workshopName: maintenanceData.workshopName, // ✅ NOVO
-            workshopCnpj: maintenanceData.workshopCnpj, // ✅ NOVO  
-            workshopAddress: maintenanceData.workshopAddress, // ✅ NOVO
+            workshopId: maintenanceData.workshopId || null,
+            date: new Date(maintenanceData.date), // ✅ Já validado pelo esquema
+            description: maintenanceData.description || null, // ✅ Fallback seguro
+            services: maintenanceData.services || [], // ✅ Já validado como array
+            products: maintenanceData.products || null,
+            workshopName: maintenanceData.workshopName || null,
+            workshopCnpj: maintenanceData.workshopCnpj || null,
+            workshopAddress: maintenanceData.workshopAddress || null,
             mileage: maintenanceData.mileage,
-            value: maintenanceData.value,
+            value: maintenanceData.value || null,
         },
         include: {
             vehicle: {
@@ -170,26 +227,44 @@ export const createMaintenance = asyncHandler(async (req: Request, res: Response
             }
         });
 
+        // ✅ SEGURANÇA: Verificar se attachments foram criados com sucesso
         if (maintenanceWithAttachments) {
-            maintenance.attachments = maintenanceWithAttachments.attachments;
-        }
-    }
+            const response: ApiResponse = {
+                success: true,
+                message: 'Maintenance created successfully',
+                data: {
+                    ...maintenanceWithAttachments,
+                    // Adicionar valores formatados para exibição
+                    formatted: {
+                        value: maintenanceWithAttachments.value ? formatCurrency(maintenanceWithAttachments.value) : null,
+                        mileage: formatKilometers(maintenanceWithAttachments.mileage),
+                        date: maintenanceWithAttachments.date.toLocaleDateString('pt-BR')
+                    }
+                }
+            };
 
-    const response: ApiResponse = {
-        success: true,
-        message: 'Maintenance created successfully',
-        data: {
-            ...maintenance,
-            // Adicionar valores formatados para exibição
-            formatted: {
-                value: maintenance.value ? formatCurrency(maintenance.value) : null,
-                mileage: formatKilometers(maintenance.mileage),
-                date: maintenance.date.toLocaleDateString('pt-BR')
+            res.status(201).json(response);
+        } else {
+            throw new ValidationError('Erro ao criar manutenção com anexos');
+        }
+    } else {
+        // ✅ Resposta sem attachments
+        const response: ApiResponse = {
+            success: true,
+            message: 'Maintenance created successfully',
+            data: {
+                ...maintenance,
+                // Adicionar valores formatados para exibição
+                formatted: {
+                    value: maintenance.value ? formatCurrency(maintenance.value) : null,
+                    mileage: formatKilometers(maintenance.mileage),
+                    date: maintenance.date.toLocaleDateString('pt-BR')
+                }
             }
-        }
-    };
+        };
 
-    res.status(201).json(response);
+        res.status(201).json(response);
+    }
 });
 
 // ✅ SEGURANÇA: Listar manutenções com validação CWE-1287 completa
@@ -345,18 +420,8 @@ export const updateMaintenance = asyncHandler(async (req: Request, res: Response
     // ✅ SEGURANÇA CWE-1287: Validação universal de params (zero vulnerabilidades)
     const id = safeSingleParam<string>(req, 'id', 'string', true);
 
-    // ✅ SEGURANÇA CWE-1287: Validação explícita de req.body antes de uso
-    if (!req.body || typeof req.body !== 'object') {
-        throw new ValidationError('Request body must be a valid object');
-    }
-
-    // ✅ SEGURANÇA: Validação segura de estrutura do body
-    const bodyData = req.body;
-    if (Array.isArray(bodyData)) {
-        throw new ValidationError('Request body cannot be an array');
-    }
-
-    const updateData = bodyData;
+    // ✅ SEGURANÇA CWE-1287: Validação universal de body (zero vulnerabilidades)
+    const updateData = safeBodyValidation(req);
 
     // Verificar se a manutenção existe
     const existingMaintenance = await prisma.maintenance.findUnique({

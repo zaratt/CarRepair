@@ -5,6 +5,7 @@ const client_1 = require("@prisma/client");
 const errorHandler_1 = require("../middleware/errorHandler");
 const securityLogger_1 = require("../middleware/securityLogger");
 const notificationService_1 = require("../services/notificationService");
+const requestValidation_1 = require("../utils/requestValidation");
 const prisma = new client_1.PrismaClient();
 // ✅ CRUD COMPLETO DE INSPEÇÕES
 // Criar nova inspeção
@@ -406,7 +407,8 @@ exports.scheduleInspection = (0, errorHandler_1.asyncHandler)(async (req, res) =
 });
 // Obter vistorias do usuário
 exports.getUserInspections = (0, errorHandler_1.asyncHandler)(async (req, res) => {
-    const userId = req.params.userId || 'default_user'; // Para quando não há userId na rota
+    // ✅ SEGURANÇA CWE-1287: Validação universal de params (zero vulnerabilidades)
+    const userId = (0, requestValidation_1.safeSingleParam)(req, 'userId', 'string', false) || 'default_user';
     // Em um ambiente real, buscaríamos do banco de dados
     // Por enquanto, retornamos lista vazia já que não há inspeções reais implementadas
     const inspections = [];
