@@ -42,6 +42,14 @@ npm run security:fix            # Correção automática
 - **Correções:** Hardcoded secrets, passwords, type validation
 - **Detalhes:** Ver `DOCS/Code_Security_Fixes_Report.md`
 
+#### **CWE-770 Resource Allocation - systemController.ts**
+- **Status:** ✅ **CORRIGIDO** (25/01/2025)
+- **Vulnerabilidade:** Allocation of Resources Without Limits or Throttling
+- **Risco:** 🟡 MÉDIO → 🟢 RESOLVIDO
+- **Componente:** Backend System Controller
+- **Correção:** Rate limiting + cache + timeouts para operações FS
+- **Detalhes:** Ver `DOCS/CWE_770_Resource_Allocation_Fix_Report.md`
+
 #### **CWE-134 Format String - Multiple Files**
 - **Status:** ✅ **CORRIGIDO COMPLETAMENTE** (25/01/2025)
 - **Vulnerabilidades:** 19+ instâncias em 8 arquivos

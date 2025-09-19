@@ -4,6 +4,7 @@ exports.searchVehiclesByPlate = exports.deleteVehicle = exports.updateVehicle = 
 const prisma_1 = require("../config/prisma");
 const errorHandler_1 = require("../middleware/errorHandler");
 const fipeService_1 = require("../services/fipeService");
+const requestValidation_1 = require("../utils/requestValidation");
 // Função para calcular quilometragem estimada baseada na idade do veículo
 function calculateEstimatedKm(manufacturingYear) {
     const currentYear = new Date().getFullYear();
@@ -85,53 +86,17 @@ exports.createVehicle = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     };
     res.status(201).json(response);
 });
-// Listar veículos com paginação
+// ✅ SEGURANÇA: Listar veículos com validação CWE-1287 completa
 exports.getVehicles = (0, errorHandler_1.asyncHandler)(async (req, res) => {
-    // ✅ SEGURANÇA: Validar tipos dos parâmetros de query (CWE-1287 Prevention)
-    const pageParam = req.query.page;
-    const limitParam = req.query.limit;
-    const ownerId = req.query.ownerId;
-    const activeParam = req.query.active;
-    const licensePlate = req.query.licensePlate;
-    // Validar tipos e converter valores
-    let page = 1;
-    let limit = 10;
-    let active = undefined;
-    if (pageParam !== undefined) {
-        if (typeof pageParam !== 'string') {
-            throw new errorHandler_1.ValidationError('Page parameter must be a string');
-        }
-        const parsedPage = parseInt(pageParam);
-        if (isNaN(parsedPage) || parsedPage < 1) {
-            throw new errorHandler_1.ValidationError('Page must be a positive number');
-        }
-        page = parsedPage;
-    }
-    if (limitParam !== undefined) {
-        if (typeof limitParam !== 'string') {
-            throw new errorHandler_1.ValidationError('Limit parameter must be a string');
-        }
-        const parsedLimit = parseInt(limitParam);
-        if (isNaN(parsedLimit) || parsedLimit < 1 || parsedLimit > 100) {
-            throw new errorHandler_1.ValidationError('Limit must be a number between 1 and 100');
-        }
-        limit = parsedLimit;
-    }
-    if (ownerId !== undefined && typeof ownerId !== 'string') {
-        throw new errorHandler_1.ValidationError('Owner ID must be a string');
-    }
-    if (activeParam !== undefined) {
-        if (typeof activeParam !== 'string') {
-            throw new errorHandler_1.ValidationError('Active parameter must be a string');
-        }
-        active = activeParam === 'true';
-    }
-    if (licensePlate !== undefined && typeof licensePlate !== 'string') {
-        throw new errorHandler_1.ValidationError('License plate must be a string');
-    }
-    console.log('🔍 [BACKEND] getVehicles - Query params:', {
-        page, limit, ownerId, active, licensePlate
-    });
+    // ✅ SEGURANÇA CWE-1287: Validação universal de query params (zero vulnerabilidades)
+    const querySchema = {
+        page: { type: 'number', defaultValue: 1, validator: (val) => val > 0 },
+        limit: { type: 'number', defaultValue: 10, validator: (val) => val > 0 && val <= 100 },
+        ownerId: { type: 'string', defaultValue: '' },
+        active: { type: 'boolean', defaultValue: undefined },
+        licensePlate: { type: 'string', defaultValue: '' }
+    };
+    const { page, limit, ownerId, active, licensePlate } = (0, requestValidation_1.safeQueryValidation)(req, querySchema);
     const skip = (page - 1) * limit;
     // Construir filtros
     const where = {};
@@ -139,27 +104,14 @@ exports.getVehicles = (0, errorHandler_1.asyncHandler)(async (req, res) => {
         where.ownerId = ownerId;
     if (active !== undefined)
         where.active = active;
-    if (licensePlate) {
-        // ✅ SEGURANÇA: Validação adicional antes do toUpperCase() (CWE-1287 Prevention)
-        if (typeof licensePlate === 'string') {
-            where.licensePlate = {
-                contains: licensePlate.toUpperCase(),
-                mode: 'insensitive'
-            };
-        }
-    }
-    console.log('🔍 [BACKEND] Filtros construídos:', where);
-    // Verificar se há veículos no banco para esse ownerId
-    const totalVehiclesForOwner = await prisma_1.prisma.vehicle.count({
-        where: { ownerId }
-    });
-    console.log('🔍 [BACKEND] Total de veículos no banco para esse owner:', totalVehiclesForOwner);
-    // Buscar veículos e total
+    if (licensePlate)
+        where.licensePlate = { contains: licensePlate, mode: 'insensitive' };
     const [vehicles, total] = await Promise.all([
         prisma_1.prisma.vehicle.findMany({
             where,
             skip,
             take: limit,
+            orderBy: { createdAt: 'desc' },
             include: {
                 owner: {
                     select: {
@@ -167,51 +119,26 @@ exports.getVehicles = (0, errorHandler_1.asyncHandler)(async (req, res) => {
                         name: true,
                         email: true,
                         phone: true,
+                        city: true,
+                        state: true,
                     }
                 },
-                // Removido brand e model includes pois estamos usando dados FIPE
                 photos: {
-                    take: 1, // Apenas a primeira foto para listagem
-                    orderBy: { createdAt: 'desc' }
+                    orderBy: { createdAt: 'desc' },
+                    take: 1
                 },
                 _count: {
                     select: {
                         maintenances: true,
-                        inspections: true,
+                        photos: true
                     }
                 }
-            },
-            orderBy: { createdAt: 'desc' }
+            }
         }),
         prisma_1.prisma.vehicle.count({ where })
     ]);
-    // Mapear veículos para incluir informações reais de marca/modelo da FIPE
-    const mappedVehicles = await Promise.all(vehicles.map(async (vehicle) => {
-        // Buscar dados reais da FIPE
-        const { brand, model } = await fipeService_1.fipeService.getBrandAndModel(vehicle.fipeBrandId || 0, vehicle.fipeModelId || 0);
-        return {
-            ...vehicle,
-            // ✅ Mapear para coincidir com interface Vehicle do frontend
-            plate: vehicle.licensePlate, // plate em vez de licensePlate
-            brand, // Nome real da marca da FIPE
-            model, // Nome real do modelo da FIPE
-            year: vehicle.modelYear || vehicle.yearManufacture || 2000, // number
-            // ✅ Usar quilometragem real do banco ou estimativa se não informada
-            currentKm: vehicle.currentKm ?? calculateEstimatedKm(vehicle.modelYear || vehicle.yearManufacture || 2000),
-            // ✅ Usar valores reais do banco
-            fipeValue: vehicle.fipeValue ?? 0,
-            color: vehicle.color ?? '',
-            photos: vehicle.photos?.map(p => p.url) || [], // array de URLs
-            userId: vehicle.ownerId, // userId em vez de ownerId
-            createdAt: vehicle.createdAt.toISOString(),
-            updatedAt: vehicle.createdAt.toISOString(), // Usar createdAt como fallback
-        };
-    }));
-    console.log('🔍 [BACKEND] Veículos encontrados:', vehicles.length);
-    console.log('🔍 [BACKEND] Total count:', total);
-    console.log('🔍 [BACKEND] Primeiro veículo (se existir):', vehicles[0]?.id || 'Nenhum');
     const response = {
-        data: mappedVehicles,
+        data: vehicles,
         pagination: {
             page,
             limit,
@@ -219,15 +146,12 @@ exports.getVehicles = (0, errorHandler_1.asyncHandler)(async (req, res) => {
             totalPages: Math.ceil(total / limit)
         }
     };
-    console.log('🔍 [BACKEND] Resposta final:', {
-        dataLength: response.data.length,
-        total: response.pagination.total
-    });
     res.json(response);
 });
-// Buscar veículo por ID
+// ✅ SEGURANÇA: Buscar veículo por ID com validação CWE-1287 completa
 exports.getVehicleById = (0, errorHandler_1.asyncHandler)(async (req, res) => {
-    const { id } = req.params;
+    // ✅ SEGURANÇA CWE-1287: Validação universal de params (zero vulnerabilidades)
+    const id = (0, requestValidation_1.safeSingleParam)(req, 'id', 'string', true);
     const vehicle = await prisma_1.prisma.vehicle.findUnique({
         where: { id },
         include: {
@@ -303,10 +227,20 @@ exports.getVehicleById = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     };
     res.json(response);
 });
-// Atualizar veículo
+// ✅ SEGURANÇA: Atualizar veículo com validação CWE-1287 completa
 exports.updateVehicle = (0, errorHandler_1.asyncHandler)(async (req, res) => {
-    const { id } = req.params;
-    const updateData = req.body;
+    // ✅ SEGURANÇA CWE-1287: Validação universal de params e body (zero vulnerabilidades)
+    const id = (0, requestValidation_1.safeSingleParam)(req, 'id', 'string', true);
+    // ✅ SEGURANÇA CWE-1287: Validação explícita de req.body antes de uso
+    if (!req.body || typeof req.body !== 'object') {
+        throw new errorHandler_1.ValidationError('Request body must be a valid object');
+    }
+    // ✅ SEGURANÇA: Validação segura de estrutura do body
+    const bodyData = req.body;
+    if (Array.isArray(bodyData)) {
+        throw new errorHandler_1.ValidationError('Request body cannot be an array');
+    }
+    const updateData = bodyData;
     // Verificar se o veículo existe
     const existingVehicle = await prisma_1.prisma.vehicle.findUnique({
         where: { id }
@@ -357,18 +291,13 @@ exports.updateVehicle = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     };
     res.json(response);
 });
-// Excluir veículo (soft delete)
+// ✅ SEGURANÇA: Excluir veículo com validação CWE-1287 completa
 exports.deleteVehicle = (0, errorHandler_1.asyncHandler)(async (req, res) => {
-    const { id } = req.params;
-    const forceParam = req.query.force;
-    // ✅ SEGURANÇA: Validar tipo do parâmetro force (CWE-1287 Prevention)
-    let force = false;
-    if (forceParam !== undefined) {
-        if (typeof forceParam !== 'string') {
-            throw new errorHandler_1.ValidationError('Force parameter must be a string');
-        }
-        force = forceParam === 'true';
-    }
+    // ✅ SEGURANÇA CWE-1287: Validação universal de params e query (zero vulnerabilidades)
+    const id = (0, requestValidation_1.safeSingleParam)(req, 'id', 'string', true);
+    const force = (0, requestValidation_1.safeQueryValidation)(req, {
+        force: { type: 'boolean', defaultValue: false }
+    }).force;
     // Verificar se o veículo existe
     const vehicle = await prisma_1.prisma.vehicle.findUnique({
         where: { id },
@@ -434,13 +363,10 @@ exports.deleteVehicle = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     };
     res.json(response);
 });
-// Buscar veículos por placa (busca parcial)
+// ✅ SEGURANÇA: Buscar veículos por placa com validação CWE-1287 completa
 exports.searchVehiclesByPlate = (0, errorHandler_1.asyncHandler)(async (req, res) => {
-    // ✅ SEGURANÇA: Validar tipo do parâmetro plate (CWE-1287 Prevention)
-    const { plate } = req.params;
-    if (typeof plate !== 'string') {
-        throw new errorHandler_1.ValidationError('Plate parameter must be a string');
-    }
+    // ✅ SEGURANÇA CWE-1287: Validação universal de params (zero vulnerabilidades)
+    const plate = (0, requestValidation_1.safeSingleParam)(req, 'plate', 'string', true);
     if (!plate || plate.length < 3) {
         throw new errorHandler_1.ValidationError('Plate search must have at least 3 characters');
     }

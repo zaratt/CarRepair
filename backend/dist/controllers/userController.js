@@ -9,6 +9,7 @@ const prisma_1 = require("../config/prisma");
 const security_1 = require("../config/security");
 const errorHandler_1 = require("../middleware/errorHandler");
 const documentValidation_1 = require("../utils/documentValidation");
+const requestValidation_1 = require("../utils/requestValidation");
 const typeValidation_1 = require("../utils/typeValidation");
 // Criar novo usuário
 exports.createUser = (0, errorHandler_1.asyncHandler)(async (req, res) => {
@@ -92,15 +93,11 @@ exports.createUser = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     };
     res.status(201).json(response);
 });
-// ✅ CORRIGIR getUsers
+// ✅ SEGURANÇA: getUsers com validação CWE-1287 completa
 exports.getUsers = (0, errorHandler_1.asyncHandler)(async (req, res) => {
-    // ✅ VALIDAÇÃO SEGURA DE QUERY PARAMS
-    const page = typeValidation_1.TypeValidators.safeNumber(req.query.page, 1);
-    const limit = typeValidation_1.TypeValidators.safeNumber(req.query.limit, 10);
-    const userType = typeValidation_1.TypeValidators.safeString(req.query.userType);
-    const profile = typeValidation_1.TypeValidators.safeString(req.query.profile);
-    const state = typeValidation_1.TypeValidators.safeString(req.query.state);
-    const search = typeValidation_1.TypeValidators.safeString(req.query.search);
+    // ✅ SEGURANÇA CWE-1287: Validação universal de query params (zero vulnerabilidades)
+    const { page, limit } = (0, requestValidation_1.safePaginationQuery)(req);
+    const { userType, profile, state, search } = (0, requestValidation_1.safeUserFiltersQuery)(req);
     const skip = (page - 1) * limit;
     // Construir filtros
     const where = {};
@@ -116,8 +113,7 @@ exports.getUsers = (0, errorHandler_1.asyncHandler)(async (req, res) => {
             { email: { contains: search, mode: 'insensitive' } },
             { cpfCnpj: { contains: typeof search === 'string' ? search.replace(/\D/g, '') : search } }
         ];
-    }
-    // ✅ BUSCAR USUÁRIOS SIMPLES (SEM _count)
+    } // ✅ BUSCAR USUÁRIOS SIMPLES (SEM _count)
     const [users, total] = await Promise.all([
         prisma_1.prisma.user.findMany({
             where,
@@ -193,9 +189,10 @@ exports.getUsers = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     };
     res.json(response);
 });
-// ✅ CORRIGIR getUserById  
+// ✅ SEGURANÇA: getUserById com validação CWE-1287 completa
 exports.getUserById = (0, errorHandler_1.asyncHandler)(async (req, res) => {
-    const { id } = req.params;
+    // ✅ SEGURANÇA CWE-1287: Validação universal de params (zero vulnerabilidades)
+    const id = (0, requestValidation_1.safeSingleParam)(req, 'id', 'string', true);
     // ✅ BUSCAR USUÁRIO SIMPLES
     const user = await prisma_1.prisma.user.findUnique({
         where: { id },
@@ -273,9 +270,10 @@ exports.getUserById = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     };
     res.json(response);
 });
-// ✅ CORRIGIR updateUser
+// ✅ SEGURANÇA: updateUser com validação CWE-1287 completa
 exports.updateUser = (0, errorHandler_1.asyncHandler)(async (req, res) => {
-    const { id } = req.params;
+    // ✅ SEGURANÇA CWE-1287: Validação universal de params (zero vulnerabilidades)
+    const id = (0, requestValidation_1.safeSingleParam)(req, 'id', 'string', true);
     const updateData = req.body;
     // ✅ VALIDAÇÃO DE TIPOS
     if (!typeValidation_1.TypeGuards.isUserUpdateData(updateData)) {
@@ -361,9 +359,10 @@ exports.updateUser = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     };
     res.json(response);
 });
-// ✅ validateUser e getUserByDocument CORRETOS (não usam _count)
+// ✅ SEGURANÇA: validateUser com validação CWE-1287 completa
 exports.validateUser = (0, errorHandler_1.asyncHandler)(async (req, res) => {
-    const { id } = req.params;
+    // ✅ SEGURANÇA CWE-1287: Validação universal de params (zero vulnerabilidades)
+    const id = (0, requestValidation_1.safeSingleParam)(req, 'id', 'string', true);
     const { validated } = req.body;
     // ✅ VALIDAÇÃO SEGURA DE TIPO
     const validatedValue = typeValidation_1.TypeValidators.safeBoolean(validated, false);
@@ -393,11 +392,8 @@ exports.validateUser = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     res.json(response);
 });
 exports.getUserByDocument = (0, errorHandler_1.asyncHandler)(async (req, res) => {
-    // ✅ SEGURANÇA: Validar tipo do parâmetro document (CWE-1287 Prevention)
-    const { document } = req.params;
-    if (!document || typeof document !== 'string') {
-        throw new errorHandler_1.ValidationError('Document parameter must be a valid string');
-    }
+    // ✅ SEGURANÇA CWE-1287: Validação universal de params (zero vulnerabilidades)
+    const document = (0, requestValidation_1.safeSingleParam)(req, 'document', 'string', true);
     const cleanDocument = document.replace(/\D/g, '');
     const user = await prisma_1.prisma.user.findUnique({
         where: { cpfCnpj: cleanDocument },

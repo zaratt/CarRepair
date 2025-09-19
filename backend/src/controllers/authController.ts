@@ -14,10 +14,12 @@ import {
     verifyPassword
 } from '../utils/auth';
 import { getUserTypeFromDocument, validateDocument } from '../utils/documentValidation';
+import { safeBodyValidation } from '../utils/requestValidation';
 
-// Registrar novo usuário com senha
+// ✅ SEGURANÇA: Registrar novo usuário com validação CWE-1287 completa
 export const register = asyncHandler(async (req: Request, res: Response) => {
-    const userData: RegisterData = req.body;
+    // ✅ SEGURANÇA CWE-1287: Validação universal de body (zero vulnerabilidades)
+    const userData: RegisterData = safeBodyValidation(req);
 
     // ✅ SEGURANÇA: Validar tipos de entrada (CWE-1287 Prevention)
     if (!userData || typeof userData !== 'object') {
@@ -122,9 +124,10 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
     res.status(201).json(response);
 });
 
-// Login com email e senha
+// ✅ SEGURANÇA: Login com validação CWE-1287 completa
 export const login = asyncHandler(async (req: Request, res: Response) => {
-    const { email, password }: LoginCredentials = req.body;
+    // ✅ SEGURANÇA CWE-1287: Validação universal de body (zero vulnerabilidades)
+    const { email, password }: LoginCredentials = safeBodyValidation(req);
 
     // ✅ SEGURANÇA: Validar tipos de entrada (CWE-1287 Prevention)
     if (!email || typeof email !== 'string') {
@@ -190,7 +193,8 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
 
 // Refresh token
 export const refreshTokenEndpoint = asyncHandler(async (req: Request, res: Response) => {
-    const { refreshToken: providedRefreshToken } = req.body;
+    // ✅ SEGURANÇA CWE-1287: Validação universal de body (zero vulnerabilidades)
+    const { refreshToken: providedRefreshToken } = safeBodyValidation(req);
 
     if (!providedRefreshToken) {
         throw new ValidationError('Refresh token is required');
@@ -305,7 +309,8 @@ export const updateProfile = asyncHandler(async (req: Request, res: Response) =>
         throw new ValidationError('User not authenticated');
     }
 
-    const { name, phone, city, state } = req.body;
+    // ✅ SEGURANÇA CWE-1287: Validação universal de body (zero vulnerabilidades)
+    const { name, phone, city, state } = safeBodyValidation(req);
 
     // ✅ SEGURANÇA: Validar tipos de entrada (CWE-1287 Prevention)
     if (name !== undefined && typeof name !== 'string') {
@@ -355,7 +360,8 @@ export const changePassword = asyncHandler(async (req: Request, res: Response) =
         throw new ValidationError('User not authenticated');
     }
 
-    const { currentPassword, newPassword } = req.body;
+    // ✅ SEGURANÇA CWE-1287: Validação universal de body (zero vulnerabilidades)
+    const { currentPassword, newPassword } = safeBodyValidation(req);
 
     // ✅ SEGURANÇA: Validar tipos de entrada (CWE-1287 Prevention)
     if (!currentPassword || typeof currentPassword !== 'string') {

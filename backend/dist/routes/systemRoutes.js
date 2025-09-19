@@ -9,18 +9,18 @@ const router = (0, express_1.Router)();
  * @desc Obter estatísticas gerais do sistema
  * @access Private (Admin only)
  */
-router.get('/stats', auth_1.authenticateToken, (0, auth_1.authorize)(['admin']), systemController_1.getSystemStats);
+router.get('/stats', systemController_1.systemStatsRateLimit, auth_1.authenticateToken, (0, auth_1.authorize)(['admin']), systemController_1.getSystemStats);
 /**
  * @route GET /system/health
  * @desc Verificar saúde do sistema
  * @access Public (para monitoring)
  */
-router.get('/health', systemController_1.getSystemHealth);
+router.get('/health', systemController_1.systemHealthRateLimit, systemController_1.getSystemHealth);
 /**
  * @route GET /system/endpoints
  * @desc Listar endpoints disponíveis da API
  * @access Public
  */
-router.get('/endpoints', systemController_1.getSystemEndpoints);
+router.get('/endpoints', systemController_1.systemEndpointsRateLimit, systemController_1.getSystemEndpoints);
 exports.default = router;
 //# sourceMappingURL=systemRoutes.js.map

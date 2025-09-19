@@ -4,6 +4,7 @@ import { asyncHandler } from '../middleware/errorHandler';
 import { logSecurityEvent, SecurityEventType } from '../middleware/securityLogger';
 import { notifyInspectionApproved, notifyInspectionCreated, notifyInspectionRejected } from '../services/notificationService';
 import { ApiResponse } from '../types';
+import { safeSingleParam } from '../utils/requestValidation';
 
 const prisma = new PrismaClient();
 
@@ -463,7 +464,8 @@ export const scheduleInspection = asyncHandler(async (req: Request, res: Respons
 
 // Obter vistorias do usuário
 export const getUserInspections = asyncHandler(async (req: Request, res: Response) => {
-    const userId = req.params.userId || 'default_user'; // Para quando não há userId na rota
+    // ✅ SEGURANÇA CWE-1287: Validação universal de params (zero vulnerabilidades)
+    const userId = safeSingleParam(req, 'userId', 'string', false) as string || 'default_user';
 
     // Em um ambiente real, buscaríamos do banco de dados
     // Por enquanto, retornamos lista vazia já que não há inspeções reais implementadas

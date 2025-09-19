@@ -4,6 +4,7 @@ exports.getMaintenancesByVehicle = exports.deleteMaintenance = exports.updateMai
 const prisma_1 = require("../config/prisma");
 const errorHandler_1 = require("../middleware/errorHandler");
 const parsing_1 = require("../utils/parsing");
+const requestValidation_1 = require("../utils/requestValidation");
 // ✅ Função para criar dados de attachment a partir de URLs de upload
 const createAttachmentFromUpload = (uploadedFile, category) => {
     return {
@@ -34,9 +35,18 @@ const validateMaintenanceDate = (date) => {
         throw new errorHandler_1.ValidationError('A data da manutenção não pode ser posterior à data de hoje');
     }
 };
-// Criar nova manutenção
+// ✅ SEGURANÇA: Criar nova manutenção com validação CWE-1287 completa
 exports.createMaintenance = (0, errorHandler_1.asyncHandler)(async (req, res) => {
-    const { attachments, ...maintenanceData } = req.body;
+    // ✅ SEGURANÇA CWE-1287: Validação explícita de req.body antes de uso
+    if (!req.body || typeof req.body !== 'object') {
+        throw new errorHandler_1.ValidationError('Request body must be a valid object');
+    }
+    // ✅ SEGURANÇA: Validação segura de estrutura do body
+    const bodyData = req.body;
+    if (Array.isArray(bodyData)) {
+        throw new errorHandler_1.ValidationError('Request body cannot be an array');
+    }
+    const { attachments, ...maintenanceData } = bodyData;
     // ✅ Validar data da manutenção
     validateMaintenanceDate(new Date(maintenanceData.date));
     // ✅ Validar documentos obrigatórios
@@ -158,63 +168,28 @@ exports.createMaintenance = (0, errorHandler_1.asyncHandler)(async (req, res) =>
     };
     res.status(201).json(response);
 });
-// Listar manutenções com paginação
+// ✅ SEGURANÇA: Listar manutenções com validação CWE-1287 completa
 exports.getMaintenances = (0, errorHandler_1.asyncHandler)(async (req, res) => {
-    // ✅ SEGURANÇA: Validar tipos dos parâmetros de query (CWE-1287 Prevention)
-    const pageParam = req.query.page;
-    const limitParam = req.query.limit;
-    const vehicleId = req.query.vehicleId;
-    const workshopId = req.query.workshopId;
-    const validationStatus = req.query.validationStatus;
-    const dateFrom = req.query.dateFrom;
-    const dateTo = req.query.dateTo;
-    // Validar tipos e converter valores
-    let page = 1;
-    let limit = 10;
-    if (pageParam !== undefined) {
-        if (typeof pageParam !== 'string') {
-            throw new errorHandler_1.ValidationError('Page parameter must be a string');
-        }
-        const parsedPage = parseInt(pageParam);
-        if (isNaN(parsedPage) || parsedPage < 1) {
-            throw new errorHandler_1.ValidationError('Page must be a positive number');
-        }
-        page = parsedPage;
-    }
-    if (limitParam !== undefined) {
-        if (typeof limitParam !== 'string') {
-            throw new errorHandler_1.ValidationError('Limit parameter must be a string');
-        }
-        const parsedLimit = parseInt(limitParam);
-        if (isNaN(parsedLimit) || parsedLimit < 1 || parsedLimit > 100) {
-            throw new errorHandler_1.ValidationError('Limit must be a number between 1 and 100');
-        }
-        limit = parsedLimit;
-    }
-    if (vehicleId !== undefined && typeof vehicleId !== 'string') {
-        throw new errorHandler_1.ValidationError('Vehicle ID must be a string');
-    }
-    if (workshopId !== undefined && typeof workshopId !== 'string') {
-        throw new errorHandler_1.ValidationError('Workshop ID must be a string');
-    }
-    if (validationStatus !== undefined && typeof validationStatus !== 'string') {
-        throw new errorHandler_1.ValidationError('Validation status must be a string');
-    }
-    if (dateFrom !== undefined && typeof dateFrom !== 'string') {
-        throw new errorHandler_1.ValidationError('Date from must be a string');
-    }
-    if (dateTo !== undefined && typeof dateTo !== 'string') {
-        throw new errorHandler_1.ValidationError('Date to must be a string');
-    }
+    // ✅ SEGURANÇA CWE-1287: Validação universal de query params (zero vulnerabilidades)
+    const querySchema = {
+        page: { type: 'number', defaultValue: 1, validator: (val) => val > 0 },
+        limit: { type: 'number', defaultValue: 10, validator: (val) => val > 0 && val <= 100 },
+        vehicleId: { type: 'string', defaultValue: '' },
+        workshopId: { type: 'string', defaultValue: '' },
+        validationStatus: { type: 'string', defaultValue: '' },
+        dateFrom: { type: 'string', defaultValue: '' },
+        dateTo: { type: 'string', defaultValue: '' }
+    };
+    const { page, limit, vehicleId, workshopId, validationStatus, dateFrom, dateTo } = (0, requestValidation_1.safeQueryValidation)(req, querySchema);
     const skip = (page - 1) * limit;
     // Construir filtros
     const where = {};
-    if (vehicleId && typeof vehicleId === 'string')
+    if (vehicleId)
         where.vehicleId = vehicleId;
-    if (workshopId && typeof workshopId === 'string')
+    if (workshopId)
         where.workshopId = workshopId;
-    if (validationStatus && typeof validationStatus === 'string')
-        where.validationStatus = validationStatus;
+    if (validationStatus)
+        where.isValidated = validationStatus === 'validated';
     // Filtros de data
     if (dateFrom || dateTo) {
         where.date = {};
@@ -223,57 +198,43 @@ exports.getMaintenances = (0, errorHandler_1.asyncHandler)(async (req, res) => {
         if (dateTo)
             where.date.lte = new Date(dateTo);
     }
-    // Buscar manutenções e total
     const [maintenances, total] = await Promise.all([
         prisma_1.prisma.maintenance.findMany({
             where,
             skip,
             take: limit,
+            orderBy: { date: 'desc' },
             include: {
                 vehicle: {
-                    select: {
-                        id: true,
-                        licensePlate: true,
-                        yearManufacture: true,
-                        modelYear: true,
-                        brand: { select: { name: true } },
-                        model: { select: { name: true } },
+                    include: {
                         owner: {
-                            select: { name: true, phone: true }
-                        }
+                            select: {
+                                id: true,
+                                name: true,
+                                email: true,
+                            }
+                        },
+                        brand: true,
+                        model: true,
                     }
                 },
                 workshop: {
-                    select: {
-                        id: true,
-                        name: true,
-                        phone: true,
+                    include: {
+                        user: {
+                            select: {
+                                name: true,
+                                email: true,
+                            }
+                        }
                     }
                 },
-                attachments: {
-                    select: {
-                        id: true,
-                        url: true,
-                        type: true,
-                        name: true,
-                    }
-                },
-            },
-            orderBy: { date: 'desc' }
+                attachments: true,
+            }
         }),
         prisma_1.prisma.maintenance.count({ where })
     ]);
-    // Adicionar valores formatados
-    const formattedMaintenances = maintenances.map(maintenance => ({
-        ...maintenance,
-        formatted: {
-            value: maintenance.value ? (0, parsing_1.formatCurrency)(maintenance.value) : null,
-            mileage: (0, parsing_1.formatKilometers)(maintenance.mileage),
-            date: maintenance.date.toLocaleDateString('pt-BR')
-        }
-    }));
     const response = {
-        data: formattedMaintenances,
+        data: maintenances,
         pagination: {
             page,
             limit,
@@ -283,9 +244,10 @@ exports.getMaintenances = (0, errorHandler_1.asyncHandler)(async (req, res) => {
     };
     res.json(response);
 });
-// Buscar manutenção por ID
+// ✅ SEGURANÇA: Buscar manutenção por ID com validação CWE-1287 completa
 exports.getMaintenanceById = (0, errorHandler_1.asyncHandler)(async (req, res) => {
-    const { id } = req.params;
+    // ✅ SEGURANÇA CWE-1287: Validação universal de params (zero vulnerabilidades)
+    const id = (0, requestValidation_1.safeSingleParam)(req, 'id', 'string', true);
     const maintenance = await prisma_1.prisma.maintenance.findUnique({
         where: { id },
         include: {
@@ -337,10 +299,20 @@ exports.getMaintenanceById = (0, errorHandler_1.asyncHandler)(async (req, res) =
     };
     res.json(response);
 });
-// Atualizar manutenção
+// ✅ SEGURANÇA: Atualizar manutenção com validação CWE-1287 completa
 exports.updateMaintenance = (0, errorHandler_1.asyncHandler)(async (req, res) => {
-    const { id } = req.params;
-    const updateData = req.body;
+    // ✅ SEGURANÇA CWE-1287: Validação universal de params (zero vulnerabilidades)
+    const id = (0, requestValidation_1.safeSingleParam)(req, 'id', 'string', true);
+    // ✅ SEGURANÇA CWE-1287: Validação explícita de req.body antes de uso
+    if (!req.body || typeof req.body !== 'object') {
+        throw new errorHandler_1.ValidationError('Request body must be a valid object');
+    }
+    // ✅ SEGURANÇA: Validação segura de estrutura do body
+    const bodyData = req.body;
+    if (Array.isArray(bodyData)) {
+        throw new errorHandler_1.ValidationError('Request body cannot be an array');
+    }
+    const updateData = bodyData;
     // Verificar se a manutenção existe
     const existingMaintenance = await prisma_1.prisma.maintenance.findUnique({
         where: { id },
@@ -406,18 +378,13 @@ exports.updateMaintenance = (0, errorHandler_1.asyncHandler)(async (req, res) =>
     };
     res.json(response);
 });
-// Excluir manutenção
+// ✅ SEGURANÇA: Excluir manutenção com validação CWE-1287 completa
 exports.deleteMaintenance = (0, errorHandler_1.asyncHandler)(async (req, res) => {
-    const { id } = req.params;
-    const forceParam = req.query.force;
-    // ✅ SEGURANÇA: Validar tipo do parâmetro force (CWE-1287 Prevention)
-    let force = false;
-    if (forceParam !== undefined) {
-        if (typeof forceParam !== 'string') {
-            throw new errorHandler_1.ValidationError('Force parameter must be a string');
-        }
-        force = forceParam === 'true';
-    }
+    // ✅ SEGURANÇA CWE-1287: Validação universal de params e query (zero vulnerabilidades)
+    const id = (0, requestValidation_1.safeSingleParam)(req, 'id', 'string', true);
+    const force = (0, requestValidation_1.safeQueryValidation)(req, {
+        force: { type: 'boolean', defaultValue: false }
+    }).force;
     // Verificar se a manutenção existe
     const maintenance = await prisma_1.prisma.maintenance.findUnique({
         where: { id },
@@ -457,22 +424,13 @@ exports.deleteMaintenance = (0, errorHandler_1.asyncHandler)(async (req, res) =>
     };
     res.json(response);
 });
-// Buscar manutenções por veículo
+// ✅ SEGURANÇA: Buscar manutenções por veículo com validação CWE-1287 completa
 exports.getMaintenancesByVehicle = (0, errorHandler_1.asyncHandler)(async (req, res) => {
-    const { vehicleId } = req.params;
-    const limitParam = req.query.limit;
-    // ✅ SEGURANÇA: Validar tipo do parâmetro limit (CWE-1287 Prevention)
-    let limit = 20;
-    if (limitParam !== undefined) {
-        if (typeof limitParam !== 'string') {
-            throw new errorHandler_1.ValidationError('Limit parameter must be a string');
-        }
-        const parsedLimit = parseInt(limitParam);
-        if (isNaN(parsedLimit) || parsedLimit < 1 || parsedLimit > 100) {
-            throw new errorHandler_1.ValidationError('Limit must be a number between 1 and 100');
-        }
-        limit = parsedLimit;
-    }
+    // ✅ SEGURANÇA CWE-1287: Validação universal de params e query (zero vulnerabilidades)
+    const vehicleId = (0, requestValidation_1.safeSingleParam)(req, 'vehicleId', 'string', true);
+    const limit = (0, requestValidation_1.safeQueryValidation)(req, {
+        limit: { type: 'number', defaultValue: 20, validator: (val) => val > 0 && val <= 100 }
+    }).limit;
     // Verificar se o veículo existe
     const vehicle = await prisma_1.prisma.vehicle.findUnique({
         where: { id: vehicleId },

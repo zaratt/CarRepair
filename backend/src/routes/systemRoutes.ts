@@ -2,7 +2,10 @@ import { Router } from 'express';
 import {
     getSystemEndpoints,
     getSystemHealth,
-    getSystemStats
+    getSystemStats,
+    systemEndpointsRateLimit,
+    systemHealthRateLimit,
+    systemStatsRateLimit
 } from '../controllers/systemController';
 import { authenticateToken, authorize } from '../middleware/auth';
 
@@ -13,20 +16,20 @@ const router = Router();
  * @desc Obter estatísticas gerais do sistema
  * @access Private (Admin only)
  */
-router.get('/stats', authenticateToken, authorize(['admin']), getSystemStats);
+router.get('/stats', systemStatsRateLimit, authenticateToken, authorize(['admin']), getSystemStats);
 
 /**
  * @route GET /system/health
  * @desc Verificar saúde do sistema
  * @access Public (para monitoring)
  */
-router.get('/health', getSystemHealth);
+router.get('/health', systemHealthRateLimit, getSystemHealth);
 
 /**
  * @route GET /system/endpoints
  * @desc Listar endpoints disponíveis da API
  * @access Public
  */
-router.get('/endpoints', getSystemEndpoints);
+router.get('/endpoints', systemEndpointsRateLimit, getSystemEndpoints);
 
 export default router;

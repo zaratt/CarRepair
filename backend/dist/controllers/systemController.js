@@ -3,12 +3,117 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getSystemEndpoints = exports.getSystemHealth = exports.getSystemStats = void 0;
-const fs_1 = __importDefault(require("fs"));
+exports.getSystemEndpoints = exports.systemEndpointsRateLimit = exports.getSystemHealth = exports.systemHealthRateLimit = exports.getSystemStats = exports.systemStatsRateLimit = void 0;
+const express_rate_limit_1 = __importDefault(require("express-rate-limit"));
+const fs_1 = __importDefault(require("fs")); // ✅ Apenas para existsSync
+const promises_1 = __importDefault(require("fs/promises")); // ✅ Usar fs assíncrono para evitar bloqueio
 const path_1 = __importDefault(require("path"));
 const config_1 = require("../config");
 const prisma_1 = require("../config/prisma");
 const errorHandler_1 = require("../middleware/errorHandler");
+// ✅ SEGURANÇA: Rate limiting para operações de sistema (CWE-770 Prevention)
+exports.systemStatsRateLimit = (0, express_rate_limit_1.default)({
+    windowMs: 60 * 1000, // 1 minuto
+    max: 10, // Máximo 10 requests por minuto por IP
+    message: {
+        success: false,
+        message: 'Muitas solicitações de estatísticas do sistema. Tente novamente em 1 minuto.',
+        error: 'RATE_LIMIT_EXCEEDED'
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+// ✅ SEGURANÇA: Cache para uploads stats para evitar operações FS repetidas
+let uploadStatsCache = null;
+let uploadStatsCacheTime = 0;
+const UPLOAD_STATS_CACHE_TTL = 5 * 60 * 1000; // 5 minutos
+/**
+ * ✅ SEGURANÇA: Função segura para obter estatísticas de upload (CWE-770 Prevention)
+ * Implementa cache, timeout e operações assíncronas para evitar DoS via operações de sistema de arquivos
+ */
+async function getSafeUploadStats() {
+    const now = Date.now();
+    // ✅ Usar cache se disponível e válido
+    if (uploadStatsCache && (now - uploadStatsCacheTime) < UPLOAD_STATS_CACHE_TTL) {
+        return { ...uploadStatsCache, cached: true };
+    }
+    try {
+        const uploadPath = config_1.config.upload.path;
+        // ✅ SEGURANÇA: Verificar se o diretório existe antes de tentar ler
+        if (!fs_1.default.existsSync(uploadPath)) {
+            const result = { error: 'Upload directory not found', totalFiles: 0, totalSizeBytes: 0, totalSizeMB: 0 };
+            uploadStatsCache = result;
+            uploadStatsCacheTime = now;
+            return result;
+        }
+        // ✅ SEGURANÇA: Implementar timeout rigoroso com Promise.race
+        const uploadStatsPromise = getUploadStatsWithTimeout(uploadPath);
+        const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('Upload stats timeout')), 3000); // 3 segundos timeout
+        });
+        const result = await Promise.race([uploadStatsPromise, timeoutPromise]);
+        // ✅ Cachear resultado
+        uploadStatsCache = result;
+        uploadStatsCacheTime = now;
+        return result;
+    }
+    catch (error) {
+        const result = {
+            error: 'Unable to read upload directory',
+            reason: error instanceof Error ? error.message : 'Unknown error',
+            totalFiles: 0,
+            totalSizeBytes: 0,
+            totalSizeMB: 0
+        };
+        uploadStatsCache = result;
+        uploadStatsCacheTime = now;
+        return result;
+    }
+}
+/**
+ * ✅ SEGURANÇA: Implementação assíncrona com limite de recursos (CWE-770 Prevention)
+ */
+async function getUploadStatsWithTimeout(uploadPath) {
+    // ✅ SEGURANÇA: Usar operações assíncronas para não bloquear o event loop
+    const files = await promises_1.default.readdir(uploadPath);
+    // ✅ SEGURANÇA: Limitar número máximo de arquivos processados
+    const MAX_FILES_TO_PROCESS = 500; // Reduzido para maior segurança
+    const filesToProcess = files.slice(0, MAX_FILES_TO_PROCESS);
+    let totalSize = 0;
+    let processedFiles = 0;
+    const MAX_CONCURRENT_OPERATIONS = 10; // ✅ Limite de operações concorrentes
+    // ✅ SEGURANÇA: Processar arquivos em batches para controlar concorrência
+    for (let i = 0; i < filesToProcess.length; i += MAX_CONCURRENT_OPERATIONS) {
+        const batch = filesToProcess.slice(i, i + MAX_CONCURRENT_OPERATIONS);
+        const batchPromises = batch.map(async (file) => {
+            try {
+                const filePath = path_1.default.join(uploadPath, file);
+                const stats = await promises_1.default.stat(filePath);
+                return { size: stats.size, processed: true };
+            }
+            catch (fileError) {
+                return { size: 0, processed: false };
+            }
+        });
+        const batchResults = await Promise.all(batchPromises);
+        batchResults.forEach(result => {
+            if (result.processed) {
+                totalSize += result.size;
+                processedFiles++;
+            }
+        });
+    }
+    return {
+        totalFiles: files.length,
+        processedFiles,
+        totalSizeBytes: totalSize,
+        totalSizeMB: Math.round(totalSize / (1024 * 1024) * 100) / 100,
+        cached: false,
+        ...(files.length > MAX_FILES_TO_PROCESS && {
+            warning: `Apenas ${MAX_FILES_TO_PROCESS} arquivos processados de ${files.length} total`
+        })
+    };
+}
 /**
  * Estatísticas gerais do sistema
  */
@@ -55,27 +160,8 @@ exports.getSystemStats = (0, errorHandler_1.asyncHandler)(async (req, res) => {
             id: true
         }
     });
-    // Verificar espaço em disco (uploads)
-    let uploadStats = null;
-    try {
-        const uploadPath = config_1.config.upload.path;
-        const files = fs_1.default.readdirSync(uploadPath);
-        const totalFiles = files.length;
-        let totalSize = 0;
-        files.forEach(file => {
-            const filePath = path_1.default.join(uploadPath, file);
-            const stats = fs_1.default.statSync(filePath);
-            totalSize += stats.size;
-        });
-        uploadStats = {
-            totalFiles,
-            totalSizeBytes: totalSize,
-            totalSizeMB: Math.round(totalSize / (1024 * 1024) * 100) / 100
-        };
-    }
-    catch (error) {
-        uploadStats = { error: 'Unable to read upload directory' };
-    }
+    // ✅ SEGURANÇA: Verificar espaço em disco usando função segura (CWE-770 Prevention)
+    const uploadStats = await getSafeUploadStats();
     const response = {
         success: true,
         message: 'System statistics retrieved',
@@ -106,6 +192,18 @@ exports.getSystemStats = (0, errorHandler_1.asyncHandler)(async (req, res) => {
         }
     };
     res.json(response);
+});
+// ✅ SEGURANÇA: Rate limiting para health check (CWE-770 Prevention)
+exports.systemHealthRateLimit = (0, express_rate_limit_1.default)({
+    windowMs: 30 * 1000, // 30 segundos
+    max: 20, // Máximo 20 requests por 30 segundos por IP
+    message: {
+        success: false,
+        message: 'Muitas solicitações de health check. Tente novamente em 30 segundos.',
+        error: 'RATE_LIMIT_EXCEEDED'
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
 });
 /**
  * Status detalhado do sistema
@@ -159,6 +257,18 @@ exports.getSystemHealth = (0, errorHandler_1.asyncHandler)(async (req, res) => {
         }
     };
     res.json(response);
+});
+// ✅ SEGURANÇA: Rate limiting para endpoints listing (CWE-770 Prevention)
+exports.systemEndpointsRateLimit = (0, express_rate_limit_1.default)({
+    windowMs: 60 * 1000, // 1 minuto
+    max: 5, // Máximo 5 requests por minuto por IP
+    message: {
+        success: false,
+        message: 'Muitas solicitações de listagem de endpoints. Tente novamente em 1 minuto.',
+        error: 'RATE_LIMIT_EXCEEDED'
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
 });
 /**
  * Endpoints de sistema disponíveis
