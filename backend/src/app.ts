@@ -225,12 +225,47 @@ app.use((err: Error, req: express.Request, res: express.Response, next: express.
     res.status(500).json(response);
 });
 
+// ✅ FUNÇÃO PARA EXIBIR INFORMAÇÕES DE SEGURANÇA DURANTE DESENVOLVIMENTO
+const displaySecurityInfo = () => {
+    if (!config.isDevelopment) {
+        return; // Não exibir em produção
+    }
+
+    console.log('\n' + '='.repeat(60));
+    console.log('🔐 INFORMAÇÕES DE SEGURANÇA - DESENVOLVIMENTO');
+    console.log('='.repeat(60));
+    console.log('⚠️  ATENÇÃO: Estas informações são exibidas apenas em desenvolvimento');
+    console.log('');
+    console.log('🔑 CREDENCIAIS PADRÃO:');
+    console.log('   Email: admin@carrepair.com');
+    console.log('   Senha: DevSecure2025!@#');
+    console.log('');
+    console.log('🛡️  CONFIGURAÇÕES DE SEGURANÇA:');
+    console.log('   • Força mudança de senha no primeiro login: ✅');
+    console.log('   • Rounds do bcrypt:', process.env.BCRYPT_SALT_ROUNDS || '12');
+    console.log('   • Tamanho mínimo da senha:', process.env.MIN_PASSWORD_LENGTH || '8', 'caracteres');
+    console.log('');
+    console.log('📋 PRÓXIMOS PASSOS:');
+    console.log('   1. Faça login com as credenciais acima');
+    console.log('   2. Altere a senha padrão quando solicitado');
+    console.log('   3. Configure usuários adicionais se necessário');
+    console.log('');
+    console.log('🔒 PRODUÇÃO:');
+    console.log('   • Defina variáveis de ambiente seguras');
+    console.log('   • Use senhas únicas e complexas');
+    console.log('   • Configure SSL/TLS');
+    console.log('='.repeat(60) + '\n');
+};
+
 // Start server
 const server = app.listen(config.port, () => {
     // ✅ SEGURANÇA: Log com format string estático (CWE-134 Prevention)
     console.log('🚀 CarRepair API running on port', config.port);
     console.log('📱 Environment:', config.nodeEnv);
     console.log('🏥 Health check: http://localhost:' + config.port + '/health');
+
+    // Exibir informações de segurança em desenvolvimento
+    displaySecurityInfo();
 });
 
 // Graceful shutdown
